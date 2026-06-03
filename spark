@@ -1,0 +1,6 @@
+#!/bin/bash
+echo "test document content" > /tmp/test_parse.txt
+docker cp /tmp/test_parse.txt edm-docling-spark:/data/shared_docs/test.txt
+curl -s -X POST http://localhost:8002/api/parse \
+  -H "Content-Type: application/json" \
+  -d '{"file_path":"/data/shared_docs/test.txt","document_id":1}'

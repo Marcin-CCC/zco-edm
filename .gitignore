@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+env/
+
+# Node
+node_modules/
+.next/
+out/
+package-lock.json
+yarn.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Data
+shared_docs/*
+!shared_docs/.gitkeep
+
+# Logs
+*.log
+*.log.*
+
+# Testing
+coverage/
+.pytest_cache/
+
+# Misc
+*.pem
+*.key
+*.crt
+
+# Env files - except .env.example (template)
+.env
+.env.spark
+.env.spark-db
+.env.dev
+.env.local
+.env.production
+!
+.env.example

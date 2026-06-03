@@ -1,0 +1,110 @@
+version: '3.8'
+
+# ============================================================
+# ENVIRONMENT VARIABLES (.env file support)
+# ============================================================
+# Create .env file with:
+#   BACKEND_PORT=8083
+#   FRONTEND_PORT=3000
+#   NEXT_PUBLIC_API_URL=http://172.17.0.1:8083
+#   DATABASE_URL=postgresql+psycopg2://postgres:tajne_haslo@edm-zco-postgres:5432/edmdatabase
+#   SECRET_KEY=your-secret-key
+#   QDRANT_URL=http://192.168.1.34:6333
+#   N8N_WEBHOOK_URL=http://192.168.1.34:5678/webhook/document-uploaded
+#   DOCLING_API_URL=http://docling:8002
+#   OLLAMA_API_URL=http://192.168.1.34:11434
+#   ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+# ============================================================
+
+services:
+  # ============================================================
+  # FRONTEND (Next.js - Interfejs Uzytkownika)
+  # ============================================================
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://backend:8000}
+    container_name: edm-frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://backend:8000}
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - edm_network
+    restart: unless-stopped
+    profiles: ["dev", "spark"]
+
+  # ============================================================
+  # BACKEND API (FastAPI - Mszog operacyjny)
+  # ============================================================
+  backend:
+    build:
+      context: ./backend
+    container_name: edm-backend
+    ports:
+      - "${BACKEND_PORT:-8083}:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://postgres:tajne_haslo@edm-zco-postgres:5432/edmdatabase}
+      - SECRET_KEY=${SECRET_KEY:-zco-edm-secret-key-change-in-production}
+      - QDRANT_URL=${QDRANT_URL:-http://192.168.1.34:6333}
+      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://192.168.1.34:5678/webhook/document-uploaded}
+      - STORAGE_PATH=/data/shared_docs
+      - DOCLING_API_URL=${DOCLING_API_URL:-http://docling:8002}
+      - OLLAMA_API_URL=${OLLAMA_API_URL:-http://192.168.1.34:11434}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001}
+    volumes:
+      - shared_docs:/data/shared_docs
+    networks:
+      - edm_network
+    restart: unless-stopped
+    profiles: ["dev", "spark"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ============================================================
+  # POSTGRESQL (Baza Danych - lokalna dla dev)
+  # ============================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: edm-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: tajne_haslo
+      POSTGRES_DB: edmdatabase
+    ports:
+      - "15432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/seed.sql:/docker-entrypoint-initdb.d/seed.sql
+    networks:
+      - edm_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    profiles: ["dev"]
+
+# ============================================================
+# VOLUMES I SIEC
+# ============================================================
+
+volumes:
+  pgdata:
+    driver: local
+  shared_docs:
+    driver: local
+
+networks:
+  edm_network:
+    driver: bridge

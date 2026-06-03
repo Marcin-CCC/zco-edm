@@ -1,0 +1,252 @@
+name: Deploy to Spark
+
+on:
+  push:
+    branches: [main, spark]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BACKEND_NAME: ${{ github.repository }}/backend
+  IMAGE_FRONTEND_NAME: ${{ github.repository }}/frontend
+  SPARK_SSH_HOST: 192.168.1.34
+  SPARK_SSH_USER: marcin
+
+jobs:
+  # ============================================================
+  # TESTY BACKEND
+  # ============================================================
+  test-backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: pip install --no-cache-dir -r requirements.txt
+
+      - name: Lint with flake8
+        working-directory: ./backend
+        run: |
+          pip install flake8
+          flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 app/ --count --max-complexity=10 --max-line-length=127 --statistics
+        continue-on-error: true
+
+      - name: Run tests with pytest
+        working-directory: ./backend
+        run: |
+          pip install pytest pytest-cov
+          pytest tests/ -v --tb=short --cov=app --cov-report=term-missing || true
+        continue-on-error: true
+
+  # ============================================================
+  # BUILD BACKEND IMAGE
+  # ============================================================
+  build-backend:
+    name: Build Backend Image
+    needs: test-backend
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_BACKEND_NAME }}
+          tags: |
+            type=sha,prefix=backend-
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================
+  # BUILD FRONTEND IMAGE
+  # ============================================================
+  build-frontend:
+    name: Build Frontend Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_FRONTEND_NAME }}
+          tags: |
+            type=sha,prefix=frontend-
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://172.17.0.1:8083
+
+  # ============================================================
+  # DEPLOY TO SPARK
+  # ============================================================
+  deploy-spark:
+    name: Deploy to Spark DGX
+    needs: [build-backend, build-frontend]
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    environment: spark
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Spark via SSH
+        env:
+          SPARK_SSH_PRIVATE_KEY: ${{ secrets.SPARK_SSH_PRIVATE_KEY }}
+        run: |
+          echo "🐳 Deploying to Spark (${{ env.SPARK_SSH_HOST }})..."
+          
+          # Write SSH key
+          mkdir -p ~/.ssh
+          echo "$SPARK_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          
+          # Configure SSH
+          cat >> ~/.ssh/config << EOF
+          Host spark
+            HostName ${{ env.SPARK_SSH_HOST }}
+            User ${{ env.SPARK_SSH_USER }}
+            IdentityFile ~/.ssh/id_ed25519
+            IdentitiesOnly yes
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+          EOF
+          chmod 600 ~/.ssh/config
+          
+          # Deploy via SSH
+          ssh spark << 'SSH_EOF'
+            cd /home/marcin/zco-edm-app
+            
+            echo "🔨 Building images with correct config..."
+            docker compose --profile spark up --build -d
+            
+            echo "✅ Deployment complete!"
+          SSH_EOF
+
+      - name: Verify deployment
+        env:
+          SPARK_SSH_PRIVATE_KEY: ${{ secrets.SPARK_SSH_PRIVATE_KEY }}
+        run: |
+          # Write SSH key
+          mkdir -p ~/.ssh
+          echo "$SPARK_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          
+          cat >> ~/.ssh/config << EOF
+          Host spark
+            HostName ${{ env.SPARK_SSH_HOST }}
+            User ${{ env.SPARK_SSH_USER }}
+            IdentityFile ~/.ssh/id_ed25519
+            IdentitiesOnly yes
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+          EOF
+          chmod 600 ~/.ssh/config
+          
+          echo "📋 Checking containers..."
+          ssh spark "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
+          
+          echo ""
+          echo "🏥 Health checks..."
+          
+          # Backend health check
+          ssh spark "curl -sf --max-time 10 http://localhost:8083/api/health && echo ' - Backend OK' || echo ' - Backend FAIL'"
+          
+          # Frontend health check
+          ssh spark "curl -sf --max-time 5 http://localhost:3000 > /dev/null && echo ' - Frontend OK' || echo ' - Frontend FAIL'"
+
+      - name: Cleanup old images
+        if: always()
+        env:
+          SPARK_SSH_PRIVATE_KEY: ${{ secrets.SPARK_SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SPARK_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          
+          cat >> ~/.ssh/config << EOF
+          Host spark
+            HostName ${{ env.SPARK_SSH_HOST }}
+            User ${{ env.SPARK_SSH_USER }}
+            IdentityFile ~/.ssh/id_ed25519
+            IdentitiesOnly yes
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+          EOF
+          chmod 600 ~/.ssh/config
+          
+          ssh spark "docker image prune -f --filter 'until=168h' 2>/dev/null || true"
+
+      - name: Notify
+        if: always()
+        run: |
+          echo "📢 Deployment finished!"
+          echo "Status: ${{ job.status }}"

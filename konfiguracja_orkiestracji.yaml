@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # 1. FRONTEND (Next.js)
+  frontend:
+    build:
+      context: ./frontend
+    container_name: edm-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - edm_network
+
+  # 2. BACKEND API (FastAPI)
+  backend:
+    build:
+      context: ./backend
+    container_name: edm-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:tajne_haslo@postgres:5432/edmdatabase
+      # ZMIANA: Adresy do Twoich istniejących kontenerów (podmień IP na adres Twojego DGX w sieci lokalnej)
+      - QDRANT_URL=http://http://192.168.1.34/:6333
+      - N8N_WEBHOOK_URL=http://http://192.168.1.34/:5678/webhook/document-uploaded
+    volumes:
+      - ./shared_docs:/data  # Współdzielony dysk na dokumenty
+    depends_on:
+      - postgres
+    networks:
+      - edm_network
+
+  # 3. DOCLING API (Analiza Układu)
+  docling-api:
+    build:
+      context: ./docling
+    container_name: edm-docling
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./shared_docs:/data  # Widzi ten sam folder co backend i n8n
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - edm_network
+
+  # 4. BAZA DANYCH RELACYJNA (PostgreSQL)
+  postgres:
+    image: postgres:15-alpine
+    container_name: edm-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: tajne_haslo
+      POSTGRES_DB: edmdatabase
+    ports:
+      - "5432:5432" # Otwarte do testów z Windowsa
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - edm_network
+
+# DEKLARACJA WOLUMENÓW I SIECI (usunięto n8n_data, ollama_models, qdrant_data)
+volumes:
+  pgdata:
+
+networks:
+  edm_network:
+    driver: bridge

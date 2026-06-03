@@ -1,0 +1,60 @@
+# =====================================================
+# Spark DGX - Additional Services (PostgreSQL + Docling)
+# =====================================================
+# Ten plik należy skopiować na Spark DGX i uruchomić:
+# docker compose -f docker-compose-spark-services.yaml up -d
+
+# Ten plik DODAJE usługi do istniejącego systemu na Spark DGX
+# Istniejące kontenery: qdrant, n8n, vllm, ollama, open-webui, comfyui
+
+services:
+  # ============================================================
+  # POSTGRESQL (Nowa usługa - Baza Danych EDM)
+  # ============================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: edm-postgres-spark
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: tajne_haslo
+      POSTGRES_DB: edmdatabase
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ============================================================
+  # DOCLING API (Nowa usługa - Document Parsing with GPU)
+  # ============================================================
+  docling-api:
+    image: edm-docling-spark:latest
+    container_name: edm-docling-spark
+    ports:
+      - "8002:8000"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility
+    volumes:
+      - shared_docs:/data/shared_docs
+    # GPU support
+    runtime: nvidia
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+volumes:
+  pgdata:
+    driver: local
+  shared_docs:
+    driver: local

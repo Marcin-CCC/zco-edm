@@ -1,0 +1,16 @@
+#!/bin/bash
+# Test PostgreSQL connection and Docling parse endpoint
+echo "=== PostgreSQL ==="
+docker exec edm-postgres-spark pg_isready -U postgres
+echo ""
+
+echo "=== Docling Parse Endpoint Test ==="
+# Create a test file first
+echo "test document content" > /tmp/test_parse.txt
+docker cp /tmp/test_parse.txt edm-docling-spark:/tmp/test_parse.txt
+docker exec edm-docling-spark mkdir -p /data/shared_docs
+docker cp /tmp/test_parse.txt edm-docling-spark:/data/shared_docs/test.txt
+
+curl -s -X POST http://localhost:8002/api/parse \
+  -H "Content-Type: application/json" \
+  -d '{"file_path":"/data/shared_docs/test.txt","document_id":1}' | head -10
