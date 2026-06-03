@@ -154,13 +154,13 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
     environment: spark
+    env:
+      SPARK_SSH_PRIVATE_KEY: ${{ secrets.SPARK_SSH_PRIVATE_KEY }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to Spark via SSH
-        env:
-          SPARK_SSH_PRIVATE_KEY: ${{ secrets.SPARK_SSH_PRIVATE_KEY }}
+      - name: Setup SSH and Deploy
         run: |
           echo "🐳 Deploying to Spark (${{ env.SPARK_SSH_HOST }})..."
           
@@ -192,25 +192,8 @@ jobs:
           SSH_EOF
 
       - name: Verify deployment
-        env:
-          SPARK_SSH_PRIVATE_KEY: ${{ secrets.SPARK_SSH_PRIVATE_KEY }}
         run: |
-          # Write SSH key
-          mkdir -p ~/.ssh
-          echo "$SPARK_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          
-          cat >> ~/.ssh/config << EOF
-          Host spark
-            HostName ${{ env.SPARK_SSH_HOST }}
-            User ${{ env.SPARK_SSH_USER }}
-            IdentityFile ~/.ssh/id_ed25519
-            IdentitiesOnly yes
-            StrictHostKeyChecking no
-            UserKnownHostsFile /dev/null
-          EOF
-          chmod 600 ~/.ssh/config
-          
+          # Re-use same SSH config (already written in previous step)
           echo "📋 Checking containers..."
           ssh spark "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
           
@@ -220,29 +203,15 @@ jobs:
           # Backend health check
           ssh spark "curl -sf --max-time 10 http://localhost:8083/api/health && echo ' - Backend OK' || echo ' - Backend FAIL'"
           
+          # Backend health/info check (new endpoint)
+          ssh spark "curl -sf --max-time 10 http://localhost:8083/api/health/info && echo ' - Health Info OK' || echo ' - Health Info FAIL'"
+          
           # Frontend health check
           ssh spark "curl -sf --max-time 5 http://localhost:3000 > /dev/null && echo ' - Frontend OK' || echo ' - Frontend FAIL'"
 
       - name: Cleanup old images
         if: always()
-        env:
-          SPARK_SSH_PRIVATE_KEY: ${{ secrets.SPARK_SSH_PRIVATE_KEY }}
         run: |
-          mkdir -p ~/.ssh
-          echo "$SPARK_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          
-          cat >> ~/.ssh/config << EOF
-          Host spark
-            HostName ${{ env.SPARK_SSH_HOST }}
-            User ${{ env.SPARK_SSH_USER }}
-            IdentityFile ~/.ssh/id_ed25519
-            IdentitiesOnly yes
-            StrictHostKeyChecking no
-            UserKnownHostsFile /dev/null
-          EOF
-          chmod 600 ~/.ssh/config
-          
           ssh spark "docker image prune -f --filter 'until=168h' 2>/dev/null || true"
 
       - name: Notify
