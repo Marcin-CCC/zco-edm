@@ -146,73 +146,49 @@ jobs:
             NEXT_PUBLIC_API_URL=http://172.17.0.1:8083
 
   # ============================================================
-  # DEPLOY TO SPARK
+  # DEPLOY TO SPARK (Self-Hosted Runner)
   # ============================================================
   deploy-spark:
     name: Deploy to Spark DGX
     needs: [build-backend, build-frontend]
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: github.event_name != 'pull_request'
     environment: spark
-    env:
-      SPARK_SSH_PRIVATE_KEY: ${{ secrets.SPARK_SSH_PRIVATE_KEY }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup SSH and Deploy
+      - name: Deploy to Spark
         run: |
-          echo "🐳 Deploying to Spark (${{ env.SPARK_SSH_HOST }})..."
+          cd /home/marcin/zco-edm-app
           
-          # Write SSH key
-          mkdir -p ~/.ssh
-          echo "$SPARK_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
+          echo "🔨 Pulling latest images and deploying..."
+          docker compose --profile spark pull
+          docker compose --profile spark up -d
           
-          # Configure SSH
-          cat >> ~/.ssh/config << EOF
-          Host spark
-            HostName ${{ env.SPARK_SSH_HOST }}
-            User ${{ env.SPARK_SSH_USER }}
-            IdentityFile ~/.ssh/id_ed25519
-            IdentitiesOnly yes
-            StrictHostKeyChecking no
-            UserKnownHostsFile /dev/null
-          EOF
-          chmod 600 ~/.ssh/config
-          
-          # Deploy via SSH
-          ssh spark << 'SSH_EOF'
-            cd /home/marcin/zco-edm-app
-            
-            echo "🔨 Building images with correct config..."
-            docker compose --profile spark up --build -d
-            
-            echo "✅ Deployment complete!"
-          SSH_EOF
+          echo "✅ Deployment complete!"
 
       - name: Verify deployment
         run: |
-          # Re-use same SSH config (already written in previous step)
           echo "📋 Checking containers..."
-          ssh spark "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
+          docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
           
           echo ""
           echo "🏥 Health checks..."
           
           # Backend health check
-          ssh spark "curl -sf --max-time 10 http://localhost:8083/api/health && echo ' - Backend OK' || echo ' - Backend FAIL'"
+          curl -sf --max-time 10 http://localhost:8083/api/health && echo ' - Backend OK' || echo ' - Backend FAIL'
           
           # Backend health/info check (new endpoint)
-          ssh spark "curl -sf --max-time 10 http://localhost:8083/api/health/info && echo ' - Health Info OK' || echo ' - Health Info FAIL'"
+          curl -sf --max-time 10 http://localhost:8083/api/health/info && echo ' - Health Info OK' || echo ' - Health Info FAIL'
           
           # Frontend health check
-          ssh spark "curl -sf --max-time 5 http://localhost:3000 > /dev/null && echo ' - Frontend OK' || echo ' - Frontend FAIL'"
+          curl -sf --max-time 5 http://localhost:3000 > /dev/null && echo ' - Frontend OK' || echo ' - Frontend FAIL'
 
       - name: Cleanup old images
         if: always()
         run: |
-          ssh spark "docker image prune -f --filter 'until=168h' 2>/dev/null || true"
+          docker image prune -f --filter 'until=168h' 2>/dev/null || true
 
       - name: Notify
         if: always()
