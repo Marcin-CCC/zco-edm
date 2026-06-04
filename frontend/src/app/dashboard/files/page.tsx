@@ -74,6 +74,11 @@ export default function FilesPage() {
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  
+  // Folder creation
+  const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [folderCreating, setFolderCreating] = useState(false);
 
   // Load folders tree
   const loadFolders = useCallback(async () => {
@@ -90,7 +95,7 @@ export default function FilesPage() {
     setLoading(true);
     try {
       const params: { folder_id?: number; search?: string } = {};
-      if (folderId) params.folder_id = folderId;
+      if (folderId !== null) params.folder_id = folderId;
       if (searchQuery) params.search = searchQuery;
 
       const res = await filesApi.list(params);
@@ -157,7 +162,8 @@ export default function FilesPage() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      if (currentFolderId) {
+      // Upload to the CURRENT folder (the one user is browsing)
+      if (currentFolderId !== null) {
         formData.append('folder_id', String(currentFolderId));
       }
 
@@ -165,11 +171,52 @@ export default function FilesPage() {
 
       setShowUploadModal(false);
       loadFiles(currentFolderId);
+      loadFolders();
     } catch (err) {
       console.error('Upload failed:', err);
       alert('Upload nieudany. Sprawdź poprawność pliku.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  // Handle folder creation
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
+
+    setFolderCreating(true);
+    try {
+      await foldersApi.create({
+        name: newFolderName,
+        parent_id: currentFolderId ?? undefined, // Parent is current folder (or undefined for root)
+      });
+
+      setNewFolderName('');
+      setShowCreateFolderModal(false);
+      loadFolders();
+      loadFiles(currentFolderId);
+    } catch (err) {
+      console.error('Create folder failed:', err);
+      alert('Tworzenie folderu nie powiodło się.');
+    } finally {
+      setFolderCreating(false);
+    }
+  };
+
+  // Delete folder
+  const handleDeleteFolder = async (folderId: number) => {
+    if (!confirm('Czy na pewno usunąć ten folder? Pliki wewnątrz zostaną przeniesione do roota.')) return;
+
+    try {
+      await foldersApi.delete(folderId);
+      loadFolders();
+      loadFiles(currentFolderId);
+      if (currentFolderId === folderId) {
+        navigateToRoot();
+      }
+    } catch (err) {
+      console.error('Delete folder failed:', err);
+      alert('Usunięcie folderu nie powiodło się.');
     }
   };
 
@@ -231,18 +278,14 @@ export default function FilesPage() {
     loadFiles();
   }, [loadFolders, loadFiles]);
 
-  // Top folders (4 per row)
+  // Top folders (root or current folder children)
   const rootFolders = folders.filter(f => f.parent_id === null);
-
-  // Children of current folder
   const currentFolderChildren = folders.filter(f => f.parent_id === currentFolderId);
 
-  // Get folder name by ID
-  const getFolderName = (folderId: number | null): string | null => {
-    if (!folderId) return null;
-    const folder = folders.find(f => f.id === folderId);
-    return folder?.name || null;
-  };
+  // Get current folder name for display
+  const currentFolderName = currentFolderId
+    ? folders.find(f => f.id === currentFolderId)?.name || ''
+    : '';
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -251,13 +294,21 @@ export default function FilesPage() {
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-2xl font-bold text-gray-800">Eksplorator plików</h1>
           {isAdmin && (
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-              disabled={uploading}
-            >
-              {uploading ? 'Wczytywanie...' : '⬆️ Prześlij plik'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCreateFolderModal(true)}
+                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+              >
+                📁 Nowy folder
+              </button>
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                disabled={uploading}
+              >
+                {uploading ? 'Wczytywanie...' : '⬆️ Prześlij plik'}
+              </button>
+            </div>
           )}
         </div>
 
@@ -265,9 +316,9 @@ export default function FilesPage() {
         <div className="flex items-center space-x-2 text-sm">
           <button
             onClick={navigateToRoot}
-            className="text-blue-600 hover:underline"
+            className={`text-blue-600 hover:underline ${currentFolderId === null ? 'font-semibold' : ''}`}
           >
-            🏠 Home
+            🏠 Root
           </button>
           {breadcrumbs.map((crumb, index) => (
             <span key={index} className="flex items-center">
@@ -281,25 +332,54 @@ export default function FilesPage() {
             </span>
           ))}
         </div>
+        
+        {/* Current folder info */}
+        {currentFolderName && (
+          <p className="text-xs text-gray-500 mt-1">
+            Aktualny katalog: <strong>{currentFolderName}</strong>
+          </p>
+        )}
       </div>
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        {/* Folders - Top row (4 per row) */}
-        {(currentFolderId === null || currentFolderChildren.length > 0) && (
+        {/* Folders section */}
+        {(isAdmin || currentFolderChildren.length > 0) && (
           <div className="mb-8">
-            <h2 className="text-lg font-semibold text-gray-700 mb-3">📁 Katalogi</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold text-gray-700">📁 Katalogi</h2>
+              {isAdmin && (
+                <span className="text-xs text-gray-400">
+                  {currentFolderId === null ? 'Katalogi rootowe' : `Dzieci katalogu`}
+                </span>
+              )}
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {(currentFolderId === null ? rootFolders : currentFolderChildren).map((folder) => (
-                <button
+                <div
                   key={folder.id}
-                  onClick={() => navigateToFolder(folder)}
-                  className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow hover:bg-blue-50 text-left"
+                  className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow group"
                 >
-                  <div className="text-3xl mb-2">📁</div>
-                  <div className="font-medium text-gray-800 truncate">{folder.name}</div>
-                  <div className="text-xs text-gray-500">{folder.path}</div>
-                </button>
+                  <div className="flex items-start justify-between">
+                    <button
+                      onClick={() => navigateToFolder(folder)}
+                      className="flex-1 text-left"
+                    >
+                      <div className="text-3xl mb-2">📁</div>
+                      <div className="font-medium text-gray-800 truncate">{folder.name}</div>
+                      <div className="text-xs text-gray-500">{folder.path}</div>
+                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }}
+                        className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                        title="Usuń folder"
+                      >
+                        🗑️
+                      </button>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -472,13 +552,59 @@ export default function FilesPage() {
         </div>
       </div>
 
-      {/* Upload Modal */}
-      {showUploadModal && (
+      {/* Create Folder Modal */}
+      {showCreateFolderModal && isAdmin && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-bold text-gray-800 mb-4">Prześlij plik</h2>
-            <p className="text-sm text-gray-600 mb-4">
+            <h2 className="text-lg font-bold text-gray-800 mb-4">
+              📁 Nowy katalog
+            </h2>
+            <p className="text-sm text-gray-600 mb-2">
+              Tworzony w: <strong>
+                {currentFolderName || 'Root'}
+              </strong>
+            </p>
+            <input
+              type="text"
+              placeholder="Nazwa katalogu"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleCreateFolder(); }}
+              className="w-full border border-gray-300 rounded-md p-2 mb-4"
+              autoFocus
+            />
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => { setShowCreateFolderModal(false); setNewFolderName(''); }}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
+                disabled={folderCreating}
+              >
+                Anuluj
+              </button>
+              <button
+                onClick={handleCreateFolder}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                disabled={folderCreating || !newFolderName.trim()}
+              >
+                {folderCreating ? 'Tworzenie...' : 'Utwórz'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Modal */}
+      {showUploadModal && isAdmin && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-lg font-bold text-gray-800 mb-2">Prześlij plik</h2>
+            <p className="text-sm text-gray-600 mb-1">
               Dozwolone typy: PDF, DOCX, XLSX, PPTX (max 100MB)
+            </p>
+            <p className="text-sm text-gray-600 mb-4">
+              Docelowy katalog: <strong>
+                {currentFolderName || 'Root (brak katalogu)'}
+              </strong>
             </p>
             <input
               type="file"
