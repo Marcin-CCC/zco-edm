@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/store';
+import { versionApi } from '@/lib/api';
+import { useEffect, useState } from 'react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -12,7 +14,7 @@ interface NavItem {
   href: string;
   roles: string[];
   exact?: boolean;
-  children?: string[];  // paths that should activate this menu item
+  children?: string[];
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -22,11 +24,9 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 function isActive(pathname: string, item: NavItem): boolean {
-  // Exact match
   if (item.exact) {
     return pathname === item.href;
   }
-  // Check if pathname is under any of the child paths
   if (item.children) {
     for (const child of item.children) {
       if (pathname === child || pathname.startsWith(child + '/')) {
@@ -34,7 +34,6 @@ function isActive(pathname: string, item: NavItem): boolean {
       }
     }
   }
-  // Default: check if pathname starts with href
   return pathname === item.href || pathname.startsWith(item.href + '/');
 }
 
@@ -42,13 +41,22 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useAuth();
   const userRole = user?.role || '';
+  const [version, setVersion] = useState('');
 
-  // Filter menu items based on user role
+  useEffect(() => {
+    versionApi.get().then((data) => {
+      if (data && data.version) {
+        setVersion(data.version);
+      }
+    }).catch(() => {
+      setVersion('1.0.0');
+    });
+  }, []);
+
   const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(userRole));
 
   return (
     <>
-      {/* Overlay mobile */}
       {isOpen && (
         <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={onClose} />
       )}
@@ -58,13 +66,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Logo / Title */}
         <div className="flex items-center justify-between px-4 py-5 border-b border-slate-700">
           <h1 className="text-xl font-bold">EDM ZCO</h1>
           <button onClick={onClose} className="lg:hidden text-white text-xl">&times;</button>
         </div>
 
-        {/* Navigation - only main items, no submenus */}
         <nav className="mt-4">
           {visibleItems.map((item) => {
             const isActiveItem = isActive(pathname, item);
@@ -85,9 +91,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           })}
         </nav>
 
-        {/* Footer */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-700">
-          <p className="text-xs text-slate-400">EDM ZCO v1.0.0</p>
+          <p className="text-xs text-slate-400">EDM ZCO v{version}</p>
         </div>
       </aside>
     </>

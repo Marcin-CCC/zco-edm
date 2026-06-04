@@ -16,6 +16,7 @@ from app.folders import router as folders_router
 from app.storage.router import router as storage_router
 from app.webhooks.router import router as webhooks_router
 from app.dashboard.router import router as dashboard_router
+from app.version_router import router as version_router
 
 # Tworzenie tabel w bazie danych
 Base.metadata.create_all(bind=engine)
@@ -44,6 +45,7 @@ app.include_router(folders_router, prefix="/api")
 app.include_router(storage_router)
 app.include_router(webhooks_router)
 app.include_router(dashboard_router, prefix="/api")
+app.include_router(version_router)
 
 
 # ============ HEALTH CHECK ============

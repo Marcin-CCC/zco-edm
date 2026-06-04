@@ -52,6 +52,20 @@ export async function apiRequest<T>(
   return data as T;
 }
 
+// Helper to get auth token from localStorage
+function getAuthToken(): string | undefined {
+  const token = localStorage.getItem('auth_token');
+  return token || undefined;
+}
+
+// Version endpoint (no auth required)
+export const versionApi = {
+  get: () =>
+    apiRequest<any>('/api/version', {
+      method: 'GET',
+    }),
+};
+
 // Auth endpoints
 export const authApi = {
   login: (email: string, password: string) =>
@@ -107,13 +121,6 @@ export const usersApi = {
       token,
     }),
 };
-
-// Helper to get auth token from localStorage
-function getAuthToken(): string | undefined {
-  // Zustand store saves token as 'auth_token'
-  const token = localStorage.getItem('auth_token');
-  return token || undefined;
-}
 
 // File management endpoints
 export const filesApi = {

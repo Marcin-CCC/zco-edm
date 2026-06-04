@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Instalacja zaleZNOSCI systemowych (w tym curl dla healthcheck)
+# Instalaza zaleZNOSCI systemowych (w tym curl dla healthcheck)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
@@ -14,6 +14,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Kopiowanie kodu
 COPY ./app /app/app
+
+# Version zdefiniowane jako build arg
+ARG VERSION=0.0.0
+ARG BUILD_DATE=unknown
+ARG GIT_COMMIT=unknown
+
+# Zapisanie wersji do pliku w kontenerze
+RUN echo "${VERSION}" > /app/VERSION
+RUN echo "${BUILD_DATE}" > /app/BUILD_DATE
+RUN echo "${GIT_COMMIT}" > /app/GIT_COMMIT
 
 # Port FastAPI
 EXPOSE 8000
