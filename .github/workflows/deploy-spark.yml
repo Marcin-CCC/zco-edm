@@ -173,7 +173,8 @@ jobs:
           echo "Frontend: $(cat .env | grep BUILD_TAG_FRONTEND | cut -d= -f2)"
           
           # docker compose automatically loads .env file
-          docker compose --profile spark pull up -d
+          docker compose --profile spark pull
+          docker compose --profile spark up -d
           
           echo "✅ Deployment complete!"
 
