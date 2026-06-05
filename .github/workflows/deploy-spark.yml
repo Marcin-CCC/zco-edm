@@ -206,22 +206,29 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Deploy to Spark
         run: |
           cd /home/marcin/zco-edm-app
           
-          # Create .env file with SHA-tagged images
-          cat > .env << EOF
-          BUILD_TAG_BACKEND=ghcr.io/marcin-ccc/zco-edm/backend:backend-${{ github.sha }}
-          BUILD_TAG_FRONTEND=ghcr.io/marcin-ccc/zco-edm/frontend:frontend-${{ github.sha }}
-          EOF
+          # Use latest images (ARM64 built by this workflow)
+          echo "BUILD_TAG_BACKEND=ghcr.io/marcin-ccc/zco-edm/backend:latest" > .env
+          echo "BUILD_TAG_FRONTEND=ghcr.io/marcin-ccc/zco-edm/frontend:latest" >> .env
           
-          echo "🔨 Pulling SHA-tagged images and deploying..."
-          echo "Backend: $(cat .env | grep BUILD_TAG_BACKEND | cut -d= -f2)"
-          echo "Frontend: $(cat .env | grep BUILD_TAG_FRONTEND | cut -d= -f2)"
+          echo "🔨 Pulling latest ARM64 images and deploying..."
+          cat .env
+          
+          # Pull with auth
+          docker pull ghcr.io/marcin-ccc/zco-edm/backend:latest
+          docker pull ghcr.io/marcin-ccc/zco-edm/frontend:latest
           
           # docker compose automatically loads .env file
-          docker compose --profile spark pull
           docker compose --profile spark up -d
           
           echo "✅ Deployment complete!"
