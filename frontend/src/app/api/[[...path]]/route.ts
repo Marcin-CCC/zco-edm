@@ -42,7 +42,11 @@ async function proxyRequest(method: string, path: string[], request: NextRequest
     if (method !== 'GET' && method !== 'HEAD') {
       const contentType = request.headers.get('content-type');
       if (contentType?.includes('multipart/form-data')) {
-        fetchInit.body = await request.blob();
+        // ⚠️ MUST use request.text() not request.blob() — blob() loses FormData field structure
+        // FastAPI expects multipart/form-data with field names (file, folder_id, etc.)
+        const bodyText = await request.text();
+        console.log('[Proxy] Multipart body length:', bodyText.length, 'Content-Type:', contentType);
+        fetchInit.body = bodyText;
       } else if (contentType?.includes('application/json') ||
                  contentType?.includes('application/x-www-form-urlencoded') ||
                  !contentType) {
