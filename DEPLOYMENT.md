@@ -6,9 +6,10 @@
 2. [Self-Hosted Runner](#self-hosted-runner)
 3. [GitHub Actions Workflow](#github-actions-workflow)
 4. [Procedura deploy](#procedura-deploy)
-5. [Weryfikacja wdrożenia](#weryfikacja-wdrożenia)
-6. [Rollback](#rollback)
-7. [Troubleshooting](#troubleshooting)
+5. [Proces zmian i deploy](#proces-zmiann-i-deploy)
+6. [Weryfikacja wdrożenia](#weryfikacja-wdrożenia)
+7. [Rollback](#rollback)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -107,7 +108,7 @@ sudo systemctl enable actions.runner.Marcin-CCC-zco-edm.self-hosted-spark-runner
 - **Manual trigger:** `workflow_dispatch`
 - **PR** do `main` (tylko build + test, bez deploy)
 
-### Job' y
+### Job'y
 | Job | Runs On | Opis |
 |-----|---------|------|
 | `test-backend` | `ubuntu-latest` | Testy + lint Python |
@@ -195,6 +196,95 @@ curl -sf --max-time 10 http://localhost:8083/api/health
 curl -sf --max-time 10 http://localhost:8083/api/health/info
 curl -sf --max-time 5 http://localhost:3000 > /dev/null
 ```
+
+---
+
+## Proces zmian i deploy
+
+### Proces pracy (krok po kroku)
+
+| Krok | Akcja | Gdzie | Głos ownership |
+|------|-------|-------|----------------|
+| **1** | Poprawki w kodzie | Local repo | AI (Cline) |
+| **2** | Budowanie i testy lokalne | `docker-compose.dev.yaml` | AI (Cline) |
+| **3** | Commit + push do GitHub | Local git | AI (Cline) |
+| **4** | Czekam na polecenie deploy | — | User (decyzja) |
+| **5** | Deploy na Spark | SSH + docker compose | AI (Cline) |
+| **6** | Testy na Sparku | SSH + curl | User |
+| **7** | Rollback (jeśli potrzebny) | SSH + docker compose | AI (Cline) |
+
+### Krok 1: Poprawki w kodzie (AI)
+- AI nanosi zmiany w lokalnym repozytorium
+- Zmiany obejmują frontend (`frontend/`) i backend (`backend/`)
+
+### Krok 2: Testy lokalne (AI)
+- Uruchomienie dev environment przez `docker-compose.dev.yaml`:
+  ```bash
+  $env:COMPOSE_PROJECT_NAME="edm-dev"; docker compose -p edm-dev -f docker-compose.dev.yaml up -d --build
+  ```
+- **Backend:** `http://localhost:8001` (łączy się do PG na Spark: 192.168.1.34:5433)
+- **Frontend:** `http://localhost:3002` (API call do localhost:8001)
+
+### Krok 3: Commit + push (AI)
+- Po sukcesie testów lokalnych:
+  ```bash
+  git add .
+  git commit -m "feat: opis zmian - v<version>"
+  git push origin master
+  ```
+- GitHub Actions automatycznie buduje obrazy i push'uje do GHCR
+
+### Krok 4: Czekam na polecenie (User)
+- AI informuje użytkownika że testy lokalne zakończyły się sukcesem
+- Użytkownik decyduje kiedy deploy na Spark
+
+### Krok 5: Deploy na Spark (AI + User decyzja)
+
+#### Decyzja: `pull` vs `build`
+
+| Zmiana | Rekomendacja | Dlaczego |
+|--------|--------------|----------|
+| Tylko kod aplikacji (.py, .tsx, .css, itp.) | **pull** | GitHub Actions już zsbuildowało obrazy |
+| Zmiana w Dockerfile | **build** | Dockerfile wymaga ponownej kompilacji |
+| Zmiana w requirements.txt / package.json | **pull** | GitHub Actions obsługuje w build |
+| Zmiana w docker-compose.yaml | **build** | Struktura kontenerów się zmieniła |
+| Zmiana w .env / config secrets | **pull** + restart | Obraz ten sam, zmiana env |
+
+#### Pull (szybsze, preferowane):
+```bash
+ssh marcin@192.168.1.34 "cd /home/marcin/zco-edm-app && docker compose --profile spark pull && docker compose --profile spark up -d"
+```
+
+#### Build (gdy Dockerfile/docker-compose się zmienił):
+```bash
+ssh marcin@192.168.1.34 "cd /home/marcin/zco-edm-app && docker compose --profile spark up -d --build"
+```
+
+### Krok 6: Testy na Spark (User)
+- Użytkownik wykonuje testy na wdrożonym Spark:
+  ```bash
+  # Weryfikacja kontenerów
+  docker ps --format "table {{.Names}}\t{{.Status}}"
+  
+  # Weryfikacja API
+  curl http://localhost:8083/api/health
+  curl http://localhost:8083/api/health/info
+  
+  # Testy UI w przeglądarce
+  http://192.168.1.34:3000
+  ```
+
+### Krok 7: Rollback (jeśli testy spadają)
+```bash
+ssh marcin@192.168.1.34 "cd /home/marcin/zco-edm-app && docker compose --profile spark down && docker compose --profile spark up -d"
+```
+
+### Versioning
+- Po każdym wdrożeniu sprawdzam wersję:
+  ```bash
+  curl http://localhost:8083/api/version
+  ```
+- Wersja notowana w commit message
 
 ---
 
