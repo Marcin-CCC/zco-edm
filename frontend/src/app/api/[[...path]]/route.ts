@@ -54,6 +54,14 @@ async function proxyRequest(method: string, path: string[], request: NextRequest
 
     const response = await fetch(url, fetchInit);
 
+    // Handle 204 No Content (DELETE success)
+    if (response.status === 204) {
+      return new NextResponse(null, {
+        status: 204,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+      });
+    }
+
     const contentType = response.headers.get('content-type') || '';
     if (contentType.includes('application/pdf') ||
         contentType.includes('application/octet-stream') ||
