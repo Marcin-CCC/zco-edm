@@ -215,32 +215,42 @@ jobs:
 
       - name: Deploy to Spark
         run: |
-          cd /home/marcin/zco-edm-app
+          TARGET_DIR="/home/marcin/zco-edm-app"
+          IMAGE_REPO="${{ github.repository }}"
+          
+          # Ensure target directory exists
+          if [ ! -d "$TARGET_DIR" ]; then
+            echo "ERROR: Target directory $TARGET_DIR does not exist"
+            echo "Available directories in /home/marcin:"
+            ls -la /home/marcin/ 2>/dev/null || echo "Cannot list /home/marcin/"
+            exit 1
+          fi
+          
+          cd "$TARGET_DIR"
           
           # Use latest images (ARM64 built by this workflow)
-          echo "BUILD_TAG_BACKEND=${{ env.REGISTRY }}/${{ github.repository }}/backend:latest" > .env
-          echo "BUILD_TAG_FRONTEND=${{ env.REGISTRY }}/${{ github.repository }}/frontend:latest" >> .env
+          echo "BUILD_TAG_BACKEND=${{ env.REGISTRY }}/$IMAGE_REPO/backend:latest" > .env
+          echo "BUILD_TAG_FRONTEND=${{ env.REGISTRY }}/$IMAGE_REPO/frontend:latest" >> .env
           
           echo "🔨 Pulling latest ARM64 images and deploying..."
           cat .env
           
           # Pull with auth — use the same repository name that was used during build
-          IMAGE_REPO="${{ github.repository }}"
-          docker pull ${{ env.REGISTRY }}/$IMAGE_REPO/backend:latest
-          docker pull ${{ env.REGISTRY }}/$IMAGE_REPO/frontend:latest
+          docker pull ${{ env.REGISTRY }}/$IMAGE_REPO/backend:latest || { echo "ERROR: Failed to pull backend image"; exit 1; }
+          docker pull ${{ env.REGISTRY }}/$IMAGE_REPO/frontend:latest || { echo "ERROR: Failed to pull frontend image"; exit 1; }
           
           # docker compose automatically loads .env file
-          docker compose --profile spark up -d
+          docker compose --profile spark up -d || { echo "ERROR: docker compose up failed"; exit 1; }
           
-          echo "✅ Deployment complete!"
+          echo "Deployment complete!"
 
       - name: Verify deployment
         run: |
-          echo "📋 Checking containers..."
+          echo "Checking containers..."
           docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
           
           echo ""
-          echo "🏥 Health checks..."
+          echo "Health checks..."
           
           # Backend health check
           curl -sf --max-time 10 http://localhost:8083/api/health && echo ' - Backend OK' || echo ' - Backend FAIL'
@@ -262,5 +272,5 @@ jobs:
       - name: Notify
         if: always()
         run: |
-          echo "📢 Deployment finished!"
+          echo "Deployment finished!"
           echo "Status: ${{ job.status }}"
