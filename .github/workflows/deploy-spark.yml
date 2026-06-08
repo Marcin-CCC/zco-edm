@@ -218,15 +218,16 @@ jobs:
           cd /home/marcin/zco-edm-app
           
           # Use latest images (ARM64 built by this workflow)
-          echo "BUILD_TAG_BACKEND=ghcr.io/marcin-ccc/zco-edm/backend:latest" > .env
-          echo "BUILD_TAG_FRONTEND=ghcr.io/marcin-ccc/zco-edm/frontend:latest" >> .env
+          echo "BUILD_TAG_BACKEND=${{ env.REGISTRY }}/${{ github.repository }}/backend:latest" > .env
+          echo "BUILD_TAG_FRONTEND=${{ env.REGISTRY }}/${{ github.repository }}/frontend:latest" >> .env
           
           echo "🔨 Pulling latest ARM64 images and deploying..."
           cat .env
           
-          # Pull with auth
-          docker pull ghcr.io/marcin-ccc/zco-edm/backend:latest
-          docker pull ghcr.io/marcin-ccc/zco-edm/frontend:latest
+          # Pull with auth — use the same repository name that was used during build
+          IMAGE_REPO="${{ github.repository }}"
+          docker pull ${{ env.REGISTRY }}/$IMAGE_REPO/backend:latest
+          docker pull ${{ env.REGISTRY }}/$IMAGE_REPO/frontend:latest
           
           # docker compose automatically loads .env file
           docker compose --profile spark up -d
