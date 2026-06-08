@@ -193,7 +193,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            NEXT_PUBLIC_API_URL=http://172.17.0.1:8083
+            BACKEND_URL=http://backend:8000
+            NEXT_PUBLIC_API_URL=http://backend:8000
 
   # ============================================================
   # DEPLOY TO SPARK (Self-Hosted Runner)
