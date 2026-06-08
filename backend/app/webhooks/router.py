@@ -46,8 +46,8 @@ async def file_notified(payload: FileNotification, db: Session = Depends(get_db)
     # Sprawdź czy rekord już istnieje
     existing = db.query(FileModel).filter(FileModel.file_path == payload.file_path).first()
     if existing:
-        # Jeśli istnieje i ma status PROCESSED, zignoruj
-        if existing.status == DocumentStatus.PROCESSED:
+        # Jeśli istnieje i ma status READY (Przetworzono), zignoruj
+        if existing.status == DocumentStatus.READY:
             return {"file_id": existing.id, "status": existing.status, "message": "Plik juz przetworzony"}
         # Jeśli jest w trakcie przetwarzania, zaktualizuj status
         existing.status = DocumentStatus.PENDING
@@ -99,7 +99,7 @@ async def update_file_status(file_id: int, payload: StatusUpdate, db: Session = 
 
     # Aktualizuj metadane
     if payload.metadata:
-        file_obj.metadata = payload.metadata
+        file_obj.metadata_ = payload.metadata
 
     db.commit()
 

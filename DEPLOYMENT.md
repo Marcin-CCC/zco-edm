@@ -363,6 +363,89 @@ git checkout master
 
 ---
 
+## Procedura lokalna (dev)
+
+### Kontenery lokalne
+- **Backend:** `zco-edm-final-backend-1` — `http://localhost:8001`
+- **Frontend:** `zco-edm-final-frontend-1` — `http://localhost:3002`
+- **Docker compose:** `docker-compose.dev.yaml`
+
+### Procedura (krok po kroku)
+
+#### 1. Czysta instalacja — rebuild i restart
+```powershell
+# Zatrzymaj stare kontenery
+docker compose -f docker-compose.dev.yaml down
+
+# Usuń stare kontenery (jeśli istnieją)
+docker rm zco-edm-final-backend-1 zco-edm-final-frontend-1 2>$null
+
+# Zbuduj od nowa
+docker compose -f docker-compose.dev.yaml build backend frontend
+
+# Uruchom
+docker compose -f docker-compose.dev.yaml up -d
+```
+
+#### 2. Deployment zmian (tylko kod)
+```powershell
+# Backend — zmiany w /app/app widoczne od razu (volume mount)
+# Frontend — zmiany w /app/src widoczne od razu (hot reload Next.js)
+# Restart nie jest potrzebny — zmiany widoczne natychmiast
+```
+
+#### 3. Deployment zmian (Dockerfile/requirements)
+```powershell
+# Rebuild i restart
+docker compose -f docker-compose.dev.yaml down
+docker rm zco-edm-final-backend-1 zco-edm-final-frontend-1 2>$null
+docker compose -f docker-compose.dev.yaml build backend
+docker compose -f docker-compose.dev.yaml up -d
+```
+
+#### 4. Weryfikacja
+```powershell
+# Kontenery
+docker ps --format '{{.Names}}\t{{.Status}}\t{{.Image}}'
+
+# Backend health
+curl http://localhost:8001/api/health
+
+# Frontend
+Start-Process http://localhost:3002
+```
+
+#### 5. Pełny reset (czyszczenie kontenerów + obrazów)
+```powershell
+# Zatrzymaj i usuń kontenery
+docker compose -f docker-compose.dev.yaml down
+docker rm zco-edm-final-backend-1 zco-edm-final-frontend-1 2>$null
+
+# Usuń stare obrazy (opcjonalne)
+docker rmi zco-edm-final-backend zco-edm-final-frontend 2>$null
+
+# Rebuild od zera
+docker compose -f docker-compose.dev.yaml build backend frontend
+docker compose -f docker-compose.dev.yaml up -d
+```
+
+#### 6. Debug logi
+```powershell
+# Backend
+docker logs zco-edm-final-backend-1 --tail=50
+
+# Frontend
+docker logs zco-edm-final-frontend-1 --tail=50
+```
+
+### Uwagi
+- Volume mount (`./backend/app:/app/app`, `./frontend/src:/app/src`) zapewniają że zmiany kodu są widoczne bez rebuild
+- Next.js hot reload — zmiany frontend widoczne natychmiast
+- Backend — restart potrzebny przy zmianach w Dockerfile/requirements.txt
+- **Ważne:** Zawsze używaj `docker compose -f docker-compose.dev.yaml` — nigdy `docker-compose` bezpośrednio
+
+---
+
 ## Troubleshooting
 
 ### Problem: Runner nie słucha job'ów
@@ -433,11 +516,42 @@ BUILD_TAG_FRONTEND=ghcr.io/marcin-ccc/zco-edm/frontend:frontend-<sha>
 |---------|------------------|------|
 | `BUILD_TAG_BACKEND` | `ghcr.io/marcin-ccc/zco-edm/backend:latest` | Tag obrazu backendu |
 | `BUILD_TAG_FRONTEND` | `ghcr.io/marcin-ccc/zco-edm/frontend:latest` | Tag obrazu frontendu |
-| `BACKEND_PORT` | `8083` | Port backendu |
+| `BACKEND_PORT` | `8083` | Port backendu (mapowanie z kontenera :8000 na hosta :8083) |
+| `BACKEND_URL` | *brak* | URL backendu dla frontendu — ustawiany jako **build-arg** podczas buildu frontendu. Format: `http://<docker-gateway>:<port>`. Na Sparku: `http://172.17.0.1:8083` (172.17.0.1 = Docker gateway, 8083 = port backendu na hošcie). |
 | `FRONTEND_PORT` | `3000` | Port frontendu |
-| `NEXT_PUBLIC_API_URL` | `http://backend:8000` | URL API dla frontendu |
+| `NEXT_PUBLIC_API_URL` | `http://backend:8000` | URL API dla frontendu (tylko dla dev — kontenery w tej samej sieci Docker) |
 | `DATABASE_URL` | `postgresql+psycopg2://postgres:tajne_haslo@edm-zco-postgres:5432/edmdatabase` | URL bazy danych |
 | `QDRANT_URL` | `http://192.168.1.34:6333` | URL Qdrant vector DB |
-| `N8N_WEBHOOK_URL` | `http://192.168.1.34:5678/webhook/document-uploaded` | URL n8n webhook |
 | `DOCLING_API_URL` | `http://docling:8002` | URL docling API |
 | `OLLAMA_API_URL` | `http://192.168.1.34:11434` | URL Ollama |
+
+> **[!NOTE]**
+> **N8N_WEBHOOK_URL** nie jest już ustawiane przez zmienną środowiskową.
+> URL webhooka n8n jest konfigurowany w **UI aplikacji** — Dashboard → Ustawienia aplikacji → "Webhook n8n".
+> Wartość ta jest zapisywana w bazie danych (tabela `settings`) i pobierana przez funkcję [`get_webhook_url()`](backend/app/settings/router.py:39).
+> Env var `N8N_WEBHOOK_URL` w [`backend/.env.dev`](backend/.env.dev:23) jest skomentowana jako deprecated.
+
+## Env vars na Sparku (plik `.env` w `/home/marcin/zco-edm-app/`)
+
+Podczas deployu na Spark DGX, plik `.env` musi zawierać:
+
+```bash
+# Tagi obrazów (auto-generated przez GitHub Actions)
+BUILD_TAG_BACKEND=ghcr.io/marcin-ccc/zco-edm/backend:backend-<SHA>
+BUILD_TAG_FRONTEND=ghcr.io/marcin-ccc/zco-edm/frontend:frontend-<SHA>
+
+# Porty
+BACKEND_PORT=8083
+FRONTEND_PORT=3000
+
+# Backend URL dla frontendu (build-time only)
+# 172.17.0.1 = Docker gateway (host fizyczny z perspektywy kontenera)
+# 8083 = port backendu na hošcie
+BACKEND_URL=http://172.17.0.1:8083
+
+# Baza danych (jeśli PostgreSQL nie jest w docker-compose)
+DATABASE_URL=postgresql+psycopg2://postgres:tajne_haslo@<spark-ip>:5432/edmdatabase
+```
+
+> **[!NOTE]**
+> Jeśli PostgreSQL jest zdeployowane osobno na Sparku (nie jako kontener docker-compose), zmień `<spark-ip>` na `192.168.1.34` lub odpowiedni adres IP.

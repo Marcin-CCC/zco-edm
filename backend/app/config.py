@@ -1,5 +1,7 @@
 import os
 from dotenv import load_dotenv
+from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 load_dotenv()
 
@@ -33,8 +35,8 @@ class Settings:
 
     # External services
     QDRANT_URL: str = os.getenv("QDRANT_URL", "http://192.168.1.34:6333")
-    N8N_WEBHOOK_URL: str = os.getenv("N8N_WEBHOOK_URL", "http://192.168.1.34:5678/webhook/document-uploaded")
-    DOCLING_API_URL: str = os.getenv("DOCLING_API_URL", "http://127.0.0.1:8002")
+    N8N_WEBHOOK_URL: str = os.getenv("N8N_WEBHOOK_URL")  # Pobierany z ustawień aplikacji (baza danych)
+    DOCLING_API_URL: str = os.getenv("DOCLING_API_URL", "http://docling:8002")
     OLLAMA_API_URL: str = os.getenv("OLLAMA_API_URL", "http://192.168.1.34:11434")
 
 

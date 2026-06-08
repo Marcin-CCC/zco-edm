@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Body
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User, UserRole
 from app.schemas import UserCreate, UserInDB, UserUpdate
 from app.auth.jwt_handler import hash_password, verify_password, create_access_token, get_current_user
+from app.config import settings
 from datetime import datetime
+import os
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -12,6 +14,55 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 @router.post("/register", response_model=UserInDB, status_code=status.HTTP_201_CREATED)
 async def register_user(user_data: UserCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Rejestracja nowego uzytkownika. Tylko admin."""
+
+
+@router.post("/register-setup", response_model=UserInDB, status_code=status.HTTP_201_CREATED)
+async def register_setup_user(
+    user_data: UserCreate,
+    db: Session = Depends(get_db),
+):
+    """Initial setup registration - available only when no admin users exist.
+    This endpoint allows creating the first admin account without authentication.
+    """
+    # Check if any admin user already exists
+    existing_admins = db.query(User).filter(User.role == UserRole.ADMIN).all()
+    if existing_admins:
+        raise HTTPException(
+            status_code=400,
+            detail="Admin user already exists. Use /api/auth/register with admin token."
+        )
+    
+    # Enforce admin role for setup
+    if user_data.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=400,
+            detail="Setup registration must create an admin user."
+        )
+    
+    # Check for existing user
+    existing = db.query(User).filter(
+        (User.email == user_data.email) | (User.username == user_data.username)
+    ).first()
+    
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="User with this email or username already exists"
+        )
+    
+    new_user = User(
+        email=user_data.email,
+        username=user_data.username,
+        full_name=user_data.full_name,
+        role=user_data.role,
+        hashed_password=hash_password(user_data.password),
+        is_active=True
+    )
+    
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Brak uprawnien")
 

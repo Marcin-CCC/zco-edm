@@ -10,13 +10,13 @@ zco-edm-final/
 │   ├── app/              # Kod aplikacji
 │   ├── tests/            # Testy pytest
 │   ├── Dockerfile        # Image Docker dla backendu
-│   ├── requirements.txt  # ZaleZNOSCI Python
+│   ├── requirements.txt  # Zależności Python
 │   ├── seed.sql        # Inicjalizacja bazy danych
 │   └── .env.example    # Template zmiennych srodowiskowych
 ├── frontend/             # Next.js frontend
 │   ├── src/              # Kod aplikacji
 │   ├── Dockerfile        # Image Docker dla frontendu
-│   ├── package.json      # ZaleZNOSCI Node.js
+│   ├── package.json      # Zależności Node.js
 │   └── tailwind.config.js # Tailwind CSS konfig
 ├── spark-deploy/         # Skrypty do wdrozenia na Spark
 ├── docker-compose.yaml   # Glówna konfig Docker Compose
@@ -126,7 +126,7 @@ OLLAMA_API_URL=http://192.168.1.34:11434
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
 ```
 
-### Kluczowa roznica: NEXT_PUBLIC_API_URL
+### Kluczowa różnica: NEXT_PUBLIC_API_URL
 
 | Środowisko          | NEXT_PUBLIC_API_URL            |
 |---------------------|--------------------------------|
@@ -183,13 +183,16 @@ docker rm edm-frontend-spark
 ## Struktura bazy danych
 
 Tabele tworzone automatycznie przez `Base.metadata.create_all()` w `app/main.py`:
-- `users` - uzytkownicy systemu
-- `folders` - foldery dla dokumentow
-- `documents` - dokumenty/ pliki
-- `document_versions` - wersje dokumentow
-- `access_packages` - pakiety dostepow
-- `user_access` - dostepy uzytkownikow
-- `user_passwords` - hasla uzytkownikow
+- `users` - Użytkownicy systemu
+- `folders` - foldery dla dokumentów
+- `folder_permissions` - uprawnienia folderów (RBAC)
+- `files` - pliki
+- `documents` - dokumenty (pipeline RAG)
+- `document_pages` - strony dokumentów
+- `processing_queue` - kolejka przetwarzania
+- `embeddings` - wektoryzacja dla Qdrant
+- `events` - logi zdarzeń
+- `audit_log` - logi audytowe
 
 ## Architektura
 
@@ -211,7 +214,7 @@ Tabele tworzone automatycznie przez `Base.metadata.create_all()` w `app/main.py`
 ## Wersje
 
 - **Backend API:** FastAPI + Python 3.11
-- **Frontend:** Next.js 16 + Node.js 20
+- **Frontend:** Next.js 14 + Node.js 20
 - **Database:** PostgreSQL 15
 - **Vector DB:** Qdrant
 

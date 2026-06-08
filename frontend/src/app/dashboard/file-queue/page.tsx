@@ -16,14 +16,6 @@ interface QueueItem {
   completed_at: string | null;
 }
 
-interface Document {
-  id: number;
-  filename: string;
-  status: string;
-  created_at: string;
-  document_pages: QueueItem[];
-}
-
 export default function FileQueuePage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
@@ -31,14 +23,20 @@ export default function FileQueuePage() {
   const [loading, setLoading] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [selectedItem, setSelectedItem] = useState<QueueItem | null>(null);
+  const [statusSummary, setStatusSummary] = useState<Record<string, number>>({});
 
   const loadQueue = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/processing-queue/' +
-        (filterStatus ? `?status=${filterStatus}` : '') +
-        '&skip=0&limit=200'
-      );
+      const token = localStorage.getItem('auth_token');
+      const params = new URLSearchParams();
+      if (filterStatus) params.append('status', filterStatus);
+      params.append('skip', '0');
+      params.append('limit', '500');
+      
+      const res = await fetch(`/api/files/queue?${params.toString()}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      });
       if (res.ok) {
         const data = await res.json();
         setQueueItems(Array.isArray(data) ? data : []);
@@ -50,47 +48,78 @@ export default function FileQueuePage() {
     }
   }, [filterStatus]);
 
+  const loadStatusSummary = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch('/api/files/status-summary', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStatusSummary(data || {});
+      }
+    } catch (err) {
+      console.error('Failed to load status summary:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadQueue();
+    loadStatusSummary();
+  }, [loadQueue, loadStatusSummary]);
+
   const retryItem = async (itemId: number) => {
     if (!confirm('Czy na pewno ponowić przetwarzanie?')) return;
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/processing-queue/${itemId}/retry`, {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`/api/processing-queue/${itemId}/retry`, {
         method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       });
-      if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && !data.error) {
         loadQueue();
       } else {
-        alert('Ponowne przetwarzanie nie powiodło się.');
+        const errorMsg = data?.message || data?.detail || 'Ponowne przetwarzanie nie powiodło się.';
+        alert(`Błąd: ${errorMsg}`);
+        loadQueue(); // Refresh to show updated status
       }
     } catch (err) {
       alert('Błąd podczas ponownego przetwarzania.');
+      loadQueue(); // Refresh to show updated status
     }
   };
 
-  const skipPageItem = async (itemId: number, pageNum: number) => {
-    if (!confirm(`Pominąć stronę ${pageNum}?`)) return;
+  const deleteItem = async (fileId: number) => {
+    if (!confirm('Czy na pewno usunąć ten plik?')) return;
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/processing-queue/${itemId}/skip-page`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ page_number: pageNum }),
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`/api/files/${fileId}`, {
+        method: 'DELETE',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       });
-      if (res.ok) {
+      if (res.ok || res.status === 200) {
         loadQueue();
+        loadStatusSummary();
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        alert(`Usunięcie nie powiodło się: ${errorData?.detail || res.statusText}`);
       }
     } catch (err) {
-      alert('Błąd.');
+      alert('Usunięcie nie powiodło się.');
     }
   };
-
-  // Search
-  useEffect(() => {
-    loadQueue();
-  }, [loadQueue]);
 
   const getStatusClass = (status: string) => {
     switch (status) {
       case 'W kolejce (n8n)':
         return 'bg-yellow-100 text-yellow-800';
+      case 'Parsowanie (Docling)':
+        return 'bg-orange-100 text-orange-800';
+      case 'Chunkowanie':
+        return 'bg-blue-100 text-blue-800';
+      case 'Wektoryzacja (Qdrant)':
+        return 'bg-purple-100 text-purple-800';
       case 'W trakcie przetwarzania':
         return 'bg-blue-100 text-blue-800';
       case 'Przetworzono':
@@ -128,7 +157,7 @@ export default function FileQueuePage() {
             ))}
           </select>
           <button
-            onClick={loadQueue}
+            onClick={() => { loadQueue(); loadStatusSummary(); }}
             className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm"
             disabled={loading}
           >
@@ -139,31 +168,49 @@ export default function FileQueuePage() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        {/* Summary */}
+        {/* Summary Cards - Status Counts */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="text-2xl font-bold text-yellow-800">
-              {queueItems.filter(i => i.status === 'W kolejce (n8n)').length}
+              {statusSummary['W kolejce (n8n)'] || 0}
             </div>
-            <div className="text-sm text-yellow-600">W kolejce</div>
+            <div className="text-sm text-yellow-600">W kolejce (n8n)</div>
+          </div>
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <div className="text-2xl font-bold text-orange-800">
+              {statusSummary['Parsowanie (Docling)'] || 0}
+            </div>
+            <div className="text-sm text-orange-600">Parsowanie</div>
           </div>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="text-2xl font-bold text-blue-800">
-              {queueItems.filter(i => i.status === 'W trakcie przetwarzania').length}
+              {statusSummary['Chunkowanie'] || 0}
             </div>
-            <div className="text-sm text-blue-600">W trakcie</div>
+            <div className="text-sm text-blue-600">Chunkowanie</div>
+          </div>
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+            <div className="text-2xl font-bold text-purple-800">
+              {statusSummary['Wektoryzacja (Qdrant)'] || 0}
+            </div>
+            <div className="text-sm text-purple-600">Wektoryzacja</div>
           </div>
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <div className="text-2xl font-bold text-green-800">
-              {queueItems.filter(i => i.status === 'Przetworzono').length}
+              {statusSummary['Przetworzono'] || 0}
             </div>
             <div className="text-sm text-green-600">Przetworzone</div>
           </div>
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="text-2xl font-bold text-red-800">
-              {queueItems.filter(i => i.status === 'Błąd przetwarzania').length}
+              {statusSummary['Błąd przetwarzania'] || 0}
             </div>
             <div className="text-sm text-red-600">Błędy</div>
+          </div>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <div className="text-2xl font-bold text-gray-800">
+              {queueItems.length}
+            </div>
+            <div className="text-sm text-gray-600">Łącznie</div>
           </div>
         </div>
 
@@ -174,7 +221,6 @@ export default function FileQueuePage() {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plik</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Strony</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data dodania</th>
                 {isAdmin && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Akcje</th>}
@@ -189,7 +235,6 @@ export default function FileQueuePage() {
                 >
                   <td className="px-4 py-3 text-sm text-gray-600">#{item.id}</td>
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{item.file_name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{item.page_count}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(item.status)}`}>
                       {item.status}
@@ -209,6 +254,12 @@ export default function FileQueuePage() {
                             🔄 Ponów
                           </button>
                         )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
+                          className="text-red-600 hover:text-red-800 text-sm"
+                        >
+                          🗑️ Usuń
+                        </button>
                         {item.status === 'Błąd przetwarzania' && item.error_message && (
                           <button
                             onClick={(e) => { e.stopPropagation(); setSelectedItem(item); }}
@@ -224,7 +275,7 @@ export default function FileQueuePage() {
               ))}
               {filteredItems.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
                     Brak pozycji w kolejce
                   </td>
                 </tr>
@@ -263,10 +314,6 @@ export default function FileQueuePage() {
                     {selectedItem.status}
                   </span>
                 </dd>
-              </div>
-              <div>
-                <dt className="text-sm text-gray-500">Strony</dt>
-                <dd className="text-gray-800">{selectedItem.page_count}</dd>
               </div>
               <div>
                 <dt className="text-sm text-gray-500">Data dodania</dt>

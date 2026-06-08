@@ -1,7 +1,9 @@
 import os
+import logging
 import shutil
 from datetime import datetime
 from typing import List, Optional
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -11,8 +13,10 @@ from app.database import get_db
 from app.models import File as FileModel, Folder, FolderPermission, User, DocumentStatus, UserRole
 from app.schemas import FileResponse as FileResponseSchema, FileCreate, FileUpdate
 from app.auth.auth import get_current_user
+from app.config import settings
 
 router = APIRouter(prefix="/api/files", tags=["Files"])
+logger = logging.getLogger(__name__)
 
 
 # ==================== HELPERS ====================
@@ -63,10 +67,11 @@ def get_extension(filename: str) -> str:
 @router.post("/upload")
 async def upload_file(
     file: UploadFile = File(...),
-    folder_id: Optional[int] = Form(None),
+    folder_id: Optional[int] = Form(None, description="Folder ID where the file should be uploaded"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    print(f"[UPLOAD DEBUG] received folder_id={folder_id}, filename={file.filename}")
     """Upload a file (admin only)."""
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Tylko administrator może wgrywać pliki.")
@@ -89,9 +94,11 @@ async def upload_file(
     if folder_id:
         folder = db.query(Folder).filter(Folder.id == folder_id).first()
         if not folder:
+            print(f"[UPLOAD DEBUG] Folder not found for id={folder_id}")
             raise HTTPException(status_code=404, detail="Folder nie istnieje.")
         storage_path = os.path.join(STORAGE_DIR, folder.path.lstrip("/"), file.filename)
     else:
+        print(f"[UPLOAD DEBUG] No folder_id, saving to root")
         storage_path = os.path.join(STORAGE_DIR, file.filename)
 
     os.makedirs(os.path.dirname(storage_path) or STORAGE_DIR, exist_ok=True)
@@ -117,7 +124,32 @@ async def upload_file(
     db.commit()
     db.refresh(db_file)
 
-    db.refresh(db_file)
+    # >>> Trigger n8n webhook about new file <<<
+    webhook_success = False
+    webhook_error = None
+    try:
+        from app.settings.router import get_webhook_url
+        webhook_url = get_webhook_url()
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
+                webhook_url,
+                json={"file_path": db_file.file_path, "file_id": db_file.id},
+            )
+            if resp.status_code == 200:
+                webhook_success = True
+            else:
+                webhook_error = f"Webhook returned status {resp.status_code}: {resp.text}"
+    except Exception as e:
+        webhook_error = str(e)
+        logger.error(f"[UPLOAD] Webhook failed for file {db_file.id}: {webhook_error}")
+    
+    # Set file status to ERROR if webhook failed
+    if not webhook_success:
+        db_file.status = DocumentStatus.ERROR
+        db.commit()
+        db.refresh(db_file)
+        logger.error(f"[UPLOAD] File {db_file.id} ({db_file.filename}) status set to ERROR: {webhook_error}")
+    # <<< END n8n trigger >>>
 
     folder_obj = db_file.folder
     uploader_obj = db_file.uploader
@@ -151,10 +183,22 @@ def list_files(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List files with optional filters."""
+    """List files with optional filters.
+    
+    When folder_id is not specified (None), show only root files (folder_id IS NULL).
+    When folder_id=0, show all files (legacy behavior).
+    When folder_id=<int>, show files in that specific folder.
+    """
     query = db.query(FileModel).filter(FileModel.uploaded_by == current_user.id or current_user.role == UserRole.ADMIN)
 
-    if folder_id is not None:
+    if folder_id is None:
+        # No folder_id specified - show only root files (folder_id IS NULL)
+        query = query.filter(FileModel.folder_id == None)
+    elif folder_id == 0:
+        # folder_id=0 is special - show all files (legacy behavior)
+        pass  # No filter applied
+    else:
+        # Specific folder - show files in that folder
         query = query.filter(FileModel.folder_id == folder_id)
     if status:
         query = query.filter(FileModel.status == status)
@@ -193,6 +237,84 @@ def list_files(
         })
 
     return result
+
+
+# ==================== QUEUE & STATUS ENDPOINTS (must be BEFORE parameterized routes) ====================
+@router.get("/queue")
+def list_file_queue(
+    status: Optional[str] = Query(None, description="Filter by status (optional)"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(200, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get files with processing queue status (for File Queue page).
+    
+    Returns files from the files table with their DocumentStatus, which represents
+    the processing queue status (W kolejce, Parsowanie, Przetworzono, etc.)
+    """
+    query = db.query(FileModel).filter(
+        FileModel.uploaded_by == current_user.id or current_user.role == UserRole.ADMIN
+    )
+    
+    if status:
+        query = query.filter(FileModel.status == status)
+    
+    files = query.order_by(FileModel.created_at.desc()).offset(skip).limit(limit).all()
+    
+    result = []
+    for f in files:
+        folder_data = None
+        if f.folder:
+            folder_data = {"id": f.folder.id, "name": f.folder.name, "path": f.folder.path}
+        
+        uploader_data = None
+        if f.uploader:
+            uploader_data = {"id": f.uploader.id, "username": f.uploader.username, "email": f.uploader.email}
+        
+        result.append({
+            "id": f.id,
+            "document_id": None,  # File doesn't have document_id, keeping for compatibility
+            "file_name": f.filename,
+            "status": f.status.value if hasattr(f.status, 'value') else str(f.status),
+            "page_count": 0,  # Files don't have page count yet
+            "error_message": None,
+            "created_at": f.created_at.isoformat() if f.created_at else None,
+            "updated_at": f.updated_at.isoformat() if f.updated_at else None,
+            "started_at": None,
+            "completed_at": None,
+            "folder": folder_data,
+            "uploader": uploader_data,
+        })
+    
+    return result
+
+
+@router.get("/status-summary")
+def get_file_status_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get file counts grouped by status.
+    
+    Returns a dictionary with status names as keys and counts as values.
+    """
+    query = db.query(FileModel).filter(
+        FileModel.uploaded_by == current_user.id or current_user.role == UserRole.ADMIN
+    )
+    
+    # Group by status and count
+    from sqlalchemy import func
+    status_counts = query.group_by(FileModel.status).with_entities(
+        FileModel.status, func.count(FileModel.id)
+    ).all()
+    
+    summary = {}
+    for status, count in status_counts:
+        status_str = status.value if hasattr(status, 'value') else str(status)
+        summary[status_str] = count
+    
+    return summary
 
 
 @router.get("/{file_id}", response_model=FileResponseSchema)
@@ -274,6 +396,52 @@ def delete_file(file_id: int, db: Session = Depends(get_db), current_user: User 
     return {"message": "Plik został usunięty."}
 
 
+@router.put("/{file_id}", response_model=FileResponseSchema)
+def update_file(
+    file_id: int,
+    file_update: FileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update file metadata (status, folder). Admin only."""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Tylko administrator może aktualizować pliki.")
+
+    file_obj = db.query(FileModel).filter(FileModel.id == file_id).first()
+    if not file_obj:
+        raise HTTPException(status_code=404, detail="Plik nie istnieje.")
+
+    update_data = file_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(file_obj, field, value)
+
+    db.commit()
+    db.refresh(file_obj)
+
+    folder_data = None
+    if file_obj.folder:
+        folder_data = {"id": file_obj.folder.id, "name": file_obj.folder.name, "path": file_obj.folder.path}
+
+    uploader_data = None
+    if file_obj.uploader:
+        uploader_data = {"id": file_obj.uploader.id, "username": file_obj.uploader.username, "email": file_obj.uploader.email}
+
+    return {
+        "id": file_obj.id,
+        "filename": file_obj.filename,
+        "file_path": file_obj.file_path,
+        "mime_type": file_obj.mime_type,
+        "size": file_obj.size,
+        "folder_id": file_obj.folder_id,
+        "uploaded_by": file_obj.uploaded_by,
+        "status": file_obj.status,
+        "created_at": file_obj.created_at,
+        "updated_at": file_obj.updated_at,
+        "folder": folder_data,
+        "uploader": uploader_data,
+    }
+
+
 @router.get("/categories")
 def get_categories(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Get file categories (by MIME type)."""
@@ -319,3 +487,4 @@ def list_folder_files(folder_id: int, db: Session = Depends(get_db), current_use
         })
 
     return result
+

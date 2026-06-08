@@ -74,12 +74,8 @@ def get_folder_tree(
     current_user: User = Depends(get_current_user),
 ):
     """Get hierarchical folder tree."""
-    try:
-        folders = db.query(Folder).all()
-        tree = build_folder_tree(folders)
-        return tree
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error building folder tree: {str(e)}")
+    folders = db.query(Folder).all()
+    return build_folder_tree(folders)
 
 
 @router.get("/", response_model=List[FolderResponse])

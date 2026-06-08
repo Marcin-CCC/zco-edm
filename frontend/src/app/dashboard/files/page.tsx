@@ -105,7 +105,7 @@ export default function FilesPage() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, currentFolderId]);
 
   // Navigate to folder
   const navigateToFolder = async (folder: Folder) => {

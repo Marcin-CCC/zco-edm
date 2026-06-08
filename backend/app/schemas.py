@@ -154,3 +154,12 @@ class DashboardStats(BaseModel):
     documents: int
     folders: int
     processed: int
+
+
+# ==================== Settings ====================
+class SettingsResponse(BaseModel):
+    n8n_webhook_url: str
+
+
+class SettingsUpdate(BaseModel):
+    n8n_webhook_url: str

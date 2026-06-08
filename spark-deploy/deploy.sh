@@ -2,8 +2,19 @@
 # =====================================================
 # EDM ZCO - Deploy to Spark DGX
 # =====================================================
-# Skrypt kopiujący lokalne zmiany na Spark
+# Skrypt kopiujcy lokalne zmiany na Spark
 # Użycie: bash spark-deploy/deploy.sh [backend|frontend|all]
+# =====================================================
+#
+# Uwagi:
+# - Skrypt używa `docker compose -f docker-compose.yaml` (jawnie okrešlony plik)
+#   aby uniknąć pomyłki z innymi plikami compose (np. docker-compose.dev.yaml).
+# - Port backendu ujednolicony do 8083 (zgodnie z docker-compose.yaml: BACKEND_PORT:-8083).
+# - BACKEND_URL w build-arg frontendu: http://172.17.0.1:8083
+#   172.17.0.1 = Docker gateway (adres hosta z kontenera frontendu)
+#   8083 = port backendu dostepny z zewnatrz kontenera (mapowanie :8000 -> :8083)
+#   Next.js wymaga BACKEND_URL w czasie buildu (compile-time env vars).
+#   Na Sparku upewnij sie, że plik .env zawiera BACKEND_PORT=8083.
 # =====================================================
 
 set -e
@@ -24,7 +35,7 @@ deploy_backend() {
     echo ""
     echo "--- Deploying Backend ---"
 
-    # Kopiuj nowy Dockerfile (z --reload)
+    # Kopiuj Dockerfile (z opcja --reload dla developmet)
     echo "  Kopiowanie Dockerfile..."
     scp backend/Dockerfile "${SPARK_IP}:${SPARK_DIR}/backend/Dockerfile"
 
@@ -32,13 +43,20 @@ deploy_backend() {
     echo "  Kopiowanie requirements.txt..."
     scp backend/requirements.txt "${SPARK_IP}:${SPARK_DIR}/backend/requirements.txt"
 
-    # Kopiuj zmienione moduły (tylko te, które się zmieniły)
+    # Kopiuj cala strukture modułów backendu (w tym settings, processing_queue, webhooks, itp.)
     echo "  Kopiowanie kodu backend..."
     scp -r backend/app/* "${SPARK_IP}:${SPARK_DIR}/backend/app/"
 
-    # Rebuild i restart
+    # Kopiuj seed.sql (jeśli są zmiany schematu bazy danych)
+    echo "  Kopiowanie seed.sql..."
+    scp backend/seed.sql "${SPARK_IP}:${SPARK_DIR}/backend/seed.sql"
+
+    # Kopiuj pliki konfiguracyjne
+    scp backend/.env.spark "${SPARK_IP}:${SPARK_DIR}/backend/.env.spark"
+
+    # Rebuild i restart (jawnie okrešl docker-compose.yaml)
     echo "  Budowanie i restart backend..."
-    ssh "${SPARK_IP}" "cd ${SPARK_DIR} && docker compose --profile spark up -d --build backend"
+    ssh "${SPARK_IP}" "cd ${SPARK_DIR} && docker compose -f docker-compose.yaml --profile spark up -d --build backend"
 
     echo "  Backend zdeployony."
 }
@@ -64,13 +82,19 @@ deploy_frontend() {
     echo "  Kopiowanie tsconfig.json..."
     scp frontend/tsconfig.json "${SPARK_IP}:${SPARK_DIR}/frontend/tsconfig.json"
 
-    # Kopiuj entire src
+    # Kopiuj caly src frontendu
     echo "  Kopiowanie src..."
     scp -r frontend/src/* "${SPARK_IP}:${SPARK_DIR}/frontend/src/"
 
+    # Kopiuj .env.dev (dla pewnosci, ze Spark ma correct API URL)
+    scp frontend/.env.dev "${SPARK_IP}:${SPARK_DIR}/frontend/.env.dev"
+
     # Rebuild i restart (BACKEND_URL musi byc ustawiony dla Spark)
+    # BACKEND_URL=http://172.17.0.1:8083:
+    #   172.17.0.1 = Docker gateway (host fizyczny dostepny z kontenera)
+    #   8083 = port backendu na hošcie (zgodnie z docker-compose.yaml BACKEND_PORT:-8083)
     echo "  Budowanie i restart frontend..."
-    ssh "${SPARK_IP}" "cd ${SPARK_DIR} && docker compose --profile spark up -d --build --build-arg BACKEND_URL=http://172.17.0.1:8082 frontend"
+    ssh "${SPARK_IP}" "cd ${SPARK_DIR} && docker compose -f docker-compose.yaml --profile spark up -d --build --build-arg BACKEND_URL=http://172.17.0.1:8083 frontend"
 
     echo "  Frontend zdeployowany."
 }
@@ -112,12 +136,12 @@ case "$MODE" in
         ;;
 esac
 
-# Health check na końcu
+# Health check na koncu
 health_check
 
 echo ""
 echo "============================================"
-echo "  Deploy zakończony sukcesem!"
+echo "  Deploy zakonczony sukcesem!"
 echo "  Frontend: http://192.168.1.34:3000"
 echo "  Backend:  http://192.168.1.34:8083/docs"
 echo "============================================"

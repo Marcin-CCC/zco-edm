@@ -79,6 +79,13 @@ export const authApi = {
       method: 'GET',
       token,
     }),
+
+  /** Initial setup registration - creates first admin without auth */
+  setup: (data: { email: string; username: string; password: string; full_name?: string }) =>
+    apiRequest<any>('/api/auth/register-setup', {
+      method: 'POST',
+      body: data,
+    }),
 };
 
 // User management endpoints (admin only)
@@ -191,6 +198,21 @@ export const dashboardApi = {
   stats: () =>
     apiRequest<any>('/api/dashboard/stats', {
       method: 'GET',
+      token: getAuthToken(),
+    }),
+};
+
+// Settings endpoints
+export const settingsApi = {
+  get: () =>
+    apiRequest<any>('/api/settings/', {
+      method: 'GET',
+      token: getAuthToken(),
+    }),
+  update: (data: { n8n_webhook_url: string }) =>
+    apiRequest<any>('/api/settings/n8n_webhook_url', {
+      method: 'PUT',
+      body: data,
       token: getAuthToken(),
     }),
 };

@@ -17,6 +17,8 @@ from app.storage.router import router as storage_router
 from app.webhooks.router import router as webhooks_router
 from app.dashboard.router import router as dashboard_router
 from app.version_router import router as version_router
+from app.processing_queue.router import router as processing_queue_router
+from app.settings.router import router as settings_router
 
 # Tworzenie tabel w bazie danych
 Base.metadata.create_all(bind=engine)
@@ -46,6 +48,8 @@ app.include_router(storage_router)
 app.include_router(webhooks_router)
 app.include_router(dashboard_router, prefix="/api")
 app.include_router(version_router)
+app.include_router(processing_queue_router)
+app.include_router(settings_router)
 
 
 # ============ HEALTH CHECK ============

@@ -12,7 +12,7 @@ RUN npm ci
 FROM base AS builder
 WORKDIR /app
 
-ARG BACKEND_URL=http://backend:8000
+ARG BACKEND_URL=http://host.docker.internal:8001
 ENV BACKEND_URL=${BACKEND_URL}
 ENV NEXT_PUBLIC_API_URL=${BACKEND_URL}
 
@@ -25,7 +25,7 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
-ARG BACKEND_URL=http://backend:8000
+ARG BACKEND_URL=http://host.docker.internal:8001
 ENV BACKEND_URL=${BACKEND_URL}
 ENV NEXT_PUBLIC_API_URL=${BACKEND_URL}
 

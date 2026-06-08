@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS files (
     folder_id INTEGER REFERENCES folders(id),
     uploaded_by INTEGER REFERENCES users(id) NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'W kolejce (n8n)',
+    ocr_result TEXT,
+    metadata JSONB,
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -221,3 +223,19 @@ INSERT INTO folder_permissions (folder_id, role, access_level) SELECT f.id, 'gue
 
 -- Admin can write to all folders
 INSERT INTO folder_permissions (folder_id, role, access_level) SELECT f.id, 'admin', 'write' FROM folders f ON CONFLICT DO NOTHING;
+
+-- ============ SETTINGS TABLE ============
+
+CREATE TABLE IF NOT EXISTS settings (
+    key VARCHAR(255) PRIMARY KEY,
+    value TEXT NOT NULL DEFAULT '',
+    description VARCHAR(500),
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Default n8n webhook URL
+INSERT INTO settings (key, value, description) VALUES
+    ('n8n_webhook_url', 'http://192.168.1.34:5678/webhook/document-uploaded', 'N8N webhook URL for file processing')
+ON CONFLICT (key) DO UPDATE
+SET value = EXCLUDED.value,
+    updated_at = CURRENT_TIMESTAMP;
