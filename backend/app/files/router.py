@@ -20,10 +20,10 @@ logger = logging.getLogger(__name__)
 
 
 # ==================== HELPERS ====================
-# Use /data for Docker (mounted volume) or shared_docs relative to project root
-# Try /data first (Docker), then project root shared_docs
-_DOCKER_SHARED = "/data"
-# Project root is one level above backend/app
+# Save files inside mounted Docker volume at /data/shared_docs
+# This ensures files persist across container restarts AND are accessible by Docling
+_DOCKER_SHARED = "/data/shared_docs"
+# Project root is one level above backend/app (fallback for non-Docker dev)
 _PROJECT_ROOT_SHARED = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "shared_docs")
 STORAGE_DIR = _DOCKER_SHARED if os.path.exists(_DOCKER_SHARED) else _PROJECT_ROOT_SHARED
 
