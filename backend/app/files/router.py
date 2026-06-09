@@ -128,17 +128,32 @@ async def upload_file(
     webhook_success = False
     webhook_error = None
     try:
-        from app.settings.router import get_webhook_url
+        # Load cache from DB to get the correct webhook URL
+        from app.settings.router import _load_cache_from_db, get_webhook_url
+        _load_cache_from_db(db)
         webhook_url = get_webhook_url()
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(
-                webhook_url,
-                json={"file_path": db_file.file_path, "file_id": db_file.id},
-            )
-            if resp.status_code == 200:
-                webhook_success = True
-            else:
-                webhook_error = f"Webhook returned status {resp.status_code}: {resp.text}"
+        logger.info(f"[UPLOAD] Webhook URL for file {db_file.id}: {webhook_url}")
+        
+        # Use anyio.run for synchronous async execution (same pattern as retry)
+        import anyio
+        async def call_webhook():
+            nonlocal webhook_success, webhook_error
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.post(
+                        webhook_url,
+                        json={"file_path": db_file.file_path, "file_id": db_file.id},
+                    )
+                    if resp.status_code == 200:
+                        webhook_success = True
+                        logger.info(f"[UPLOAD] Webhook called successfully for file {db_file.id}")
+                    else:
+                        webhook_error = f"Webhook returned status {resp.status_code}: {resp.text}"
+                        logger.warning(f"[UPLOAD] Webhook error for file {db_file.id}: {webhook_error}")
+            except Exception as e:
+                webhook_error = str(e)
+                logger.error(f"[UPLOAD] Failed to call webhook for file {db_file.id}: {str(e)}")
+        anyio.run(call_webhook)
     except Exception as e:
         webhook_error = str(e)
         logger.error(f"[UPLOAD] Webhook failed for file {db_file.id}: {webhook_error}")
