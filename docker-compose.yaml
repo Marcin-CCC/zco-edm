@@ -48,12 +48,12 @@ services:
       - SECRET_KEY=${SECRET_KEY:-zco-edm-secret-key-change-in-production}
       - QDRANT_URL=${QDRANT_URL:-http://192.168.1.34:6333}
       - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://192.168.1.34:5678/webhook/document-uploaded}
-      - STORAGE_PATH=/data/shared_docs
+      - STORAGE_PATH=/data
       - DOCLING_API_URL=${DOCLING_API_URL:-http://docling:8002}
       - OLLAMA_API_URL=${OLLAMA_API_URL:-http://192.168.1.34:11434}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001}
     volumes:
-      - shared_docs:/data/shared_docs
+      - shared_docs:/data
     networks:
       - edm_network
     restart: unless-stopped

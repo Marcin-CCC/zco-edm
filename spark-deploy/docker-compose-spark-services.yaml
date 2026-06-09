@@ -42,7 +42,7 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility
     volumes:
-      - shared_docs:/data/shared_docs
+      - shared_docs:/data
     # GPU support
     runtime: nvidia
     restart: unless-stopped
