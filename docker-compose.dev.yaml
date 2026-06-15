@@ -23,6 +23,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    environment:
+      - BACKEND_URL=http://host.docker.internal:8001
+      - NEXT_PUBLIC_API_URL=http://localhost:8001
     volumes:
       # Hot reload dla Next.js
       - ./frontend/src:/app/src
@@ -30,8 +33,6 @@ services:
       - ./frontend/next.config.js:/app/next.config.js
       - ./frontend/package.json:/app/package.json
       - ./frontend/.env:/app/.env
-    env_file:
-      - ./frontend/.env.dev
     depends_on:
       - backend
     ports:
