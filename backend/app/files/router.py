@@ -14,6 +14,7 @@ from app.models import File as FileModel, Folder, FolderPermission, User, Docume
 from app.schemas import FileResponse as FileResponseSchema, FileCreate, FileUpdate
 from app.auth.auth import get_current_user
 from app.config import settings
+from app.spark_transfer import spark_transfer_enabled, transfer_to_spark, SPARK_SHARED_DIR
 
 router = APIRouter(prefix="/api/files", tags=["Files"])
 logger = logging.getLogger(__name__)
@@ -26,6 +27,19 @@ _DOCKER_SHARED = "/data/shared_docs"
 # Project root is one level above backend/app (fallback for non-Docker dev)
 _PROJECT_ROOT_SHARED = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "shared_docs")
 STORAGE_DIR = _DOCKER_SHARED if os.path.exists(_DOCKER_SHARED) else _PROJECT_ROOT_SHARED
+
+# Publiczny adres backendu widziany z n8n (do callbacków statusu).
+# Dev lokalny: http://<IP-PC-w-LAN>:8001, Spark: http://192.168.1.34:8083
+BACKEND_CALLBACK_URL = os.getenv("BACKEND_CALLBACK_URL", "http://192.168.1.34:8083").rstrip("/")
+
+
+def build_webhook_payload(file_id: int, file_path: str) -> dict:
+    """Zbuduj payload webhooka dla n8n z gotowym URL-em do aktualizacji statusu."""
+    return {
+        "file_id": file_id,
+        "file_path": file_path,
+        "status_update_url": f"{BACKEND_CALLBACK_URL}/api/webhook/file/{file_id}/status",
+    }
 
 
 def get_mime_type(filename: str) -> str:
@@ -71,8 +85,8 @@ async def upload_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    print(f"[UPLOAD DEBUG] received folder_id={folder_id}, filename={file.filename}")
     """Upload a file (admin only)."""
+    logger.debug(f"[UPLOAD] folder_id={folder_id}, filename={file.filename}")
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Tylko administrator może wgrywać pliki.")
 
@@ -94,12 +108,13 @@ async def upload_file(
     if folder_id:
         folder = db.query(Folder).filter(Folder.id == folder_id).first()
         if not folder:
-            print(f"[UPLOAD DEBUG] Folder not found for id={folder_id}")
+            logger.warning(f"[UPLOAD] Folder {folder_id} nie istnieje")
             raise HTTPException(status_code=404, detail="Folder nie istnieje.")
-        storage_path = os.path.join(STORAGE_DIR, folder.path.lstrip("/"), file.filename)
+        relative_path = os.path.join(folder.path.lstrip("/"), file.filename)
     else:
-        print(f"[UPLOAD DEBUG] No folder_id, saving to root")
-        storage_path = os.path.join(STORAGE_DIR, file.filename)
+        logger.debug("[UPLOAD] Brak folder_id — zapis do katalogu głównego")
+        relative_path = file.filename
+    storage_path = os.path.join(STORAGE_DIR, relative_path)
 
     os.makedirs(os.path.dirname(storage_path) or STORAGE_DIR, exist_ok=True)
 
@@ -110,10 +125,25 @@ async def upload_file(
     # Get file size
     file_size = os.path.getsize(storage_path)
 
-    # Create DB record
+    # >>> DEV MODE: transfer pliku na Sparka przez SSH <<<
+    # Lokalny backend kopiuje plik do wolumenu shared_docs na Sparku,
+    # aby n8n (uruchomiony na Sparku) widział go pod tą samą ścieżką
+    # co przy uploadzie przez aplikację na Sparku (/data/shared_docs/...).
+    effective_path = storage_path
+    if spark_transfer_enabled():
+        try:
+            effective_path = transfer_to_spark(storage_path, relative_path)
+        except RuntimeError as e:
+            logger.error(f"[UPLOAD] Transfer na Sparka nie powiódł się: {e}")
+            raise HTTPException(
+                status_code=502,
+                detail=f"Nie udało się przesłać pliku na Sparka: {e}"
+            )
+
+    # Create DB record (file_path = ścieżka widziana przez n8n/backend na Sparku)
     db_file = FileModel(
         filename=file.filename,
-        file_path=storage_path,
+        file_path=effective_path,
         mime_type=get_mime_type(file.filename),
         size=file_size,
         folder_id=folder_id,
@@ -124,47 +154,14 @@ async def upload_file(
     db.commit()
     db.refresh(db_file)
 
-    # >>> Trigger n8n webhook about new file <<<
-    webhook_success = False
-    webhook_error = None
-    try:
-        # Load cache from DB to get the correct webhook URL
-        from app.settings.router import _load_cache_from_db, get_webhook_url
-        _load_cache_from_db(db)
-        webhook_url = get_webhook_url()
-        logger.info(f"[UPLOAD] Webhook URL for file {db_file.id}: {webhook_url}")
-        
-        # Use anyio.run for synchronous async execution (same pattern as retry)
-        import anyio
-        async def call_webhook():
-            nonlocal webhook_success, webhook_error
-            try:
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    resp = await client.post(
-                        webhook_url,
-                        json={"file_path": db_file.file_path, "file_id": db_file.id},
-                    )
-                    if resp.status_code == 200:
-                        webhook_success = True
-                        logger.info(f"[UPLOAD] Webhook called successfully for file {db_file.id}")
-                    else:
-                        webhook_error = f"Webhook returned status {resp.status_code}: {resp.text}"
-                        logger.warning(f"[UPLOAD] Webhook error for file {db_file.id}: {webhook_error}")
-            except Exception as e:
-                webhook_error = str(e)
-                logger.error(f"[UPLOAD] Failed to call webhook for file {db_file.id}: {str(e)}")
-        anyio.run(call_webhook)
-    except Exception as e:
-        webhook_error = str(e)
-        logger.error(f"[UPLOAD] Webhook failed for file {db_file.id}: {webhook_error}")
-    
-    # Set file status to ERROR if webhook failed
-    if not webhook_success:
-        db_file.status = DocumentStatus.ERROR
-        db.commit()
-        db.refresh(db_file)
-        logger.error(f"[UPLOAD] File {db_file.id} ({db_file.filename}) status set to ERROR: {webhook_error}")
-    # <<< END n8n trigger >>>
+    # >>> Kolejka: dyspozytor uruchomi przetwarzanie gdy przyjdzie kolej <<<
+    # Plik pozostaje w PENDING ("W kolejce (n8n)"). Dyspozytor wyśle webhook
+    # do n8n tylko jeśli żaden inny plik nie jest w PROCESSING (1 plik naraz).
+    from app.dispatcher import try_dispatch_next
+    dispatch_result = await try_dispatch_next(db)
+    logger.info(f"[UPLOAD] Dispatch po uploadzie pliku {db_file.id}: {dispatch_result}")
+    db.refresh(db_file)
+    # <<< END kolejka >>>
 
     folder_obj = db_file.folder
     uploader_obj = db_file.uploader
@@ -204,7 +201,10 @@ def list_files(
     When folder_id=0, show all files (legacy behavior).
     When folder_id=<int>, show files in that specific folder.
     """
-    query = db.query(FileModel).filter(FileModel.uploaded_by == current_user.id or current_user.role == UserRole.ADMIN)
+    # Admin sees all files; other users only their own
+    query = db.query(FileModel)
+    if current_user.role != UserRole.ADMIN:
+        query = query.filter(FileModel.uploaded_by == current_user.id)
 
     if folder_id is None:
         # No folder_id specified - show only root files (folder_id IS NULL)
@@ -268,10 +268,11 @@ def list_file_queue(
     Returns files from the files table with their DocumentStatus, which represents
     the processing queue status (W kolejce, Parsowanie, Przetworzono, etc.)
     """
-    query = db.query(FileModel).filter(
-        FileModel.uploaded_by == current_user.id or current_user.role == UserRole.ADMIN
-    )
-    
+    # Admin sees all files; other users only their own
+    query = db.query(FileModel)
+    if current_user.role != UserRole.ADMIN:
+        query = query.filter(FileModel.uploaded_by == current_user.id)
+
     if status:
         query = query.filter(FileModel.status == status)
     
@@ -314,10 +315,11 @@ def get_file_status_summary(
     
     Returns a dictionary with status names as keys and counts as values.
     """
-    query = db.query(FileModel).filter(
-        FileModel.uploaded_by == current_user.id or current_user.role == UserRole.ADMIN
-    )
-    
+    # Admin sees all files; other users only their own
+    query = db.query(FileModel)
+    if current_user.role != UserRole.ADMIN:
+        query = query.filter(FileModel.uploaded_by == current_user.id)
+
     # Group by status and count
     from sqlalchemy import func
     status_counts = query.group_by(FileModel.status).with_entities(
@@ -373,6 +375,32 @@ def get_file(file_id: int, db: Session = Depends(get_db), current_user: User = D
     }
 
 
+def _resolve_local_path(file_path: str) -> str:
+    """Zmapuj ścieżkę z DB na lokalnie istniejący plik.
+
+    W trybie dev DB przechowuje ścieżkę Sparka (/data/shared_docs/...),
+    ale lokalna kopia leży w STORAGE_DIR — spróbuj obu.
+    Gdy lokalnej kopii brak (np. po rebuildzie kontenera), a transfer SSH
+    jest włączony — pobierz plik ze Sparka do lokalnego cache.
+    """
+    if os.path.exists(file_path):
+        return file_path
+    prefix = SPARK_SHARED_DIR.rstrip("/") + "/"
+    if file_path.startswith(prefix):
+        candidate = os.path.join(STORAGE_DIR, file_path[len(prefix):])
+        if os.path.exists(candidate):
+            return candidate
+        # Fallback: ściągnij ze Sparka (dev mode)
+        if spark_transfer_enabled():
+            try:
+                from app.spark_transfer import fetch_from_spark
+                fetch_from_spark(file_path, candidate)
+                return candidate
+            except RuntimeError as e:
+                logger.error(f"[DOWNLOAD] Nie udało się pobrać ze Sparka: {e}")
+    return file_path
+
+
 @router.get("/{file_id}/download")
 def download_file(file_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Download a file."""
@@ -380,11 +408,12 @@ def download_file(file_id: int, db: Session = Depends(get_db), current_user: Use
     if not file_obj:
         raise HTTPException(status_code=404, detail="Plik nie istnieje.")
 
-    if not os.path.exists(file_obj.file_path):
+    local_path = _resolve_local_path(file_obj.file_path)
+    if not os.path.exists(local_path):
         raise HTTPException(status_code=404, detail="Plik nie istnieje na dysku.")
 
     return FileResponse(
-        path=file_obj.file_path,
+        path=local_path,
         filename=file_obj.filename,
         media_type=file_obj.mime_type or "application/octet-stream",
     )
@@ -400,9 +429,10 @@ def delete_file(file_id: int, db: Session = Depends(get_db), current_user: User 
     if not file_obj:
         raise HTTPException(status_code=404, detail="Plik nie istnieje.")
 
-    # Delete physical file
-    if os.path.exists(file_obj.file_path):
-        os.remove(file_obj.file_path)
+    # Delete physical file (lokalna kopia; plik na Sparku zostaje — dev mode)
+    local_path = _resolve_local_path(file_obj.file_path)
+    if os.path.exists(local_path):
+        os.remove(local_path)
 
     # Delete DB record
     db.delete(file_obj)

@@ -1,7 +1,19 @@
+import logging
 import os
 import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+# ============ LOGOWANIE ============
+# Uvicorn konfiguruje wyłącznie własne loggery ("uvicorn.*"). Bez poniższego
+# root logger zostaje z poziomem WARNING i bez handlerów, więc wszystkie
+# logger.info() aplikacji ([DISPATCH], [UPLOAD], [CHAT], [SPARK-TRANSFER])
+# są po cichu wyrzucane. Musi wykonać się PRZED importami modułów aplikacji.
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)-8s [%(name)s] %(message)s",
+    stream=sys.stdout,
+)
 
 # Dodaj parent directory do path dla importów
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -19,6 +31,7 @@ from app.dashboard.router import router as dashboard_router
 from app.version_router import router as version_router
 from app.processing_queue.router import router as processing_queue_router
 from app.settings.router import router as settings_router
+from app.chat.router import router as chat_router
 
 # Tworzenie tabel w bazie danych
 Base.metadata.create_all(bind=engine)
@@ -40,6 +53,38 @@ app.add_middleware(
 )
 
 
+# ============ KOLEJKA PRZETWARZANIA (dyspozytor) ============
+@app.on_event("startup")
+async def resume_processing_queue():
+    """Po starcie backendu wznów kolejkę (np. po restarcie w trakcie pracy)
+    i uruchom pętlę watchdoga pilnującą zawieszonych plików."""
+    import asyncio
+    import logging
+    from app.database import SessionLocal
+    from app.dispatcher import try_dispatch_next
+
+    logger = logging.getLogger(__name__)
+
+    async def _dispatch_once(context: str):
+        db = SessionLocal()
+        try:
+            result = await try_dispatch_next(db)
+            logger.info(f"[QUEUE] {context}: {result}")
+        except Exception as e:
+            logger.error(f"[QUEUE] {context} błąd: {e}")
+        finally:
+            db.close()
+
+    await _dispatch_once("startup")
+
+    async def _watchdog_loop():
+        while True:
+            await asyncio.sleep(300)  # co 5 minut
+            await _dispatch_once("watchdog")
+
+    asyncio.create_task(_watchdog_loop())
+
+
 # ============ ROUTERY ============
 app.include_router(auth_router, prefix="/api")
 app.include_router(files_router)
@@ -50,6 +95,7 @@ app.include_router(dashboard_router, prefix="/api")
 app.include_router(version_router)
 app.include_router(processing_queue_router)
 app.include_router(settings_router)
+app.include_router(chat_router)
 
 
 # ============ HEALTH CHECK ============

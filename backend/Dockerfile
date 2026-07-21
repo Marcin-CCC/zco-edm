@@ -2,10 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Instalaza zaleZNOSCI systemowych (w tym curl dla healthcheck)
+# Instalacja zależności systemowych (curl dla healthcheck, openssh-client dla dev transferu na Sparka)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
+    openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Kopiowanie zaleZNOSCI

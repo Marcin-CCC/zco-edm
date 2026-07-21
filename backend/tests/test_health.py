@@ -21,6 +21,15 @@ def client(app):
     return TestClient(app)
 
 
+def registered_paths(app) -> list[str]:
+    """Zwraca sciezki zarejestrowane w aplikacji (ze schematu OpenAPI).
+
+    Od FastAPI 0.139 include_router nie wplaszcza tras do app.routes,
+    tylko dodaje obiekt _IncludedRouter bez atrybutu .path.
+    """
+    return list(app.openapi()["paths"].keys())
+
+
 class TestHealthCheck:
     """Testy endpointu health check."""
 
@@ -68,15 +77,10 @@ class TestAuthRouter:
 
     def test_login_endpoint_exists(self, app):
         """Test ze endpoint login istnieje."""
-        # Szukamy endpointu POST /api/auth/login
-        routes = [r for r in app.routes if hasattr(r, 'path') and r.path]
-        login_routes = [r for r in routes if '/api/auth/login' in r.path]
-        
-        assert len(login_routes) > 0, "Endpoint /api/auth/login nie zostal znaleziony"
+        assert '/api/auth/login' in registered_paths(app), \
+            "Endpoint /api/auth/login nie zostal znaleziony"
 
     def test_register_endpoint_exists(self, app):
         """Test ze endpoint register istnieje."""
-        routes = [r for r in app.routes if hasattr(r, 'path') and r.path]
-        register_routes = [r for r in routes if '/api/auth/register' in r.path]
-        
-        assert len(register_routes) > 0, "Endpoint /api/auth/register nie zostal znaleziony"
+        assert '/api/auth/register' in registered_paths(app), \
+            "Endpoint /api/auth/register nie zostal znaleziony"

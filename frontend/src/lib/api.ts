@@ -215,4 +215,10 @@ export const settingsApi = {
       body: data,
       token: getAuthToken(),
     }),
+  updateChatWebhook: (data: { chat_webhook_url: string }) =>
+    apiRequest<any>('/api/settings/chat_webhook_url', {
+      method: 'PUT',
+      body: data,
+      token: getAuthToken(),
+    }),
 };

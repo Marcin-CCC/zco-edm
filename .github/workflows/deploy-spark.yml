@@ -236,9 +236,17 @@ jobs:
           # Use latest images (ARM64 built by this workflow) — lowercase only
           echo "BUILD_TAG_BACKEND=${{ env.REGISTRY }}/$IMAGE_REPO_LOWER/backend:latest" > .env
           echo "BUILD_TAG_FRONTEND=${{ env.REGISTRY }}/$IMAGE_REPO_LOWER/frontend:latest" >> .env
-          
+
+          # Sekrety webhooków n8n (współdzielone z instancją dev — jedno n8n).
+          # MUSZĄ zgadzać się z credentialami w n8n; wstrzykiwane z GitHub Secrets.
+          echo "WEBHOOK_SECRET=${{ secrets.WEBHOOK_SECRET }}" >> .env
+          echo "N8N_AUTH_HEADER=X-N8N-Webhook-Secret" >> .env
+          echo "N8N_AUTH_VALUE=${{ secrets.N8N_AUTH_VALUE }}" >> .env
+          echo "LOG_LEVEL=INFO" >> .env
+
           echo "🔨 Pulling latest ARM64 images and deploying..."
-          cat .env
+          # NIE drukować całego .env — zawiera sekrety. Tylko tagi obrazów.
+          grep '^BUILD_TAG' .env
           
           # Pull with auth — use lowercase repository name
           docker pull ${{ env.REGISTRY }}/$IMAGE_REPO_LOWER/backend:latest || { echo "ERROR: Failed to pull backend image"; exit 1; }

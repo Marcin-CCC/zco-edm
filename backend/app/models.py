@@ -16,11 +16,16 @@ class UserRole(str, enum.Enum):
 
 
 class DocumentStatus(str, enum.Enum):
-    """Statusy dokumentów/plików."""
+    """Statusy dokumentów/plików (uproszczone do 4).
+
+    Przepływ: PENDING → PROCESSING → READY / ERROR
+    - PENDING:    plik zapisany na dysku, czeka w kolejce n8n
+    - PROCESSING: n8n rozpoczął przetwarzanie (parsowanie/chunki/wektoryzacja)
+    - READY:      n8n zakończył przetwarzanie pomyślnie
+    - ERROR:      n8n zgłosił błąd lub webhook nie zadziałał
+    """
     PENDING = "W kolejce (n8n)"
-    PARSING = "Parsowanie (Docling)"
-    PENDING_CHUNKING = "Chunkowanie"
-    PENDING_VECTORIZE = "Wektoryzacja (Qdrant)"
+    PROCESSING = "Przetwarzanie"
     READY = "Przetworzono"
     ERROR = "Błąd przetwarzania"
 

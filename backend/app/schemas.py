@@ -159,7 +159,29 @@ class DashboardStats(BaseModel):
 # ==================== Settings ====================
 class SettingsResponse(BaseModel):
     n8n_webhook_url: str
+    chat_webhook_url: str = ""
 
 
 class SettingsUpdate(BaseModel):
-    n8n_webhook_url: str
+    n8n_webhook_url: Optional[str] = None
+    chat_webhook_url: Optional[str] = None
+
+
+# ==================== Chat ====================
+class ChatRequest(BaseModel):
+    message: str
+    session_id: str
+    request_id: Optional[str] = None  # identyfikator pojedynczego pytania (dla źródeł)
+
+
+class ChatSourceItem(BaseModel):
+    filename: Optional[str] = None
+    page: Optional[int] = None
+    score: Optional[float] = None
+    file_id: Optional[int] = None
+    url: Optional[str] = None
+
+
+class ChatSourcesPayload(BaseModel):
+    request_id: str
+    sources: list[ChatSourceItem] = []

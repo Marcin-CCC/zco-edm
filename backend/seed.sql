@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS files (
     file_path VARCHAR(1000) NOT NULL,
     mime_type VARCHAR(100),
     size BIGINT,
-    folder_id INTEGER REFERENCES folders(id),
+    folder_id INTEGER REFERENCES folders(id) ON DELETE SET NULL,
     uploaded_by INTEGER REFERENCES users(id) NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'W kolejce (n8n)',
     ocr_result TEXT,
@@ -135,7 +135,7 @@ CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type);
 CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action);
 CREATE INDEX IF NOT EXISTS idx_folders_parent_id ON folders(parent_id);
 CREATE INDEX IF NOT EXISTS idx_folder_permissions_folder ON folder_permissions(folder_id);
-CREATE INDEX IF NOT EXISTS idx_folder_permissions_user ON folder_permissions(user_id);
+CREATE INDEX IF NOT EXISTS idx_folder_permissions_role ON folder_permissions(role);
 
 -- ============ USERS (with bcrypt hashes) ============
 -- Passwords are bcrypt-hashed using passlib:
@@ -177,6 +177,18 @@ SET email = EXCLUDED.email,
     role = EXCLUDED.role,
     hashed_password = EXCLUDED.hashed_password,
     is_active = EXCLUDED.is_active;
+
+-- Insert system user (for files registered by n8n webhook; login disabled)
+INSERT INTO users (username, email, full_name, role, hashed_password, is_active)
+VALUES (
+    'system',
+    'system@zco.szczecin.pl',
+    'System (n8n)',
+    'admin',
+    '$2b$12$DSqFtHv3ytjdj.71EdWk/Omxn25orM0xAzMB0/2LvPhXA5NozCbFW',
+    FALSE
+)
+ON CONFLICT (username) DO NOTHING;
 
 -- Insert user2 (password: password2) - CORRECT BCRYPT HASH
 INSERT INTO users (username, email, full_name, role, hashed_password, is_active)

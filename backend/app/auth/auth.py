@@ -14,6 +14,29 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 @router.post("/register", response_model=UserInDB, status_code=status.HTTP_201_CREATED)
 async def register_user(user_data: UserCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Rejestracja nowego uzytkownika. Tylko admin."""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Brak uprawnien")
+
+    existing = db.query(User).filter(
+        (User.email == user_data.email) | (User.username == user_data.username)
+    ).first()
+
+    if existing:
+        raise HTTPException(status_code=400, detail="Uzytkownik z podanym emailem lub nazwa istnieje")
+
+    new_user = User(
+        email=user_data.email,
+        username=user_data.username,
+        full_name=user_data.full_name,
+        role=user_data.role,
+        hashed_password=hash_password(user_data.password),
+        is_active=True
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
 
 
 @router.post("/register-setup", response_model=UserInDB, status_code=status.HTTP_201_CREATED)
@@ -59,29 +82,6 @@ async def register_setup_user(
         is_active=True
     )
     
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return new_user
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Brak uprawnien")
-
-    existing = db.query(User).filter(
-        (User.email == user_data.email) | (User.username == user_data.username)
-    ).first()
-
-    if existing:
-        raise HTTPException(status_code=400, detail="Uzytkownik z podanym emailem lub nazwa istnieje")
-
-    new_user = User(
-        email=user_data.email,
-        username=user_data.username,
-        full_name=user_data.full_name,
-        role=user_data.role,
-        hashed_password=hash_password(user_data.password),
-        is_active=True
-    )
-
     db.add(new_user)
     db.commit()
     db.refresh(new_user)

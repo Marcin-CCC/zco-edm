@@ -12,10 +12,64 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import File as FileModel, DocumentStatus
+from app.models import File as FileModel, DocumentStatus, User, UserRole
 from app.files.router import get_mime_type
+from app.webhook_auth import verify_webhook_secret
 
-router = APIRouter(prefix="/api/webhook", tags=["Webhooks"])
+# Cały router jest wywoływany przez n8n (nie przez przeglądarkę), więc zamiast
+# JWT chroni go wspólny sekret w nagłówku X-Webhook-Secret.
+router = APIRouter(
+    prefix="/api/webhook",
+    tags=["Webhooks"],
+    dependencies=[Depends(verify_webhook_secret)],
+)
+
+
+def _resolve_status(value: str) -> DocumentStatus:
+    """Map an incoming status string (enum name or value, PL/EN) to DocumentStatus."""
+    if isinstance(value, DocumentStatus):
+        return value
+    # Try enum name (e.g. "PENDING", "READY")
+    normalized = value.strip()
+    if normalized.upper() in DocumentStatus.__members__:
+        return DocumentStatus[normalized.upper()]
+    # Try enum value (e.g. "Przetworzono", "W kolejce (n8n)")
+    for member in DocumentStatus:
+        if member.value == normalized:
+            return member
+    # Legacy aliases used by n8n (old pipeline stage names map to PROCESSING)
+    aliases = {
+        "PROCESSED": DocumentStatus.READY,
+        "PRZETWARZANIE": DocumentStatus.PROCESSING,
+        "PARSOWANIE (DOCLING)": DocumentStatus.PROCESSING,
+        "CHUNKOWANIE": DocumentStatus.PROCESSING,
+        "WEKTORYZACJA (QDRANT)": DocumentStatus.PROCESSING,
+        "PARSING": DocumentStatus.PROCESSING,
+        "PENDING_CHUNKING": DocumentStatus.PROCESSING,
+        "PENDING_VECTORIZE": DocumentStatus.PROCESSING,
+    }
+    if normalized.upper() in aliases:
+        return aliases[normalized.upper()]
+    raise HTTPException(
+        status_code=400,
+        detail=f"Nieznany status: '{value}'. Dozwolone: "
+               f"{[m.name for m in DocumentStatus]} lub {[m.value for m in DocumentStatus]}"
+    )
+
+
+def _get_system_user_id(db: Session) -> int:
+    """Return id of the 'system' user (used for files registered by n8n)."""
+    user = db.query(User).filter(User.username == "system").first()
+    if user:
+        return user.id
+    # Fallback: first admin account
+    admin = db.query(User).filter(User.role == UserRole.ADMIN).first()
+    if admin:
+        return admin.id
+    raise HTTPException(
+        status_code=500,
+        detail="Brak użytkownika systemowego ('system') — uruchom seed.sql."
+    )
 
 
 class FileNotification(BaseModel):
@@ -61,7 +115,7 @@ async def file_notified(payload: FileNotification, db: Session = Depends(get_db)
         mime_type=get_mime_type(payload.file_path),
         size=os.path.getsize(payload.file_path),
         status=DocumentStatus.PENDING,
-        uploaded_by=0,  # system upload (n8n)
+        uploaded_by=_get_system_user_id(db),  # system upload (n8n)
     )
     db.add(db_file)
     db.commit()
@@ -77,7 +131,7 @@ async def file_notified(payload: FileNotification, db: Session = Depends(get_db)
 
 
 @router.patch("/file/{file_id}/status")
-async def update_file_status(file_id: int, payload: StatusUpdate, db: Session = Depends(get_db)):
+async def update_file_status(file_id: int, payload: StatusUpdate, db: Session = Depends(get_db)):  # noqa: C901
     """
     n8n aktualizuje status pliku po przetworzeniu.
     
@@ -90,8 +144,9 @@ async def update_file_status(file_id: int, payload: StatusUpdate, db: Session = 
     if not file_obj:
         raise HTTPException(status_code=404, detail="Plik nie znaleziony")
 
-    # Aktualizuj status
-    file_obj.status = payload.status
+    # Aktualizuj status (mapowanie stringa na DocumentStatus)
+    new_status = _resolve_status(payload.status)
+    file_obj.status = new_status
 
     # Aktualizuj OCR wynik
     if payload.ocr_result:
@@ -103,8 +158,20 @@ async def update_file_status(file_id: int, payload: StatusUpdate, db: Session = 
 
     db.commit()
 
+    # >>> Kolejka: po zakończeniu przetwarzania uruchom następny plik <<<
+    dispatch_info = None
+    if new_status in (DocumentStatus.READY, DocumentStatus.ERROR):
+        from app.dispatcher import try_dispatch_next
+        import logging
+        dispatch_info = await try_dispatch_next(db)
+        logging.getLogger(__name__).info(
+            f"[WEBHOOK] Plik {file_id} zakończony ({new_status.name}); dispatch: {dispatch_info}"
+        )
+    # <<< END kolejka >>>
+
     return {
         "file_id": file_id,
-        "status": file_obj.status,
-        "message": "Status zaktualizowany"
+        "status": file_obj.status.value if hasattr(file_obj.status, "value") else str(file_obj.status),
+        "message": "Status zaktualizowany",
+        "dispatch": dispatch_info,
     }

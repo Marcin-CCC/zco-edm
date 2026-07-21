@@ -91,9 +91,9 @@ export default function DashboardPage() {
 
       {/* Coming soon */}
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
-        <h3 className="text-lg font-medium text-blue-800 mb-2">Wkrótce</h3>
+        <h3 className="text-lg font-medium text-blue-800 mb-2">UWAGA!</h3>
         <p className="text-blue-600 text-sm">
-          Moduły dokumentów, folderów i RAG będą dostępne w następnej aktualizacji.
+          To jest bezpieczna baza wiedzy, która działa na lokalnym serwerze AI bez kontaktu z siecią Internet.
         </p>
       </div>
     </div>

@@ -44,6 +44,15 @@ def get_webhook_url() -> str:
     return app_settings.N8N_WEBHOOK_URL
 
 
+def get_chat_webhook_url() -> str | None:
+    """Get chat webhook URL (n8n Chat Trigger) from cache/DB."""
+    return _settings_cache.get("chat_webhook_url") or None
+
+
+# Klucze ustawień możliwe do edycji przez API
+_UPDATABLE_KEYS = {"n8n_webhook_url", "chat_webhook_url"}
+
+
 @router.get("/", response_model=SettingsResponse)
 def get_settings(
     db: Session = Depends(get_db),
@@ -54,7 +63,8 @@ def get_settings(
     if not _cache_loaded:
         _load_cache_from_db(db)
     return SettingsResponse(
-        n8n_webhook_url=_settings_cache.get("n8n_webhook_url", app_settings.N8N_WEBHOOK_URL)
+        n8n_webhook_url=_settings_cache.get("n8n_webhook_url", app_settings.N8N_WEBHOOK_URL) or "",
+        chat_webhook_url=_settings_cache.get("chat_webhook_url", "") or "",
     )
 
 
@@ -65,14 +75,17 @@ def update_setting(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Update a setting value. Only n8n_webhook_url is supported."""
+    """Update a setting value (n8n_webhook_url / chat_webhook_url)."""
     global _settings_cache, _cache_loaded
 
-    if key != "n8n_webhook_url":
+    if key not in _UPDATABLE_KEYS:
         raise HTTPException(status_code=400, detail=f"Setting '{key}' is not updatable")
 
+    new_value = getattr(update_data, key, None)
+    if not new_value:
+        raise HTTPException(status_code=400, detail=f"Missing value for setting '{key}'")
+
     # Validate URL format
-    new_value = update_data.n8n_webhook_url
     if not new_value.startswith(("http://", "https://")):
         raise HTTPException(status_code=400, detail="Invalid URL format. Must start with http:// or https://")
 

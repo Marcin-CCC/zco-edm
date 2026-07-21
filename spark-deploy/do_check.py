@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+zie #!/usr/bin/env python3
 """Check and create users on Spark."""
 import subprocess, os
 

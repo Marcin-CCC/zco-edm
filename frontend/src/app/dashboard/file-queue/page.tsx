@@ -114,20 +114,12 @@ export default function FileQueuePage() {
     switch (status) {
       case 'W kolejce (n8n)':
         return 'bg-yellow-100 text-yellow-800';
-      case 'Parsowanie (Docling)':
-        return 'bg-orange-100 text-orange-800';
-      case 'Chunkowanie':
-        return 'bg-blue-100 text-blue-800';
-      case 'Wektoryzacja (Qdrant)':
-        return 'bg-purple-100 text-purple-800';
-      case 'W trakcie przetwarzania':
+      case 'Przetwarzanie':
         return 'bg-blue-100 text-blue-800';
       case 'Przetworzono':
         return 'bg-green-100 text-green-800';
       case 'Błąd przetwarzania':
         return 'bg-red-100 text-red-800';
-      case 'Pominięto':
-        return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -169,30 +161,18 @@ export default function FileQueuePage() {
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto p-6">
         {/* Summary Cards - Status Counts */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="text-2xl font-bold text-yellow-800">
               {statusSummary['W kolejce (n8n)'] || 0}
             </div>
             <div className="text-sm text-yellow-600">W kolejce (n8n)</div>
           </div>
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-            <div className="text-2xl font-bold text-orange-800">
-              {statusSummary['Parsowanie (Docling)'] || 0}
-            </div>
-            <div className="text-sm text-orange-600">Parsowanie</div>
-          </div>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="text-2xl font-bold text-blue-800">
-              {statusSummary['Chunkowanie'] || 0}
+              {statusSummary['Przetwarzanie'] || 0}
             </div>
-            <div className="text-sm text-blue-600">Chunkowanie</div>
-          </div>
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-            <div className="text-2xl font-bold text-purple-800">
-              {statusSummary['Wektoryzacja (Qdrant)'] || 0}
-            </div>
-            <div className="text-sm text-purple-600">Wektoryzacja</div>
+            <div className="text-sm text-blue-600">Przetwarzanie</div>
           </div>
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <div className="text-2xl font-bold text-green-800">

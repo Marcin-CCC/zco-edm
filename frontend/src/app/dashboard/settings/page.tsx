@@ -5,6 +5,7 @@ import { settingsApi } from '@/lib/api';
 
 export default function SettingsPage() {
   const [webhookUrl, setWebhookUrl] = useState('');
+  const [chatWebhookUrl, setChatWebhookUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -18,6 +19,7 @@ export default function SettingsPage() {
     try {
       const data = await settingsApi.get();
       setWebhookUrl(data.n8n_webhook_url || '');
+      setChatWebhookUrl(data.chat_webhook_url || '');
     } catch (err: any) {
       setMessage({ type: 'error', text: 'Nie udało się załadować ustawień' });
     } finally {
@@ -32,6 +34,9 @@ export default function SettingsPage() {
 
     try {
       await settingsApi.update({ n8n_webhook_url: webhookUrl });
+      if (chatWebhookUrl.trim()) {
+        await settingsApi.updateChatWebhook({ chat_webhook_url: chatWebhookUrl });
+      }
       setMessage({ type: 'success', text: 'Ustawienia zapisane pomyślnie' });
     } catch (err: any) {
       const detail = err.message || 'Nie udało się zapisać ustawień';
@@ -67,10 +72,30 @@ export default function SettingsPage() {
             }`}
             placeholder="http://localhost:5678/webhook/document-uploaded"
           />
-          {error && (
-            <p className="mt-1 text-sm text-red-600">{error}</p>
-          )}
         </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Adres webhooka czatu
+          </label>
+          <input
+            type="text"
+            value={chatWebhookUrl}
+            onChange={(e) => {
+              setChatWebhookUrl(e.target.value);
+              setError('');
+            }}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="https://n8n-host/webhook/xxxx/chat"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            URL triggera &quot;When chat message received&quot; z workflow czatu n8n (tryb streaming).
+          </p>
+        </div>
+
+        {error && (
+          <p className="text-sm text-red-600">{error}</p>
+        )}
 
         <button
           onClick={handleSave}
