@@ -189,6 +189,23 @@ i to na Sparku, nie lokalnie. Do decyzji: przypiąć do wersji dziś działając
 | 3.4 | Źródła do bazy zamiast `_sources_store` w pamięci procesu |
 | 3.5 | Zweryfikować base URL `OpenAI Chat Model` |
 
+### Faza 3.5 — Naprawa CI/CD (pilne — pipeline martwy)
+
+Build frontendu w GitHub Actions pada na `RUN npm ci` pod emulacją ARM64:
+`qemu: uncaught target signal 4 (Illegal instruction) - core dumped`. Wyszło
+po zmianie środowiska runnera przez GitHub (Node 20→24). Job `deploy-spark`
+ma `needs: [build-backend, build-frontend]`, więc **każdy przyszły deploy jest
+zablokowany** dopóki frontend się nie zbuduje.
+
+Obejście zastosowane 2026-07-21: backend wdrożony ręcznie na Sparku (pull
+gotowego obrazu z ghcr.io + `compose up -d backend`), bo jego obraz zbudował
+się poprawnie (Python, bez npm). Frontend na Sparku został na starym obrazie.
+
+Do naprawy — opcje:
+- pinowanie binfmt/QEMU w `docker/setup-qemu-action` do działającej wersji,
+- LUB budowa natywna na self-hosted runnerze Sparka (ARM64) zamiast emulacji
+  QEMU — docelowo najczystsze (deploy i tak działa na tym runnerze).
+
 ### Faza 4 — Porządki
 
 | # | Zadanie |

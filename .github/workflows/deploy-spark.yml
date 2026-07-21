@@ -95,113 +95,16 @@ jobs:
           git push || echo "No changes to push"
 
   # ============================================================
-  # BUILD BACKEND IMAGE
+  # BUILD & DEPLOY (natywnie na self-hosted ARM64 — bez QEMU)
   # ============================================================
-  build-backend:
-    name: Build Backend Image
+  # Wcześniej dwa osobne joby budowały obrazy ARM64 przez emulację QEMU na
+  # ubuntu-latest (x86). `npm ci` pod QEMU wywalał się z "illegal instruction"
+  # i blokował cały deploy. Runner Sparka jest natywnym aarch64, więc budujemy
+  # bezpośrednio na nim — bez emulacji i bez rundy przez rejestr (obraz
+  # powstaje na tej samej maszynie, na której startuje compose).
+  build-deploy:
+    name: Build & Deploy on Spark (native ARM64)
     needs: [test-backend, bump-version]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          # Use lowercase repository name for Docker compatibility
-          images: ${{ env.REGISTRY }}/${{ github.repository }}/backend
-          tags: |
-            type=sha,prefix=backend-
-            type=ref,event=branch
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Read version
-        id: version
-        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
-
-      - name: Build and push backend image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          platforms: linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            VERSION=${{ steps.version.outputs.version }}
-            BUILD_DATE=${{ github.event.repository.updated_at }}
-            GIT_COMMIT=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # ============================================================
-  # BUILD FRONTEND IMAGE
-  # ============================================================
-  build-frontend:
-    name: Build Frontend Image
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          # Use lowercase repository name for Docker compatibility
-          images: ${{ env.REGISTRY }}/${{ github.repository }}/frontend
-          tags: |
-            type=sha,prefix=frontend-
-            type=ref,event=branch
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push frontend image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          platforms: linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            BACKEND_URL=http://backend:8000
-            NEXT_PUBLIC_API_URL=http://backend:8000
-
-  # ============================================================
-  # DEPLOY TO SPARK (Self-Hosted Runner)
-  # ============================================================
-  deploy-spark:
-    name: Deploy to Spark DGX
-    needs: [build-backend, build-frontend]
     runs-on: self-hosted
     if: github.event_name != 'pull_request'
     environment: spark
@@ -209,81 +112,63 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Read version
+        id: version
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy to Spark
+      - name: Build backend image (native arm64)
+        run: |
+          docker build \
+            --build-arg VERSION=${{ steps.version.outputs.version }} \
+            --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+            --build-arg GIT_COMMIT=${{ github.sha }} \
+            -t ${{ env.REGISTRY }}/marcin-ccc/zco-edm/backend:latest \
+            ./backend
+
+      - name: Build frontend image (native arm64)
+        run: |
+          docker build \
+            --build-arg BACKEND_URL=http://backend:8000 \
+            --build-arg NEXT_PUBLIC_API_URL=http://backend:8000 \
+            -t ${{ env.REGISTRY }}/marcin-ccc/zco-edm/frontend:latest \
+            ./frontend
+
+      - name: Deploy on Spark
         run: |
           TARGET_DIR="/home/marcin/zco-edm-app"
-          # IMPORTANT: Docker image names MUST be lowercase — github.repository may contain uppercase
-          IMAGE_REPO="${{ github.repository }}"
-          IMAGE_REPO_LOWER=$(echo "$IMAGE_REPO" | tr '[:upper:]' '[:lower:]')
-          
-          # Ensure target directory exists
           if [ ! -d "$TARGET_DIR" ]; then
             echo "ERROR: Target directory $TARGET_DIR does not exist"
-            echo "Available directories in /home/marcin:"
-            ls -la /home/marcin/ 2>/dev/null || echo "Cannot list /home/marcin/"
             exit 1
           fi
-          
           cd "$TARGET_DIR"
-          
-          # Use latest images (ARM64 built by this workflow) — lowercase only
-          echo "BUILD_TAG_BACKEND=${{ env.REGISTRY }}/$IMAGE_REPO_LOWER/backend:latest" > .env
-          echo "BUILD_TAG_FRONTEND=${{ env.REGISTRY }}/$IMAGE_REPO_LOWER/frontend:latest" >> .env
 
-          # Sekrety webhooków n8n (współdzielone z instancją dev — jedno n8n).
-          # MUSZĄ zgadzać się z credentialami w n8n; wstrzykiwane z GitHub Secrets.
+          # Obrazy zbudowane lokalnie (kroki powyżej) — compose użyje ich bez pull.
+          echo "BUILD_TAG_BACKEND=${{ env.REGISTRY }}/marcin-ccc/zco-edm/backend:latest" > .env
+          echo "BUILD_TAG_FRONTEND=${{ env.REGISTRY }}/marcin-ccc/zco-edm/frontend:latest" >> .env
+
+          # Sekrety webhooków n8n z GitHub Secrets (współdzielone z dev — jedno n8n).
+          # MUSZĄ zgadzać się z credentialami w n8n.
           echo "WEBHOOK_SECRET=${{ secrets.WEBHOOK_SECRET }}" >> .env
           echo "N8N_AUTH_HEADER=X-N8N-Webhook-Secret" >> .env
           echo "N8N_AUTH_VALUE=${{ secrets.N8N_AUTH_VALUE }}" >> .env
           echo "LOG_LEVEL=INFO" >> .env
 
-          echo "🔨 Pulling latest ARM64 images and deploying..."
           # NIE drukować całego .env — zawiera sekrety. Tylko tagi obrazów.
           grep '^BUILD_TAG' .env
-          
-          # Pull with auth — use lowercase repository name
-          docker pull ${{ env.REGISTRY }}/$IMAGE_REPO_LOWER/backend:latest || { echo "ERROR: Failed to pull backend image"; exit 1; }
-          docker pull ${{ env.REGISTRY }}/$IMAGE_REPO_LOWER/frontend:latest || { echo "ERROR: Failed to pull frontend image"; exit 1; }
-          
-          # docker compose automatically loads .env file
-          docker compose --profile spark up -d || { echo "ERROR: docker compose up failed"; exit 1; }
-          
+
+          docker compose --profile spark up -d backend frontend
           echo "Deployment complete!"
 
       - name: Verify deployment
         run: |
           echo "Checking containers..."
           docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
-          
           echo ""
           echo "Health checks..."
-          
-          # Backend health check
+          sleep 5
           curl -sf --max-time 10 http://localhost:8083/api/health && echo ' - Backend OK' || echo ' - Backend FAIL'
-          
-          # Backend health/info check (new endpoint)
-          curl -sf --max-time 10 http://localhost:8083/api/health/info && echo ' - Health Info OK' || echo ' - Health Info FAIL'
-          
-          # Version check
-          curl -sf --max-time 10 http://localhost:8083/api/version && echo ' - Version OK' || echo ' - Version FAIL'
-          
-          # Frontend health check
           curl -sf --max-time 5 http://localhost:3000 > /dev/null && echo ' - Frontend OK' || echo ' - Frontend FAIL'
 
-      - name: Cleanup old images
+      - name: Cleanup dangling images
         if: always()
-        run: |
-          docker image prune -f --filter 'until=168h' 2>/dev/null || true
-
-      - name: Notify
-        if: always()
-        run: |
-          echo "Deployment finished!"
-          echo "Status: ${{ job.status }}"
+        run: docker image prune -f 2>/dev/null || true
