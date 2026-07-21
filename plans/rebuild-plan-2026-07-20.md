@@ -189,7 +189,7 @@ i to na Sparku, nie lokalnie. Do decyzji: przypiąć do wersji dziś działając
 | 3.4 | Źródła do bazy zamiast `_sources_store` w pamięci procesu |
 | 3.5 | Zweryfikować base URL `OpenAI Chat Model` |
 
-### Faza 3.5 — Naprawa CI/CD (pilne — pipeline martwy)
+### Faza 3.5 — Naprawa CI/CD ✅ (2026-07-21)
 
 Build frontendu w GitHub Actions pada na `RUN npm ci` pod emulacją ARM64:
 `qemu: uncaught target signal 4 (Illegal instruction) - core dumped`. Wyszło
@@ -201,10 +201,24 @@ Obejście zastosowane 2026-07-21: backend wdrożony ręcznie na Sparku (pull
 gotowego obrazu z ghcr.io + `compose up -d backend`), bo jego obraz zbudował
 się poprawnie (Python, bez npm). Frontend na Sparku został na starym obrazie.
 
-Do naprawy — opcje:
-- pinowanie binfmt/QEMU w `docker/setup-qemu-action` do działającej wersji,
-- LUB budowa natywna na self-hosted runnerze Sparka (ARM64) zamiast emulacji
-  QEMU — docelowo najczystsze (deploy i tak działa na tym runnerze).
+Rozwiązanie (2026-07-21): trzy joby (build-backend + build-frontend + deploy)
+scalone w jeden `build-deploy` budujący natywnie na self-hosted runnerze
+Sparka (aarch64) — bez QEMU, bez rundy przez rejestr. Commit `11e31e6`.
+
+**Runner — pułapka infrastruktury.** Job stał w „Waiting for a runner", bo
+jedyny runner na Sparku (`~/actions-runner`) został przepięty do repo
+`Marcin-CCC/iwound-lab`. Konto `Marcin-CCC` to **user, nie organizacja** →
+brak współdzielonych runnerów, każde repo potrzebuje własnego. Rozwiązano
+przez drugi runner `~/actions-runner-zco` (nazwa `spark-zco-edm`, label
+`zco-edm`), zarejestrowany do zco-edm, obok runnera iwound-lab.
+
+⚠️ **NIETRWAŁE:** runner `spark-zco-edm` działa przez `nohup ./run.sh`
+(brak passwordless sudo, więc usługi systemd nie zainstalowano). **Nie
+przeżyje reboota Sparka.** Do zrobienia przez użytkownika (sudo):
+```
+cd ~/actions-runner-zco && sudo ./svc.sh install marcin && sudo ./svc.sh start
+```
+Stara rejestracja `self-hosted-spark-runner` (offline) — do usunięcia.
 
 ### Faza 4 — Porządki
 
