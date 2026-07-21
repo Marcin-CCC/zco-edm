@@ -98,11 +98,18 @@ async def upload_file(
     # Reset file position for later reading
     file.file.seek(0)
 
-    # Validate file type
-    allowed_extensions = {"pdf", "docx", "xlsx", "pptx"}
+    # Validate file type against admin-configured whitelist (Ustawienia aplikacji).
+    # Whitelist musi odpowiadać gałęziom "Switch on file ext" w workflow n8n —
+    # inaczej plik zostałby przyjęty, ale utknął bez obsługi.
+    from app.settings.router import _load_cache_from_db, get_allowed_extensions
+    _load_cache_from_db(db)
+    allowed_extensions = get_allowed_extensions()
     ext = get_extension(file.filename)
     if ext not in allowed_extensions:
-        raise HTTPException(status_code=400, detail=f"Nieobsługiwany typ pliku. Dozwolone: {', '.join(sorted(allowed_extensions))}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Nieobsługiwany typ pliku '.{ext}'. Dozwolone: {', '.join(sorted(allowed_extensions))}"
+        )
 
     # Generate storage path
     if folder_id:

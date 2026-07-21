@@ -251,3 +251,9 @@ INSERT INTO settings (key, value, description) VALUES
 ON CONFLICT (key) DO UPDATE
 SET value = EXCLUDED.value,
     updated_at = CURRENT_TIMESTAMP;
+
+-- Dozwolone rozszerzenia plikow (whitelist uploadu) — zgodne z galeziami
+-- "Switch on file ext" w workflow n8n. NIE nadpisuj, jesli admin zmienil.
+INSERT INTO settings (key, value, description) VALUES
+    ('allowed_extensions', 'pdf,docx,xlsx', 'Dozwolone rozszerzenia plikow (workflow n8n)')
+ON CONFLICT (key) DO NOTHING;

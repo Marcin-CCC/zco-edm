@@ -221,4 +221,10 @@ export const settingsApi = {
       body: data,
       token: getAuthToken(),
     }),
+  updateAllowedExtensions: (data: { allowed_extensions: string }) =>
+    apiRequest<any>('/api/settings/allowed_extensions', {
+      method: 'PUT',
+      body: data,
+      token: getAuthToken(),
+    }),
 };
