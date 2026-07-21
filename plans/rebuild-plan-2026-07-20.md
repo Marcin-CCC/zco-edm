@@ -156,17 +156,21 @@ To zadziałało jak ostrzeżenie, ale następnym razem może pójść w drugą s
 i to na Sparku, nie lokalnie. Do decyzji: przypiąć do wersji dziś działających
 (`pip freeze`) czy przyjąć zakresy `~=` z górną granicą.
 
-### Faza 1 — Izolacja dev/prod
+### Faza 1 — Bezpieczne współistnienie dev/prod (przeskalowana 2026-07-21)
 
-**Fundament — przed jakąkolwiek zmianą modeli danych.**
+**Decyzja użytkownika:** na etapie demo zostajemy przy JEDNEJ bazie i JEDNYM
+n8n (osobna baza pokazywałaby inną listę plików/statusów niż realnie
+przetworzone; przenoszenie workflowów między instancjami n8n jest żmudne).
+Pełna izolacja dev/prod → dopiero przy wdrożeniu u klienta. To przeskalowuje
+Fazę 1: zamiast rozdzielać, czynimy współistnienie na wspólnej bazie bezpiecznym.
 
-| # | Zadanie |
-|---|---------|
-| 1.1 | Osobna baza dev na Sparku (`edmdatabase_dev`) + osobna kolekcja Qdrant |
-| 1.2 | Alembic zamiast `create_all()` — migracje wersjonowane, uruchamiane świadomie |
-| 1.3 | Flaga `DISPATCHER_ENABLED` — dokładnie jedna instancja prowadzi kolejkę |
-| 1.4 | Stabilny `BACKEND_CALLBACK_URL` (DNS lub rezerwacja DHCP zamiast gołego IP) |
-| 1.5 | Kopie workflowów n8n dla dev |
+| # | Zadanie | Status |
+|---|---------|--------|
+| 1.1 | Osobna baza dev + Qdrant | ⏸ odłożone (decyzja: jedna baza) |
+| 1.2 | Alembic zamiast `create_all()` | ⏸ ryzykowne na żywej wspólnej bazie |
+| 1.3 | **Atomowość dyspozytora** — `pg_advisory_xact_lock` w `try_dispatch_next` serializuje wysyłkę między instancjami; oba backendy mogą działać, „1 plik naraz" trzyma się. Zastępuje pomysł `DISPATCHER_ENABLED` (który psułby testy uploadu lokalnie) | ✅ 2026-07-21 |
+| 1.4 | Stabilny `BACKEND_CALLBACK_URL` — tylko dev lokalny (IP z DHCP); Spark ma poprawny default. Config env, nie kod | ⬜ opcjonalne |
+| 1.5 | Kopie workflowów n8n dla dev | ⏸ odłożone (jedno n8n) |
 
 ### Faza 2 — Niezawodność kolejki
 

@@ -11,13 +11,17 @@ Zasada działania:
 - Watchdog: plik w PROCESSING dłużej niż PROCESSING_TIMEOUT_MINUTES jest
   oznaczany jako ERROR (n8n umarł w trakcie), a kolejka rusza dalej.
 
-Uwaga: statusu PROCESSING NIE ustawia dyspozytor — robi to workflow n8n
-przez PATCH (nod "Status PROCESSING sending"). Dyspozytor traktuje jednak
-plik wysłany do n8n jako "zajmujący slot" poprzez znacznik in-flight w DB?
-Nie — prościej: dyspozytor ustawia status PROCESSING sam, natychmiast po
-udanym wywołaniu webhooka. Nod PROCESSING w n8n jest wtedy idempotentny
-(nadpisuje tym samym statusem). Dzięki temu stan kolejki żyje wyłącznie
-w kolumnie files.status i przeżywa restart backendu.
+Dyspozytor "zajmuje slot" (claim): ustawia status PROCESSING sam, zanim
+wyśle webhook. Nod PROCESSING w n8n jest wtedy idempotentny (nadpisuje tym
+samym statusem). Dzięki temu stan kolejki żyje wyłącznie w kolumnie
+files.status i przeżywa restart backendu.
+
+Współbieżność (jedna baza, wiele backendów — dev lokalny + Spark):
+- Sekcja "decyzja + zajęcie slotu" jest serializowana blokadą doradczą
+  Postgresa (pg_advisory_xact_lock). Dzięki temu dwa backendy dzielące bazę
+  nie wyślą dwóch plików naraz — gwarancja "1 plik naraz" trzyma się
+  niezależnie od liczby instancji. Blokada trzyma się do commitu (krótko:
+  tylko na czas decyzji), a POST do n8n leci już POZA blokadą.
 """
 
 import os
@@ -25,6 +29,7 @@ import logging
 from datetime import datetime, timedelta
 
 import httpx
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.models import File as FileModel, DocumentStatus
@@ -34,6 +39,10 @@ logger = logging.getLogger(__name__)
 
 # Po ilu minutach plik wiszący w PROCESSING uznajemy za martwy (watchdog)
 PROCESSING_TIMEOUT_MINUTES = int(os.getenv("PROCESSING_TIMEOUT_MINUTES", "30"))
+
+# Stały klucz blokady doradczej dyspozytora — TEN SAM we wszystkich instancjach
+# dzielących bazę, więc serializuje wysyłkę między nimi.
+_DISPATCH_LOCK_KEY = 776_2001
 
 
 def _get_webhook_url(db: Session) -> str | None:
@@ -49,7 +58,11 @@ def _build_payload(file: FileModel) -> dict:
 
 
 def _reap_stale_processing(db: Session) -> None:
-    """Watchdog: oznacz jako ERROR pliki wiszące w PROCESSING zbyt długo."""
+    """Watchdog: oznacz jako ERROR pliki wiszące w PROCESSING zbyt długo.
+
+    Nie commituje — wołane w sekcji krytycznej dyspozytora, commit robi
+    wołający (żeby reap i decyzja o zajęciu slotu były jedną transakcją).
+    """
     cutoff = datetime.utcnow() - timedelta(minutes=PROCESSING_TIMEOUT_MINUTES)
     stale = (
         db.query(FileModel)
@@ -63,8 +76,14 @@ def _reap_stale_processing(db: Session) -> None:
             f"od > {PROCESSING_TIMEOUT_MINUTES} min — oznaczam ERROR"
         )
         f.status = DocumentStatus.ERROR
-    if stale:
-        db.commit()
+
+
+def _mark_error(db: Session, file_id: int) -> None:
+    """Ustaw ERROR dla pliku po ID (obiekt mógł wygasnąć po commit)."""
+    db.query(FileModel).filter(FileModel.id == file_id).update(
+        {FileModel.status: DocumentStatus.ERROR}
+    )
+    db.commit()
 
 
 async def try_dispatch_next(db: Session) -> dict:
@@ -73,54 +92,66 @@ async def try_dispatch_next(db: Session) -> dict:
     Zwraca słownik diagnostyczny:
       {"dispatched": bool, "file_id": int|None, "reason": str}
     """
-    _reap_stale_processing(db)
+    # ===== Sekcja krytyczna: decyzja + zajęcie slotu pod blokadą doradczą =====
+    # pg_advisory_xact_lock serializuje ten fragment między WSZYSTKIMI backendami
+    # dzielącymi bazę. Trzyma się do commitu (krótko). POST do n8n jest później,
+    # już poza blokadą. Na nie-Postgresie (np. testy) blokadę pomijamy.
+    try:
+        if db.bind and db.bind.dialect.name == "postgresql":
+            db.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": _DISPATCH_LOCK_KEY})
 
-    # Czy coś się już przetwarza? (1 plik naraz)
-    in_flight = (
-        db.query(FileModel)
-        .filter(FileModel.status == DocumentStatus.PROCESSING)
-        .count()
-    )
-    if in_flight > 0:
-        return {"dispatched": False, "file_id": None,
-                "reason": f"{in_flight} plik(ów) w trakcie przetwarzania"}
+        _reap_stale_processing(db)
 
-    # Najstarszy oczekujący
-    next_file = (
-        db.query(FileModel)
-        .filter(FileModel.status == DocumentStatus.PENDING)
-        .order_by(FileModel.created_at.asc())
-        .first()
-    )
-    if not next_file:
-        return {"dispatched": False, "file_id": None, "reason": "kolejka pusta"}
+        in_flight = (
+            db.query(FileModel)
+            .filter(FileModel.status == DocumentStatus.PROCESSING)
+            .count()
+        )
+        if in_flight > 0:
+            db.commit()  # zapisz reap, zwolnij blokadę
+            return {"dispatched": False, "file_id": None,
+                    "reason": f"{in_flight} plik(ów) w trakcie przetwarzania"}
 
-    webhook_url = _get_webhook_url(db)
-    if not webhook_url:
-        logger.error("[DISPATCH] Brak N8N webhook URL — kolejka wstrzymana")
-        return {"dispatched": False, "file_id": next_file.id,
-                "reason": "brak skonfigurowanego webhook URL"}
+        next_file = (
+            db.query(FileModel)
+            .filter(FileModel.status == DocumentStatus.PENDING)
+            .order_by(FileModel.created_at.asc())
+            .first()
+        )
+        if not next_file:
+            db.commit()
+            return {"dispatched": False, "file_id": None, "reason": "kolejka pusta"}
 
-    payload = _build_payload(next_file)
-    logger.info(f"[DISPATCH] Wysyłam plik {next_file.id} ({next_file.filename}) do n8n: {webhook_url}")
+        webhook_url = _get_webhook_url(db)
+        if not webhook_url:
+            db.commit()
+            logger.error("[DISPATCH] Brak N8N webhook URL — kolejka wstrzymana")
+            return {"dispatched": False, "file_id": next_file.id,
+                    "reason": "brak skonfigurowanego webhook URL"}
 
+        # Zajmij slot: PROCESSING + commit (zwalnia blokadę). Od tej chwili inne
+        # instancje widzą in_flight > 0 i nie wyślą kolejnego pliku.
+        payload = _build_payload(next_file)
+        file_id, filename = next_file.id, next_file.filename
+        next_file.status = DocumentStatus.PROCESSING
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    # ===== Koniec sekcji krytycznej — blokada zwolniona =====
+
+    logger.info(f"[DISPATCH] Wysyłam plik {file_id} ({filename}) do n8n: {webhook_url}")
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(webhook_url, json=payload, headers=outgoing_headers())
         if resp.status_code == 200:
-            # Zajmij slot — n8n i tak nadpisze PROCESSING przez PATCH (idempotentne)
-            next_file.status = DocumentStatus.PROCESSING
-            db.commit()
-            logger.info(f"[DISPATCH] Plik {next_file.id} przekazany do n8n (status PROCESSING)")
-            return {"dispatched": True, "file_id": next_file.id, "reason": "ok"}
-        else:
-            err = f"Webhook zwrócił {resp.status_code}: {resp.text[:300]}"
-            logger.error(f"[DISPATCH] Plik {next_file.id}: {err}")
-            next_file.status = DocumentStatus.ERROR
-            db.commit()
-            return {"dispatched": False, "file_id": next_file.id, "reason": err}
+            logger.info(f"[DISPATCH] Plik {file_id} przekazany do n8n (status PROCESSING)")
+            return {"dispatched": True, "file_id": file_id, "reason": "ok"}
+        err = f"Webhook zwrócił {resp.status_code}: {resp.text[:300]}"
+        logger.error(f"[DISPATCH] Plik {file_id}: {err}")
+        _mark_error(db, file_id)
+        return {"dispatched": False, "file_id": file_id, "reason": err}
     except Exception as e:
-        logger.error(f"[DISPATCH] Plik {next_file.id}: wyjątek wywołania webhooka: {e}")
-        next_file.status = DocumentStatus.ERROR
-        db.commit()
-        return {"dispatched": False, "file_id": next_file.id, "reason": str(e)}
+        logger.error(f"[DISPATCH] Plik {file_id}: wyjątek wywołania webhooka: {e}")
+        _mark_error(db, file_id)
+        return {"dispatched": False, "file_id": file_id, "reason": str(e)}
