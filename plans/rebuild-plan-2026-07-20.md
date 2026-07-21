@@ -177,7 +177,8 @@ Fazę 1: zamiast rozdzielać, czynimy współistnienie na wspólnej bazie bezpie
 | # | Zadanie |
 |---|---------|
 | 2.0 | **Czyszczenie zdublowanych wektorów w Qdrant** — plik 137 był przetwarzany ~3× podczas debugowania sekretu (n8n kończy przetwarzanie i wypycha wektory ZANIM callback READY wróci; każdy ponowny dispatch = kolejna kopia). Duplikaty zawyżają ranking tych samych treści w czacie. Wiąże się z 2.4 (brak usuwania wektorów) |
-| 2.1 | Callback ERROR w n8n (error workflow na krytycznych nodach) |
+| 2.1a | **Odporność backendu na awarie n8n** ✅ 2026-07-21 — dyspozytor rozróżnia awarię PRZEJŚCIOWĄ (n8n nieosiągalny → plik wraca do PENDING, auto-retry) od TRWAŁEJ (n8n zwraca non-200 → ERROR + powód w `metadata.error`). Powód widoczny w kolejce (UI już renderuje `error_message`). Retry/READY czyści stary błąd. Zweryfikowane oboma ścieżkami |
+| 2.1b | Callback ERROR w n8n (error workflow na krytycznych nodach → PATCH status ERROR + `metadata.error`) — ⬜ po stronie n8n (instrukcja gotowa). Backend już scala `metadata` z callbacku |
 | 2.2 | Whitelist rozszerzeń zarządzana z panelu admina; jedno źródło prawdy, zgodne z gałęziami `Switch on file ext` |
 | 2.3 | Atomowość dyspozytora — `SELECT ... FOR UPDATE` / advisory lock zamiast `count()` + `commit()` |
 | 2.4 | `DELETE` kasuje kopię na Sparku **i** wektory w Qdrant (inaczej usunięty dokument nadal odpowiada w czacie) |

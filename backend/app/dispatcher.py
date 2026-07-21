@@ -78,10 +78,28 @@ def _reap_stale_processing(db: Session) -> None:
         f.status = DocumentStatus.ERROR
 
 
-def _mark_error(db: Session, file_id: int) -> None:
-    """Ustaw ERROR dla pliku po ID (obiekt mógł wygasnąć po commit)."""
+def _mark_error(db: Session, file_id: int, reason: str | None = None) -> None:
+    """Ustaw ERROR dla pliku po ID i zapisz powód w metadanych (do UI)."""
+    f = db.query(FileModel).filter(FileModel.id == file_id).first()
+    if not f:
+        return
+    f.status = DocumentStatus.ERROR
+    if reason:
+        meta = dict(f.metadata_ or {})
+        meta["error"] = reason[:1000]
+        f.metadata_ = meta
+    db.commit()
+
+
+def _revert_to_pending(db: Session, file_id: int) -> None:
+    """Zwolnij zajęty slot: PROCESSING → PENDING (awaria przejściowa n8n).
+
+    Plik wraca do kolejki i zostanie ponowiony przy następnym cyklu dyspozytora
+    (upload/callback lub watchdog co 5 min) — bez spalania go na ERROR, gdy n8n
+    tylko chwilowo nie odpowiada.
+    """
     db.query(FileModel).filter(FileModel.id == file_id).update(
-        {FileModel.status: DocumentStatus.ERROR}
+        {FileModel.status: DocumentStatus.PENDING}
     )
     db.commit()
 
@@ -144,14 +162,28 @@ async def try_dispatch_next(db: Session) -> dict:
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(webhook_url, json=payload, headers=outgoing_headers())
-        if resp.status_code == 200:
-            logger.info(f"[DISPATCH] Plik {file_id} przekazany do n8n (status PROCESSING)")
-            return {"dispatched": True, "file_id": file_id, "reason": "ok"}
-        err = f"Webhook zwrócił {resp.status_code}: {resp.text[:300]}"
-        logger.error(f"[DISPATCH] Plik {file_id}: {err}")
-        _mark_error(db, file_id)
-        return {"dispatched": False, "file_id": file_id, "reason": err}
+    except httpx.RequestError as e:
+        # Awaria PRZEJŚCIOWA: n8n nieosiągalny (zatrzymany, timeout, sieć).
+        # Nie palimy pliku na ERROR — wraca do kolejki i zostanie ponowiony.
+        logger.warning(
+            f"[DISPATCH] n8n nieosiągalny dla pliku {file_id}: {e} — "
+            f"wracam do PENDING (ponowię później)"
+        )
+        _revert_to_pending(db, file_id)
+        return {"dispatched": False, "file_id": file_id,
+                "reason": f"n8n nieosiągalny: {e}", "retry": True}
     except Exception as e:
-        logger.error(f"[DISPATCH] Plik {file_id}: wyjątek wywołania webhooka: {e}")
-        _mark_error(db, file_id)
+        # Nieoczekiwany błąd — traktujemy jako trwały.
+        logger.error(f"[DISPATCH] Plik {file_id}: nieoczekiwany wyjątek: {e}")
+        _mark_error(db, file_id, reason=f"Nieoczekiwany błąd wysyłki: {e}")
         return {"dispatched": False, "file_id": file_id, "reason": str(e)}
+
+    if resp.status_code == 200:
+        logger.info(f"[DISPATCH] Plik {file_id} przekazany do n8n (status PROCESSING)")
+        return {"dispatched": True, "file_id": file_id, "reason": "ok"}
+
+    # Awaria TRWAŁA: n8n odpowiedział, ale błędem (np. 4xx/5xx workflow).
+    err = f"Webhook zwrócił {resp.status_code}: {resp.text[:300]}"
+    logger.error(f"[DISPATCH] Plik {file_id}: {err}")
+    _mark_error(db, file_id, reason=err)
+    return {"dispatched": False, "file_id": file_id, "reason": err}

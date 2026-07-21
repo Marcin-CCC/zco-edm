@@ -152,9 +152,19 @@ async def update_file_status(file_id: int, payload: StatusUpdate, db: Session = 
     if payload.ocr_result:
         file_obj.ocr_result = payload.ocr_result
 
-    # Aktualizuj metadane
+    # Aktualizuj metadane — SCAL z istniejącymi (nie nadpisuj całości).
+    # n8n przy błędzie może przysłać {"error": "..."} → trafia do UI kolejki.
     if payload.metadata:
-        file_obj.metadata_ = payload.metadata
+        merged = dict(file_obj.metadata_ or {})
+        merged.update(payload.metadata)
+        file_obj.metadata_ = merged
+
+    # Sukces kasuje ewentualny stary błąd (np. po ponowieniu wcześniejszej awarii)
+    if new_status == DocumentStatus.READY and isinstance(file_obj.metadata_, dict):
+        if "error" in file_obj.metadata_:
+            cleaned = dict(file_obj.metadata_)
+            cleaned.pop("error", None)
+            file_obj.metadata_ = cleaned
 
     db.commit()
 

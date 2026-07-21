@@ -288,13 +288,18 @@ def list_file_queue(
         if f.uploader:
             uploader_data = {"id": f.uploader.id, "username": f.uploader.username, "email": f.uploader.email}
         
+        # Powód błędu zapisany w metadanych (przez dyspozytor lub callback n8n)
+        error_message = None
+        if isinstance(f.metadata_, dict):
+            error_message = f.metadata_.get("error")
+
         result.append({
             "id": f.id,
             "document_id": None,  # File doesn't have document_id, keeping for compatibility
             "file_name": f.filename,
             "status": f.status.value if hasattr(f.status, 'value') else str(f.status),
             "page_count": 0,  # Files don't have page count yet
-            "error_message": None,
+            "error_message": error_message,
             "created_at": f.created_at.isoformat() if f.created_at else None,
             "updated_at": f.updated_at.isoformat() if f.updated_at else None,
             "started_at": None,

@@ -94,8 +94,12 @@ async def retry_processing(
 
     logger.info(f"[RETRY] Found file: {file.filename}, current status: {file.status}")
 
-    # Wróć do kolejki
+    # Wróć do kolejki i wyczyść stary powód błędu (żeby UI nie pokazywało nieświeżego)
     file.status = DocumentStatus.PENDING
+    if isinstance(file.metadata_, dict) and "error" in file.metadata_:
+        cleaned = dict(file.metadata_)
+        cleaned.pop("error", None)
+        file.metadata_ = cleaned
     db.commit()
 
     # Uruchom dyspozytor (wyśle webhook jeśli slot wolny)
