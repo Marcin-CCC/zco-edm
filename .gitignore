@@ -52,3 +52,6 @@ id_ed25519*
 .env
 .env.*
 !.env.example
+
+# MCP config — zawiera token dostępu (nie commitować)
+.mcp.json
