@@ -15,6 +15,7 @@ Przepływ:
 
 import logging
 import time
+from datetime import datetime
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -23,8 +24,11 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth.auth import get_current_user
-from app.models import User, File as FileModel
-from app.schemas import ChatRequest, ChatSourcesPayload
+from app.models import User, File as FileModel, Conversation, Message
+from app.schemas import (
+    ChatRequest, ChatSourcesPayload,
+    ConversationCreate, ConversationSummary, ConversationDetail, MessageOut, TurnCreate,
+)
 from app.settings.router import _load_cache_from_db, get_chat_webhook_url
 from app.webhook_auth import verify_webhook_secret
 from app.n8n_auth import outgoing_headers
@@ -153,3 +157,88 @@ async def get_sources(
     _purge_expired_sources()
     entry = _sources_store.get(request_id)
     return {"request_id": request_id, "sources": entry["sources"] if entry else []}
+
+
+# ==================== Historia rozmów ====================
+def _get_owned_conversation(conv_id: int, user: User, db: Session) -> Conversation:
+    conv = db.query(Conversation).filter(Conversation.id == conv_id).first()
+    if not conv or conv.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Rozmowa nie istnieje.")
+    return conv
+
+
+@router.get("/conversations", response_model=list[ConversationSummary])
+def list_conversations(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Lista rozmów użytkownika (najnowsze pierwsze)."""
+    return (
+        db.query(Conversation)
+        .filter(Conversation.user_id == current_user.id)
+        .order_by(Conversation.updated_at.desc())
+        .all()
+    )
+
+
+@router.post("/conversations", response_model=ConversationSummary, status_code=201)
+def create_conversation(
+    payload: ConversationCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Utwórz nową rozmowę. Tytuł = pierwsze pytanie (skrócone)."""
+    title = (payload.title or "Nowa rozmowa").strip()[:200] or "Nowa rozmowa"
+    conv = Conversation(user_id=current_user.id, title=title)
+    db.add(conv)
+    db.commit()
+    db.refresh(conv)
+    return conv
+
+
+@router.get("/conversations/{conv_id}", response_model=ConversationDetail)
+def get_conversation(
+    conv_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Pełny wątek rozmowy z wiadomościami."""
+    conv = _get_owned_conversation(conv_id, current_user, db)
+    return ConversationDetail(
+        id=conv.id,
+        title=conv.title,
+        messages=[MessageOut.model_validate(m) for m in conv.messages],
+    )
+
+
+@router.post("/conversations/{conv_id}/turn", status_code=201)
+def append_turn(
+    conv_id: int,
+    payload: TurnCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Zapisz jedną turę: pytanie użytkownika + odpowiedź asystenta."""
+    conv = _get_owned_conversation(conv_id, current_user, db)
+    db.add(Message(conversation_id=conv.id, role="user", content=payload.user_message))
+    db.add(Message(
+        conversation_id=conv.id, role="assistant",
+        content=payload.assistant_message, sources=payload.sources or None,
+    ))
+    # dotknij updated_at (żeby rozmowa wskoczyła na górę listy)
+    conv.updated_at = datetime.utcnow()
+    db.commit()
+    return {"message": "Tura zapisana", "conversation_id": conv.id}
+
+
+@router.delete("/conversations/{conv_id}")
+def delete_conversation(
+    conv_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Usuń rozmowę wraz z wiadomościami."""
+    conv = _get_owned_conversation(conv_id, current_user, db)
+    db.delete(conv)
+    db.commit()
+    return {"message": "Rozmowa usunięta."}

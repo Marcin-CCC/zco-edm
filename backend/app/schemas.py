@@ -187,3 +187,40 @@ class ChatSourceItem(BaseModel):
 class ChatSourcesPayload(BaseModel):
     request_id: str
     sources: list[ChatSourceItem] = []
+
+
+# ==================== Historia rozmów ====================
+class ConversationCreate(BaseModel):
+    title: str  # zwykle pierwsze pytanie (skracane po stronie serwera)
+
+
+class ConversationSummary(BaseModel):
+    id: int
+    title: str
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class MessageOut(BaseModel):
+    role: str
+    content: str
+    sources: Optional[list] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ConversationDetail(BaseModel):
+    id: int
+    title: str
+    messages: list[MessageOut] = []
+
+
+class TurnCreate(BaseModel):
+    """Zapis jednej tury: pytanie użytkownika + odpowiedź asystenta."""
+    user_message: str
+    assistant_message: str
+    sources: Optional[list] = None

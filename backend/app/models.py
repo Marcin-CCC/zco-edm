@@ -109,6 +109,41 @@ class File(Base):
     uploader = relationship("User", foreign_keys=[uploaded_by], back_populates="uploaded_files")
 
 
+# ==================== Historia rozmów czatu ====================
+class Conversation(Base):
+    """Pojedyncza rozmowa czatu (jak wątek w ChatGPT).
+
+    sessionId przekazywany do n8n (pamięć LLM) = "{user_id}:{conversation.id}",
+    dzięki czemu kontynuacja wątku trafia w ten sam bufor pamięci n8n.
+    """
+    __tablename__ = "conversations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    title = Column(String(200), nullable=False, default="Nowa rozmowa")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    messages = relationship(
+        "Message", back_populates="conversation",
+        cascade="all, delete-orphan", order_by="Message.id",
+    )
+
+
+class Message(Base):
+    """Pojedyncza wiadomość w rozmowie (user/assistant)."""
+    __tablename__ = "messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    conversation_id = Column(Integer, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(String(20), nullable=False)  # "user" | "assistant"
+    content = Column(Text, nullable=False)
+    sources = Column(JSON, nullable=True)  # lista źródeł (tylko dla assistant)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    conversation = relationship("Conversation", back_populates="messages")
+
+
 # ==================== Future Processing Tables ====================
 # These models correspond to tables created in seed.sql for document processing pipeline.
 # They will be used when the full processing/RAG pipeline is implemented.

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 
 interface ChatSource {
@@ -17,39 +17,23 @@ interface ChatMessage {
   error?: boolean;
 }
 
+interface ConvSummary {
+  id: number;
+  title: string;
+  updated_at?: string;
+}
+
 /**
  * Przygotuj tekst odpowiedzi do renderowania Markdown.
- * Skraca "wystające" linie kropek z formularzy (wielokropki pól do wypełnienia),
- * np. "........................................" → "……………" — nie rozpychają dymka.
+ * Skraca "wystające" linie kropek z formularzy (wielokropki pól do wypełnienia).
  */
 function normalizeAnswer(text: string): string {
-  return text
-    // długie serie kropek (6+) — skróć do stałego wielokropka pola formularza
-    .replace(/\.{6,}/g, '……………')
-    // analogicznie serie podkreśleń
-    .replace(/_{6,}/g, '……………');
-}
-
-/** Wygeneruj identyfikator sesji czatu (trzymany per karta przeglądarki). */
-function getSessionId(): string {
-  const key = 'chat_session_id';
-  let sid = sessionStorage.getItem(key);
-  if (!sid) {
-    sid = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    sessionStorage.setItem(key, sid);
-  }
-  return sid;
+  return text.replace(/\.{6,}/g, '……………').replace(/_{6,}/g, '……………');
 }
 
 /**
- * Parsuj strumień odpowiedzi n8n Chat Trigger.
- *
- * n8n w trybie streaming wysyła linie JSON, np.:
- *   {"type":"begin"} {"type":"item","content":"..."} {"type":"end"}
- * lub czysty tekst (zależnie od wersji). Parser jest tolerancyjny:
- * - linia JSON z content/text/output/chunk → doklej tekst
- * - obiekt z polem sources → zapisz listę źródeł
- * - nie-JSON → doklej surowy tekst
+ * Parsuj strumień odpowiedzi n8n. Tolerancyjny: linia JSON z content/text/output
+ * → doklej tekst; obiekt z polem sources → zapisz źródła; nie-JSON → surowy tekst.
  */
 function extractFromParsed(obj: any, onText: (t: string) => void, onSources: (s: ChatSource[]) => void) {
   if (obj == null) return;
@@ -61,15 +45,66 @@ function extractFromParsed(obj: any, onText: (t: string) => void, onSources: (s:
   else if (text && typeof text === 'object') extractFromParsed(text, onText, onSources);
 }
 
+function authHeaders(): Record<string, string> {
+  const token = localStorage.getItem('auth_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
+  const [conversations, setConversations] = useState<ConvSummary[]>([]);
+  const [currentConvId, setCurrentConvId] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const loadConversations = useCallback(async () => {
+    try {
+      const res = await fetch('/api/chat/conversations', { headers: authHeaders() });
+      if (res.ok) setConversations(await res.json());
+    } catch { /* lista rozmów nie jest krytyczna */ }
+  }, []);
+
+  useEffect(() => { loadConversations(); }, [loadConversations]);
+
+  const openConversation = async (id: number) => {
+    if (streaming) return;
+    try {
+      const res = await fetch(`/api/chat/conversations/${id}`, { headers: authHeaders() });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setMessages(
+        (data.messages || []).map((m: any) => ({
+          role: m.role,
+          content: m.content,
+          sources: m.sources || undefined,
+        }))
+      );
+      setCurrentConvId(id);
+    } catch {
+      alert('Nie udało się wczytać rozmowy.');
+    }
+  };
+
+  const newConversation = () => {
+    if (streaming) return;
+    setCurrentConvId(null);
+    setMessages([]);
+  };
+
+  const deleteConversation = async (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Usunąć tę rozmowę?')) return;
+    try {
+      await fetch(`/api/chat/conversations/${id}`, { method: 'DELETE', headers: authHeaders() });
+      if (currentConvId === id) newConversation();
+      loadConversations();
+    } catch { /* ignore */ }
+  };
 
   const sendMessage = async () => {
     const text = input.trim();
@@ -78,35 +113,54 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, { role: 'user', content: text }, { role: 'assistant', content: '' }]);
     setStreaming(true);
 
-    const token = localStorage.getItem('auth_token');
-    // Unikalny identyfikator pytania — po zakończeniu strumienia pobierzemy
-    // pod nim listę źródeł zapisaną w backendzie przez workflow n8n.
     const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    let assistantText = '';
+    let finalSources: ChatSource[] = [];
 
-    const appendText = (t: string) =>
+    const appendText = (t: string) => {
+      assistantText += t;
       setMessages((prev) => {
         const next = [...prev];
         const last = next[next.length - 1];
         next[next.length - 1] = { ...last, content: last.content + t };
         return next;
       });
-
-    const setSources = (sources: ChatSource[]) =>
+    };
+    const setSources = (sources: ChatSource[]) => {
+      finalSources = sources;
       setMessages((prev) => {
         const next = [...prev];
         const last = next[next.length - 1];
         next[next.length - 1] = { ...last, sources };
         return next;
       });
+    };
 
     try {
+      // Nowa rozmowa? Najpierw ją utwórz — tytuł = pierwsze pytanie.
+      // Jej id służy jako session_id (klucz pamięci n8n) → ciągłość wątku.
+      let convId = currentConvId;
+      if (convId == null) {
+        const cRes = await fetch('/api/chat/conversations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({ title: text }),
+        });
+        if (cRes.ok) {
+          const conv = await cRes.json();
+          convId = conv.id;
+          setCurrentConvId(convId);
+        }
+      }
+
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ message: text, session_id: getSessionId(), request_id: requestId }),
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          message: text,
+          session_id: String(convId ?? requestId),
+          request_id: requestId,
+        }),
       });
 
       if (!res.ok || !res.body) {
@@ -121,12 +175,10 @@ export default function ChatPage() {
       const processLine = (line: string) => {
         const trimmed = line.trim();
         if (!trimmed) return;
-        // SSE: "data: {...}"
         const payload = trimmed.startsWith('data:') ? trimmed.slice(5).trim() : trimmed;
         if (payload === '[DONE]') return;
         try {
           const obj = JSON.parse(payload);
-          // pomiń ramki sterujące begin/end bez treści
           if (obj && (obj.type === 'begin' || obj.type === 'end') && !obj.content) {
             if (Array.isArray(obj.sources)) setSources(obj.sources);
             return;
@@ -147,19 +199,31 @@ export default function ChatPage() {
       }
       if (buffer.trim()) processLine(buffer);
 
-      // Po zakończeniu strumienia pobierz źródła odpowiedzi (zapisane przez n8n)
+      // Źródła odpowiedzi (zapisane przez n8n po zakończeniu strumienia)
       try {
-        const srcRes = await fetch(`/api/chat/sources/${requestId}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
+        const srcRes = await fetch(`/api/chat/sources/${requestId}`, { headers: authHeaders() });
         if (srcRes.ok) {
           const data = await srcRes.json();
           if (Array.isArray(data.sources) && data.sources.length > 0) {
             setSources(data.sources);
           }
         }
-      } catch {
-        // brak źródeł nie jest błędem krytycznym
+      } catch { /* brak źródeł nie jest błędem krytycznym */ }
+
+      // Zapisz turę w historii (pytanie + odpowiedź + źródła)
+      if (convId != null && assistantText.trim()) {
+        try {
+          await fetch(`/api/chat/conversations/${convId}/turn`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({
+              user_message: text,
+              assistant_message: assistantText,
+              sources: finalSources,
+            }),
+          });
+          loadConversations();
+        } catch { /* zapis historii nie jest krytyczny dla samej odpowiedzi */ }
       }
     } catch (e: any) {
       setMessages((prev) => {
@@ -178,55 +242,80 @@ export default function ChatPage() {
   };
 
   const renderSourceLabel = (s: ChatSource, i: number) => s.filename || s.url || `Dokument ${i + 1}`;
-
   const sourceHref = (s: ChatSource): string | null => {
     if (s.url) return s.url;
     if (s.file_id) return `/api/files/${s.file_id}/download`;
     return null;
   };
 
-  // Otwórz dokument źródłowy z tokenem JWT (zwykły <a href> nie niesie
-  // nagłówka Authorization → backend zwróciłby "Not authenticated")
   const openSource = async (s: ChatSource) => {
-    if (s.url) {
-      window.open(s.url, '_blank', 'noopener,noreferrer');
-      return;
-    }
+    if (s.url) { window.open(s.url, '_blank', 'noopener,noreferrer'); return; }
     if (!s.file_id) return;
-    const token = localStorage.getItem('auth_token');
     try {
-      const res = await fetch(`/api/files/${s.file_id}/download`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const res = await fetch(`/api/files/${s.file_id}/download`, { headers: authHeaders() });
       if (!res.ok) throw new Error(`Błąd pobierania (${res.status})`);
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
+      window.open(URL.createObjectURL(blob), '_blank');
     } catch (e: any) {
       alert(e?.message || 'Nie udało się otworzyć dokumentu.');
     }
   };
 
   return (
-    <div className="flex justify-start h-[calc(100vh-120px)]">
-      {/* Panel czatu wyrównany do lewej strony obszaru roboczego */}
+    <div className="flex gap-4 h-[calc(100vh-120px)]">
+      {/* Sidebar z listą rozmów */}
+      <aside className="hidden md:flex w-64 flex-col bg-white rounded-lg shadow border border-gray-200">
+        <div className="p-3 border-b border-gray-200">
+          <button
+            onClick={newConversation}
+            disabled={streaming}
+            className="w-full px-3 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+          >
+            + Nowa rozmowa
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {conversations.length === 0 && (
+            <p className="text-xs text-gray-400 text-center mt-4">Brak zapisanych rozmów.</p>
+          )}
+          {conversations.map((c) => (
+            <div
+              key={c.id}
+              onClick={() => openConversation(c.id)}
+              className={`group flex items-center justify-between gap-1 px-3 py-2 rounded-md cursor-pointer text-sm ${
+                currentConvId === c.id ? 'bg-blue-50 text-blue-800' : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              title={c.title}
+            >
+              <span className="truncate flex-1">{c.title}</span>
+              <button
+                onClick={(e) => deleteConversation(c.id, e)}
+                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 shrink-0"
+                title="Usuń rozmowę"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      </aside>
+
+      {/* Panel czatu */}
       <div className="w-full lg:w-[480px] xl:w-[560px] flex flex-col bg-white rounded-lg shadow border border-gray-200">
-        {/* Nagłówek */}
         <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold text-gray-800">Chat — baza wiedzy</h1>
             <p className="text-xs text-gray-500">Odpowiedzi na podstawie przetworzonych dokumentów</p>
           </div>
           <button
-            onClick={() => { sessionStorage.removeItem('chat_session_id'); setMessages([]); }}
-            className="text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-100"
+            onClick={newConversation}
+            className="md:hidden text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-100"
             title="Rozpocznij nową rozmowę"
           >
             Nowa rozmowa
           </button>
         </div>
 
-        {/* Wiadomości */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 && (
             <div className="text-center text-gray-400 text-sm mt-10">
@@ -277,7 +366,6 @@ export default function ChatPage() {
                   m.content || (streaming && idx === messages.length - 1 ? '…' : '')
                 )}
 
-                {/* Źródła pod odpowiedzią */}
                 {m.role === 'assistant' && m.sources && m.sources.length > 0 && (
                   <div className="mt-3 pt-2 border-t border-gray-300">
                     <p className="text-xs font-medium text-gray-500 mb-1">Źródła:</p>
@@ -287,10 +375,7 @@ export default function ChatPage() {
                         return (
                           <li key={i} className="text-xs">
                             {clickable ? (
-                              <button
-                                onClick={() => openSource(s)}
-                                className="text-blue-600 hover:underline text-left"
-                              >
+                              <button onClick={() => openSource(s)} className="text-blue-600 hover:underline text-left">
                                 📄 {renderSourceLabel(s, i)}{s.page ? ` (str. ${s.page})` : ''}
                               </button>
                             ) : (
@@ -308,17 +393,13 @@ export default function ChatPage() {
           <div ref={bottomRef} />
         </div>
 
-        {/* Pole wpisywania */}
         <div className="p-3 border-t border-gray-200">
           <div className="flex gap-2">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  sendMessage();
-                }
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
               }}
               rows={2}
               placeholder="Napisz wiadomość… (Enter — wyślij, Shift+Enter — nowa linia)"
