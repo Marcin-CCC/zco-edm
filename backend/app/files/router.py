@@ -441,6 +441,11 @@ def delete_file(file_id: int, db: Session = Depends(get_db), current_user: User 
     if not file_obj:
         raise HTTPException(status_code=404, detail="Plik nie istnieje.")
 
+    # Usuń wektory z Qdranta (żeby usunięty/wygasły dokument nie odpowiadał
+    # już w czacie). Best-effort — awaria Qdranta nie blokuje usunięcia pliku.
+    from app.qdrant_client import delete_vectors_by_file_id
+    qdrant_result = delete_vectors_by_file_id(file_obj.id)
+
     # Delete physical file (lokalna kopia; plik na Sparku zostaje — dev mode)
     local_path = _resolve_local_path(file_obj.file_path)
     if os.path.exists(local_path):
@@ -450,7 +455,7 @@ def delete_file(file_id: int, db: Session = Depends(get_db), current_user: User 
     db.delete(file_obj)
     db.commit()
 
-    return {"message": "Plik został usunięty."}
+    return {"message": "Plik został usunięty.", "qdrant": qdrant_result}
 
 
 @router.put("/{file_id}", response_model=FileResponseSchema)

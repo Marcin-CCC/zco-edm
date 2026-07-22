@@ -35,6 +35,10 @@ class Settings:
 
     # External services
     QDRANT_URL: str = os.getenv("QDRANT_URL", "http://192.168.1.34:6333")
+    # Kolekcja Qdrant, do której n8n zapisuje wektory (do usuwania po file_id).
+    # Nazwa "chi_camp_2026" to pozostałość po szablonie n8n — konfigurowalna,
+    # gdyby została przemianowana przy czyszczeniu bazy demo.
+    QDRANT_COLLECTION: str = os.getenv("QDRANT_COLLECTION", "chi_camp_2026")
     N8N_WEBHOOK_URL: str = os.getenv("N8N_WEBHOOK_URL")  # Pobierany z ustawień aplikacji (baza danych)
     DOCLING_API_URL: str = os.getenv("DOCLING_API_URL", "http://docling:8002")
     OLLAMA_API_URL: str = os.getenv("OLLAMA_API_URL", "http://192.168.1.34:11434")
