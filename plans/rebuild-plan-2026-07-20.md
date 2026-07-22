@@ -1,8 +1,48 @@
 # EDM ZCO — Plan przebudowy
 
-**Data:** 2026-07-20
+**Data:** 2026-07-20 (aktualizowany 2026-07-22)
 **Poprzedni dokument:** [`plans/audit-report-2026-07-05.md`](audit-report-2026-07-05.md) (większość pozycji odrobiona)
-**Status:** Faza 0 w realizacji
+
+---
+
+## STAN NA 2026-07-22 — punkt wznowienia
+
+**Zrobione:** Faza 0 (obserwowalność, sekrety, testy, pinowanie), Faza 1
+(atomowość dyspozytora `pg_advisory_lock`), Faza 3.5 (CI/CD natywny build +
+runner `spark-zco-edm`), Faza 2.1–2.2 (odporność: przejściowe/trwałe awarie,
+callback ERROR w n8n, strażnik pustego rezultatu, whitelist rozszerzeń),
+naprawa parsowania **xlsx**.
+
+**Naprawa xlsx (n8n-side, 2026-07-22):** węzeł „Fields mapping" wypuszczał
+`cleaned_text`, a „Default Data Loader" czyta `chunk_content`. Fix: Fields
+mapping ustawia `chunk_content = {{ $json.markdown_content }}` oraz
+`filename = {{ $('Webhook').item.json.body.file_path.split('/').pop() }}`.
+Potwierdzone: READY + odpowiedź w czacie ze źródłem.
+
+### Roadmapa klienta (priorytety z rozmowy 2026-07-22)
+
+Kolejność uzgodniona z użytkownikiem:
+
+1. ~~xlsx (bug)~~ ✅ zrobione
+2. **Fundament: `file_id` + `folder` w payloadzie Qdranta** ← NASTĘPNY KROK.
+   To zarazem **systematyczny przegląd metadanych we WSZYSTKICH gałęziach**
+   n8n (tekst/tabele/hierarchia/xlsx) — rozjechały się przez przebudowy.
+   `file_id` z `$('Webhook').item.json.body.file_id`. Odblokowuje 2.4, 3.3, prawa.
+3. **2.4** — usuwanie wektorów z Qdranta przy delete pliku (wygasłe
+   rozporządzenia nie mogą dalej odpowiadać). Delete-by-filter na `file_id`.
+4. **Historia rozmów + pamięć czatu (#2 + 3.2)** — persistentne rozmowy
+   (jak ChatGPT: lista, tytuł = 1. pytanie, wznawianie wątku), backend dokleja
+   ostatnie ~5 par Q&A. UWAGA: pamiętać **tylko Q&A, NIE chunki RAG** (to
+   powodowało przepełnienie kontekstu). Model odpowiedzi:
+   **Qwen/Qwen3-VL-30B-A3B-Instruct** (bge-m3 to embeddingi, nie generacja).
+5. **#4** — upload wielu plików naraz (frontend; dyspozytor już obsługuje
+   setki PENDING). Na demo bez transferu SSH.
+6. **#3 (prawa dostępu)** — foldery-dziedziny, RBAC dla przeglądania I dla
+   odpowiedzi czatu (retrieval filtrowany po dozwolonych folderach). Docelowe.
+
+**Odłożone:** 2.0 (dedup wektorów — baza demo i tak będzie czyszczona do zera),
+2.5 (krótszy watchdog — ryzykowny, bo są pliki ~40 min; zamiast tego długi
+watchdog + callbacki ERROR niosą główny ciężar).
 
 ---
 
