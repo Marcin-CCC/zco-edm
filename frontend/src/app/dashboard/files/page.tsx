@@ -72,6 +72,10 @@ export default function FilesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  // Postęp wgrywania wielu plików (jeden POST na plik, sekwencyjnie)
+  const [uploadItems, setUploadItems] = useState<
+    { name: string; status: 'pending' | 'uploading' | 'done' | 'error'; error?: string }[]
+  >([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   
@@ -153,30 +157,55 @@ export default function FilesPage() {
     loadFiles();
   };
 
-  // Handle file upload
+  // Handle file upload — obsługa wielu plików naraz.
+  // Wysyłamy sekwencyjnie (jeden POST na plik): backend przyjmuje jeden plik
+  // na żądanie, a dyspozytor i tak przetwarza 1 plik naraz. Sekwencyjnie jest
+  // łagodniej dla backendu i transferu SSH, a postęp jest czytelny.
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const fileList = event.target.files;
+    if (!fileList || fileList.length === 0) return;
+    const filesToUpload = Array.from(fileList);
+    // Reset inputu, aby ponowny wybór tych samych plików znów wyzwolił onChange
+    event.target.value = '';
 
     setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      // Upload to the CURRENT folder (the one user is browsing)
-      if (currentFolderId !== null) {
-        formData.append('folder_id', String(currentFolderId));
+    setUploadItems(filesToUpload.map((f) => ({ name: f.name, status: 'pending' as const })));
+
+    let errorCount = 0;
+    for (let i = 0; i < filesToUpload.length; i++) {
+      const file = filesToUpload[i];
+      setUploadItems((prev) =>
+        prev.map((it, idx) => (idx === i ? { ...it, status: 'uploading' } : it))
+      );
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        // Upload do BIEŻĄCEGO katalogu (tego, który użytkownik przegląda)
+        if (currentFolderId !== null) {
+          formData.append('folder_id', String(currentFolderId));
+        }
+        await filesApi.upload(formData);
+        setUploadItems((prev) =>
+          prev.map((it, idx) => (idx === i ? { ...it, status: 'done' } : it))
+        );
+      } catch (err) {
+        errorCount++;
+        const msg = err instanceof Error ? err.message : 'Błąd wgrywania';
+        console.error(`Upload failed (${file.name}):`, err);
+        setUploadItems((prev) =>
+          prev.map((it, idx) => (idx === i ? { ...it, status: 'error', error: msg } : it))
+        );
       }
-
-      await filesApi.upload(formData);
-
-      setShowUploadModal(false);
+      // Odśwież listę na bieżąco — pliki pojawiają się w miarę wgrywania
       loadFiles(currentFolderId);
-      loadFolders();
-    } catch (err) {
-      console.error('Upload failed:', err);
-      alert('Upload nieudany. Sprawdź poprawność pliku.');
-    } finally {
-      setUploading(false);
+    }
+
+    setUploading(false);
+    loadFolders();
+    // Wszystko OK → zamknij modal i wyczyść; były błędy → zostaw raport widoczny
+    if (errorCount === 0) {
+      setShowUploadModal(false);
+      setUploadItems([]);
     }
   };
 
@@ -306,7 +335,7 @@ export default function FilesPage() {
                 className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
                 disabled={uploading}
               >
-                {uploading ? 'Wczytywanie...' : '⬆️ Prześlij plik'}
+                {uploading ? 'Wczytywanie...' : '⬆️ Prześlij pliki'}
               </button>
             </div>
           )}
@@ -597,9 +626,10 @@ export default function FilesPage() {
       {showUploadModal && isAdmin && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-bold text-gray-800 mb-2">Prześlij plik</h2>
+            <h2 className="text-lg font-bold text-gray-800 mb-2">Prześlij pliki</h2>
             <p className="text-sm text-gray-600 mb-1">
-              Dozwolone typy: PDF, DOCX, XLSX, PPTX (max 100MB)
+              Dozwolone typy: PDF, DOCX, XLSX (max 100MB). Możesz wybrać wiele
+              plików naraz.
             </p>
             <p className="text-sm text-gray-600 mb-4">
               Docelowy katalog: <strong>
@@ -608,18 +638,66 @@ export default function FilesPage() {
             </p>
             <input
               type="file"
-              accept=".pdf,.docx,.xlsx,.pptx"
+              multiple
+              accept=".pdf,.docx,.xlsx"
               onChange={handleUpload}
               className="w-full border border-gray-300 rounded-md p-2"
               disabled={uploading}
             />
+
+            {/* Postęp wgrywania (jeden wiersz na plik) */}
+            {uploadItems.length > 0 && (
+              <div className="mt-4">
+                <div className="text-sm font-medium text-gray-700 mb-2">
+                  Postęp: {uploadItems.filter((it) => it.status === 'done').length}/
+                  {uploadItems.length} wgranych
+                  {uploadItems.some((it) => it.status === 'error') && (
+                    <span className="text-red-600">
+                      {' '}
+                      ({uploadItems.filter((it) => it.status === 'error').length} z błędem)
+                    </span>
+                  )}
+                </div>
+                <ul className="max-h-48 overflow-y-auto divide-y divide-gray-100 border border-gray-200 rounded-md">
+                  {uploadItems.map((it, idx) => (
+                    <li key={idx} className="flex items-start gap-2 px-3 py-2 text-sm">
+                      <span className="mt-0.5">
+                        {it.status === 'done'
+                          ? '✅'
+                          : it.status === 'error'
+                          ? '❌'
+                          : it.status === 'uploading'
+                          ? '⏳'
+                          : '⬜'}
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block truncate text-gray-800" title={it.name}>
+                          {it.name}
+                        </span>
+                        {it.status === 'error' && it.error && (
+                          <span className="block text-xs text-red-600">{it.error}</span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="flex justify-end space-x-2 mt-4">
               <button
-                onClick={() => setShowUploadModal(false)}
+                onClick={() => {
+                  setShowUploadModal(false);
+                  setUploadItems([]);
+                }}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
                 disabled={uploading}
               >
-                Anuluj
+                {uploading
+                  ? 'Wgrywanie...'
+                  : uploadItems.length > 0
+                  ? 'Zamknij'
+                  : 'Anuluj'}
               </button>
             </div>
           </div>

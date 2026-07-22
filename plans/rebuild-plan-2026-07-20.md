@@ -41,9 +41,13 @@ Kolejność uzgodniona z użytkownikiem:
    Przy okazji dostrojone w RAG: próg score 0.50→0.40 (bge-m3 daje niskie
    score), fallback top-3 gdy nic nie przejdzie progu (Chunks Filter),
    `max_tokens=1024` + `frequency_penalty=0.5` na modelu (pętle powtórzeń).
-   **Historia rozmów (#2, UI jak ChatGPT: lista/tytuł/wznawianie)** — ZOSTAJE
-   do zrobienia (backend: tabele conversations/messages + endpointy; frontend:
-   sidebar). To osobny, większy kawałek.
+   **Historia rozmów (#2, UI jak ChatGPT: lista/tytuł/wznawianie)** ✅ zrobione
+   (2026-07-22). Backend: tabele `conversations`/`messages` + endpointy
+   (`/api/chat/conversations` GET/POST, `/{id}` GET, `/{id}/turn` POST,
+   `/{id}` DELETE); `sessionId` do n8n = `{user_id}:{conversation.id}` (ten sam
+   bufor pamięci n8n przy wznawianiu). Frontend: sidebar z listą rozmów,
+   tworzenie/wznawianie/usuwanie. Wdrożone na Sparku, potwierdzone przez
+   użytkownika.
 5. **#4** — upload wielu plików naraz (frontend; dyspozytor już obsługuje
    setki PENDING). Na demo bez transferu SSH.
 6. **#3 (prawa dostępu)** — foldery-dziedziny, RBAC dla przeglądania I dla
@@ -56,6 +60,19 @@ Kolejność uzgodniona z użytkownikiem:
    listę plików po typie; (c) routing intencji (AI Agent z toolami „szukaj"
    [RAG] / „wypisz dokumenty" [baza], albo klasyfikator na wejściu). Łączy się
    z RBAC (ta sama lista plików filtrowana po folderach/uprawnieniach). Docelowe.
+8. **Cytowania zamiast retrieved-sources** — dziś lista „Źródła" pochodzi z
+   węzła Chunks Filter i pokazuje WSZYSTKIE chunki, które trafiły do kontekstu
+   (top-5 po score), a NIE te, których model faktycznie użył. Skutek: przy
+   ogólnym pytaniu („co zawiera umowa z X") do źródeł wpadają dokumenty o
+   podobnym score, których odpowiedź nie dotyczy (zdiagnozowane 2026-07-22 na
+   wykonaniu 1434: score stłoczone 0.51–0.53, więc próg/filtr względny tego NIE
+   rozdzieli — semantycznie „porozumienie" ≈ „umowa"). Właściwe rozwiązanie:
+   model cytuje id źródeł. Elementy: (a) Chunks Filter etykietuje każdy chunk
+   `[ŹRÓDŁO id=N | filename | str.]` + mapa id→{filename,page,file_id};
+   (b) System Message: „na końcu podaj `[[ŹRÓDŁA: 1,4]]` — tylko realnie użyte";
+   (c) Sources Gate/backend parsuje znacznik, pokazuje tylko cytowane i usuwa
+   znacznik z odpowiedzi. Zdecydowane 2026-07-22: NIE teraz (demo działa,
+   odpowiedzi poprawne — to polish UX). Docelowe.
 
 **Odłożone:** 2.0 (dedup wektorów — baza demo i tak będzie czyszczona do zera),
 2.5 (krótszy watchdog — ryzykowny, bo są pliki ~40 min; zamiast tego długi
