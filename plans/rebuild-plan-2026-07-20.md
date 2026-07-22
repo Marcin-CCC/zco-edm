@@ -33,15 +33,29 @@ Kolejność uzgodniona z użytkownikiem:
 3. ~~2.4 — usuwanie wektorów z Qdranta przy delete pliku~~ ✅ zrobione.
    `qdrant_client.delete_vectors_by_file_id` (filtr `metadata.file_id`),
    wpięte w `DELETE /api/files/{id}`, best-effort. Zweryfikowane end-to-end.
-4. **Historia rozmów + pamięć czatu (#2 + 3.2)** ← NASTĘPNY KROK. Persistentne rozmowy
-   (jak ChatGPT: lista, tytuł = 1. pytanie, wznawianie wątku), backend dokleja
-   ostatnie ~5 par Q&A. UWAGA: pamiętać **tylko Q&A, NIE chunki RAG** (to
-   powodowało przepełnienie kontekstu). Model odpowiedzi:
-   **Qwen/Qwen3-VL-30B-A3B-Instruct** (bge-m3 to embeddingi, nie generacja).
+4. **Pamięć czatu (3.2)** ✅ zrobione (droga B, n8n-side). Węzeł Simple Memory
+   podpięty do AI Agenta, klucz `{{ $('Webhook').item.json.body.sessionId }}`,
+   okno 5. Kontekst RAG przeniesiony do **System Message** (tryb Expression!),
+   wejście agenta = samo pytanie → pamięć trzyma TYLKO Q&A, nie chunki.
+   Model: **Qwen/Qwen3-VL-30B-A3B-Instruct** (lokalny vLLM :8002).
+   Przy okazji dostrojone w RAG: próg score 0.50→0.40 (bge-m3 daje niskie
+   score), fallback top-3 gdy nic nie przejdzie progu (Chunks Filter),
+   `max_tokens=1024` + `frequency_penalty=0.5` na modelu (pętle powtórzeń).
+   **Historia rozmów (#2, UI jak ChatGPT: lista/tytuł/wznawianie)** — ZOSTAJE
+   do zrobienia (backend: tabele conversations/messages + endpointy; frontend:
+   sidebar). To osobny, większy kawałek.
 5. **#4** — upload wielu plików naraz (frontend; dyspozytor już obsługuje
    setki PENDING). Na demo bez transferu SSH.
 6. **#3 (prawa dostępu)** — foldery-dziedziny, RBAC dla przeglądania I dla
    odpowiedzi czatu (retrieval filtrowany po dozwolonych folderach). Docelowe.
+7. **Zapytania agregujące/wyliczające** („wypisz umowy", „jakie dokumenty
+   masz?") — RAG tego NIE robi wyczerpująco (widzi tylko top-K chunków).
+   Rozwiązanie: nie przez RAG, tylko przez **listę plików z tabeli `files`**.
+   Elementy: (a) tagowanie typu dokumentu przy wgrywaniu (umowa/regulamin/
+   ustawa/faktura...) → payload Qdranta + `files`; (b) osobny handler zwracający
+   listę plików po typie; (c) routing intencji (AI Agent z toolami „szukaj"
+   [RAG] / „wypisz dokumenty" [baza], albo klasyfikator na wejściu). Łączy się
+   z RBAC (ta sama lista plików filtrowana po folderach/uprawnieniach). Docelowe.
 
 **Odłożone:** 2.0 (dedup wektorów — baza demo i tak będzie czyszczona do zera),
 2.5 (krótszy watchdog — ryzykowny, bo są pliki ~40 min; zamiast tego długi
