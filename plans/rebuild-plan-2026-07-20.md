@@ -24,13 +24,16 @@ Potwierdzone: READY + odpowiedź w czacie ze źródłem.
 Kolejność uzgodniona z użytkownikiem:
 
 1. ~~xlsx (bug)~~ ✅ zrobione
-2. **Fundament: `file_id` + `folder` w payloadzie Qdranta** ← NASTĘPNY KROK.
-   To zarazem **systematyczny przegląd metadanych we WSZYSTKICH gałęziach**
-   n8n (tekst/tabele/hierarchia/xlsx) — rozjechały się przez przebudowy.
-   `file_id` z `$('Webhook').item.json.body.file_id`. Odblokowuje 2.4, 3.3, prawa.
-3. **2.4** — usuwanie wektorów z Qdranta przy delete pliku (wygasłe
-   rozporządzenia nie mogą dalej odpowiadać). Delete-by-filter na `file_id`.
-4. **Historia rozmów + pamięć czatu (#2 + 3.2)** — persistentne rozmowy
+2. ~~Fundament: `file_id` w payloadzie Qdranta~~ ✅ zrobione (2026-07-22).
+   Dodane JEDNO pole w Default Data Loader: `file_id` =
+   `{{ $('Webhook').first().json.body.file_id }}` (bez wiodącego `=`!) —
+   pokrywa wszystkie gałęzie (wspólny loader). W Qdrancie `file_id` jako int.
+   Kolekcja: `chi_camp_2026`. `folder` odłożony do kroku 6 (RBAC).
+   `filename` był już w payloadzie wcześniej (300/300).
+3. ~~2.4 — usuwanie wektorów z Qdranta przy delete pliku~~ ✅ zrobione.
+   `qdrant_client.delete_vectors_by_file_id` (filtr `metadata.file_id`),
+   wpięte w `DELETE /api/files/{id}`, best-effort. Zweryfikowane end-to-end.
+4. **Historia rozmów + pamięć czatu (#2 + 3.2)** ← NASTĘPNY KROK. Persistentne rozmowy
    (jak ChatGPT: lista, tytuł = 1. pytanie, wznawianie wątku), backend dokleja
    ostatnie ~5 par Q&A. UWAGA: pamiętać **tylko Q&A, NIE chunki RAG** (to
    powodowało przepełnienie kontekstu). Model odpowiedzi:
