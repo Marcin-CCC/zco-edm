@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.2.0",
+      "date": "2026-07-23",
+      "title": "Wiarygodne źródła w czacie",
+      "changes": [
+        "Pod odpowiedzią czatu pokazywane są tylko dokumenty, na których odpowiedź faktycznie się opiera (a nie wszystkie wyszukane).",
+        "Odpowiedzi grzecznościowe i „nie znaleziono” nie zawierają już źródeł.",
+        "Silniejsze trzymanie się treści dokumentów — mniej odpowiedzi spoza bazy wiedzy."
+      ]
+    },
+    {
       "version": "0.1.3",
       "date": "2026-07-23",
       "title": "Spójność wyglądu podstron",

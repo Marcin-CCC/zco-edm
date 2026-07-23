@@ -24,11 +24,27 @@ interface ConvSummary {
 }
 
 /**
+ * Usuń z odpowiedzi maszynowy znacznik cytowań źródeł „[[ŹRÓDŁA: 1,3]]".
+ * Model dodaje go na końcu; parsuje go n8n (Sources Gate), a użytkownik go nie widzi.
+ * Regex tnie od znacznika do końca — działa też dla częściowego znacznika w trakcie
+ * streamowania (np. „[[ŹRÓDŁA: 1," bez domknięcia).
+ */
+function stripSourceMarker(text: string): string {
+  return text
+    // stary znacznik zbiorczy na końcu: „[[ŹRÓDŁA: 1,3]]" / „[[ŹRÓDŁA:…"
+    .replace(/\s*\[\[\s*(ŹRÓDŁA|ZRODLA)\s*:[\s\S]*$/i, '')
+    // inline cytaty z treści: „[Źródło 3]" lub „[[Źródło 3]]" (tolerancyjnie 1–2 nawiasy)
+    .replace(/\s*\[{1,2}\s*Źródło\s*\d+\s*\]{1,2}/gi, '')
+    // częściowy, niedomknięty znacznik w trakcie streamowania (np. „[[Źró") — żeby nic nie migało
+    .replace(/\s*\[{1,2}[^\]]*$/, '');
+}
+
+/**
  * Przygotuj tekst odpowiedzi do renderowania Markdown.
- * Skraca "wystające" linie kropek z formularzy (wielokropki pól do wypełnienia).
+ * Usuwa znacznik cytowań oraz skraca "wystające" linie kropek z formularzy.
  */
 function normalizeAnswer(text: string): string {
-  return text.replace(/\.{6,}/g, '……………').replace(/_{6,}/g, '……………');
+  return stripSourceMarker(text).replace(/\.{6,}/g, '……………').replace(/_{6,}/g, '……………');
 }
 
 /**
@@ -67,7 +83,7 @@ export default function ChatPage() {
   // Aktywuj pole wpisywania po zakończeniu generowania (i na starcie),
   // żeby użytkownik mógł od razu pisać bez klikania.
   useEffect(() => {
-    if (!streaming) inputRef.current?.focus();
+    if (!streaming) inputRef.current?.focus({ preventScroll: true });
   }, [streaming]);
 
   const stopGenerating = () => abortRef.current?.abort();
@@ -239,7 +255,7 @@ export default function ChatPage() {
             headers: { 'Content-Type': 'application/json', ...authHeaders() },
             body: JSON.stringify({
               user_message: text,
-              assistant_message: assistantText,
+              assistant_message: stripSourceMarker(assistantText),
               sources: finalSources,
             }),
           });
