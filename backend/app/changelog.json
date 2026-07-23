@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "0.1.2",
+      "date": "2026-07-23",
+      "title": "Usprawnienia czatu",
+      "changes": [
+        "Szersza kolumna historii rozmów (więcej widocznego tekstu).",
+        "Pole wpisywania aktywuje się samo po odpowiedzi — można od razu pisać kolejne pytanie.",
+        "Przycisk „Zatrzymaj” przerywający generowanie odpowiedzi.",
+        "Krótsze, bardziej konkretne odpowiedzi na ogólne pytania (z prośbą o doprecyzowanie)."
+      ]
+    },
+    {
       "version": "0.1.1",
       "date": "2026-07-23",
       "title": "Usprawnienia kolejki plików",

@@ -57,10 +57,20 @@ export default function ChatPage() {
   const [conversations, setConversations] = useState<ConvSummary[]>([]);
   const [currentConvId, setCurrentConvId] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Aktywuj pole wpisywania po zakończeniu generowania (i na starcie),
+  // żeby użytkownik mógł od razu pisać bez klikania.
+  useEffect(() => {
+    if (!streaming) inputRef.current?.focus();
+  }, [streaming]);
+
+  const stopGenerating = () => abortRef.current?.abort();
 
   const loadConversations = useCallback(async () => {
     try {
@@ -116,6 +126,7 @@ export default function ChatPage() {
     const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     let assistantText = '';
     let finalSources: ChatSource[] = [];
+    let aborted = false;
 
     const appendText = (t: string) => {
       assistantText += t;
@@ -153,6 +164,8 @@ export default function ChatPage() {
         }
       }
 
+      const controller = new AbortController();
+      abortRef.current = controller;
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
@@ -161,6 +174,7 @@ export default function ChatPage() {
           session_id: String(convId ?? requestId),
           request_id: requestId,
         }),
+        signal: controller.signal,
       });
 
       if (!res.ok || !res.body) {
@@ -189,18 +203,25 @@ export default function ChatPage() {
         }
       };
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        lines.forEach(processLine);
-      }
-      if (buffer.trim()) processLine(buffer);
-
-      // Źródła odpowiedzi (zapisane przez n8n po zakończeniu strumienia)
       try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          lines.forEach(processLine);
+        }
+        if (buffer.trim()) processLine(buffer);
+      } catch (streamErr: any) {
+        // Przerwanie przez użytkownika — zatrzymaj strumień, zachowaj to co jest
+        if (streamErr?.name === 'AbortError') aborted = true;
+        else throw streamErr;
+      }
+
+      // Źródła odpowiedzi (zapisane przez n8n po zakończeniu strumienia).
+      // Przy przerwaniu pomijamy — odpowiedź jest częściowa.
+      if (!aborted) try {
         const srcRes = await fetch(`/api/chat/sources/${requestId}`, { headers: authHeaders() });
         if (srcRes.ok) {
           const data = await srcRes.json();
@@ -226,17 +247,23 @@ export default function ChatPage() {
         } catch { /* zapis historii nie jest krytyczny dla samej odpowiedzi */ }
       }
     } catch (e: any) {
-      setMessages((prev) => {
-        const next = [...prev];
-        const last = next[next.length - 1];
-        next[next.length - 1] = {
-          ...last,
-          content: last.content || `⚠ ${e?.message || 'Błąd połączenia z czatem.'}`,
-          error: true,
-        };
-        return next;
-      });
+      if (e?.name === 'AbortError') {
+        // Przerwane przez użytkownika w trakcie łączenia — zostaw co jest.
+        aborted = true;
+      } else {
+        setMessages((prev) => {
+          const next = [...prev];
+          const last = next[next.length - 1];
+          next[next.length - 1] = {
+            ...last,
+            content: last.content || `⚠ ${e?.message || 'Błąd połączenia z czatem.'}`,
+            error: true,
+          };
+          return next;
+        });
+      }
     } finally {
+      abortRef.current = null;
       setStreaming(false);
     }
   };
@@ -264,7 +291,7 @@ export default function ChatPage() {
   return (
     <div className="flex gap-4 h-[calc(100vh-120px)]">
       {/* Sidebar z listą rozmów */}
-      <aside className="hidden md:flex w-64 flex-col bg-white rounded-lg shadow border border-gray-200">
+      <aside className="hidden md:flex w-80 flex-col bg-white rounded-lg shadow border border-gray-200">
         <div className="p-3 border-b border-gray-200">
           <button
             onClick={newConversation}
@@ -396,6 +423,7 @@ export default function ChatPage() {
         <div className="p-3 border-t border-gray-200">
           <div className="flex gap-2">
             <textarea
+              ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -403,16 +431,26 @@ export default function ChatPage() {
               }}
               rows={2}
               placeholder="Napisz wiadomość… (Enter — wyślij, Shift+Enter — nowa linia)"
-              className="flex-1 resize-none border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 resize-none border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
               disabled={streaming}
             />
-            <button
-              onClick={sendMessage}
-              disabled={streaming || !input.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed self-end"
-            >
-              {streaming ? '…' : 'Wyślij'}
-            </button>
+            {streaming ? (
+              <button
+                onClick={stopGenerating}
+                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 self-end"
+                title="Przerwij generowanie odpowiedzi"
+              >
+                ⏹ Zatrzymaj
+              </button>
+            ) : (
+              <button
+                onClick={sendMessage}
+                disabled={!input.trim()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed self-end"
+              >
+                Wyślij
+              </button>
+            )}
           </div>
         </div>
       </div>
