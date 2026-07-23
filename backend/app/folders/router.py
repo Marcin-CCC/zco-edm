@@ -19,23 +19,31 @@ def build_folder_tree(
     parent_id: Optional[int] = None,
     writable: Optional[set] = None,
     file_counts: Optional[dict] = None,
+    allowed_ids: Optional[set] = None,
 ) -> List[FolderTreeResponse]:
     """Build hierarchical folder tree.
 
     ``writable`` = zbiór id folderów zapisywalnych dla bieżącego użytkownika
     (``None`` = admin → zapis wszędzie).
     ``file_counts`` = mapa folder_id → liczba plików bezpośrednio w folderze.
+    ``allowed_ids`` = zbiór id folderów widocznych dla użytkownika (``None`` =
+    admin). Gdy rodzic folderu NIE jest w tym zbiorze, folder jest przenoszony na
+    najwyższy poziom (efektywny rodzic = None), by nie pokazywać niedostępnego
+    folderu-rodzica.
     """
     file_counts = file_counts or {}
     tree = []
     for folder in folders:
-        if folder.parent_id == parent_id:
-            children = build_folder_tree(folders, folder.id, writable, file_counts)
+        eff_parent = folder.parent_id
+        if allowed_ids is not None and eff_parent is not None and eff_parent not in allowed_ids:
+            eff_parent = None  # rodzic niewidoczny → traktuj jako folder najwyższego poziomu
+        if eff_parent == parent_id:
+            children = build_folder_tree(folders, folder.id, writable, file_counts, allowed_ids)
             tree.append(FolderTreeResponse(
                 id=folder.id,
                 name=folder.name,
                 path=folder.path,
-                parent_id=folder.parent_id,
+                parent_id=eff_parent,
                 description=folder.description,
                 created_by=folder.created_by,
                 created_at=folder.created_at,
@@ -101,7 +109,7 @@ def get_folder_tree(
         .group_by(FileModel.folder_id)
         .all()
     )
-    return build_folder_tree(folders, writable=writable, file_counts=file_counts)
+    return build_folder_tree(folders, writable=writable, file_counts=file_counts, allowed_ids=visible)
 
 
 @router.get("/access-overview")

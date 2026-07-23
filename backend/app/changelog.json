@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "0.2.1",
+      "date": "2026-07-23",
+      "title": "Poprawka widoczności folderów",
+      "changes": [
+        "Użytkownik z dostępem tylko do podfolderu nie widzi już nadrzędnego folderu, do którego nie ma uprawnień — dozwolony podfolder pojawia się na najwyższym poziomie."
+      ]
+    },
+    {
       "version": "0.2.0",
       "date": "2026-07-23",
       "title": "Wiarygodne źródła w czacie",

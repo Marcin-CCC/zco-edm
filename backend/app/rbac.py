@@ -84,27 +84,14 @@ def writable_folder_ids(user: User, db: Session) -> Optional[set[int]]:
 
 
 def visible_folder_ids(user: User, db: Session) -> Optional[set[int]]:
-    """Zbiór id folderów WIDOCZNYCH w drzewie: czytelne + ich przodkowie.
+    """Zbiór id folderów WIDOCZNYCH w drzewie = dokładnie foldery czytelne.
 
-    Przodkowie są dołączani, aby dało się nawigować do dozwolonego podfolderu
-    (same przodki nie odsłaniają swoich plików — to reguluje
-    :func:`readable_folder_ids`). ``None`` = admin (wszystko widoczne).
+    NIE dołączamy folderów nadrzędnych bez dostępu — inaczej użytkownik widziałby
+    „pusty" folder-rodzic, do którego nie ma praw. Dozwolony podfolder z
+    niedostępnym rodzicem jest przenoszony na najwyższy poziom w
+    :func:`build_folder_tree` (parametr ``allowed_ids``). ``None`` = admin.
     """
-    readable = readable_folder_ids(user, db)
-    if readable is None:
-        return None
-    if not readable:
-        return set()
-
-    by_id = {f.id: f for f in db.query(Folder).all()}
-    visible = set(readable)
-    for fid in list(readable):
-        cur = by_id.get(fid)
-        # wejdź w górę po przodkach
-        while cur is not None and cur.parent_id is not None:
-            visible.add(cur.parent_id)
-            cur = by_id.get(cur.parent_id)
-    return visible
+    return readable_folder_ids(user, db)
 
 
 def effective_permissions(folder_id: int, db: Session) -> list[dict]:
