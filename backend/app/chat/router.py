@@ -32,6 +32,7 @@ from app.schemas import (
 from app.settings.router import _load_cache_from_db, get_chat_webhook_url
 from app.webhook_auth import verify_webhook_secret
 from app.n8n_auth import outgoing_headers
+from app.rbac import readable_folder_ids
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
@@ -85,14 +86,40 @@ async def chat(
     from app.files.router import BACKEND_CALLBACK_URL
     request_id = payload.request_id or f"{current_user.id}-{int(time.time()*1000)}"
 
+    # RBAC czatu (Faza C): ogranicz retrieval do folderów dozwolonych dla roli.
+    # admin (readable is None) → brak filtra (widzi wszystko). Nie-admin → lista
+    # dozwolonych folder_id (może być pusta = brak dostępu do niczego). Filtr po
+    # `metadata.folder_id` zakłada workflow n8n (Qdrant Vector Store).
+    readable = readable_folder_ids(current_user, db)
+    folder_filter_enabled = readable is not None
+    allowed_folder_ids = sorted(readable) if readable is not None else []
+    # Gotowy filtr Qdranta dla węzła Vector Store (options.searchFilterJson).
+    # admin → None (brak filtra, widzi wszystko, w tym pliki z roota bez folder_id).
+    # nie-admin → dopuszczaj tylko chunki z dozwolonych folderów (match.any).
+    # Pusta lista → match.any:[] → nic nie pasuje (brak uprawnień = brak wyników).
+    qdrant_filter = None
+    if folder_filter_enabled:
+        qdrant_filter = {
+            "must": [
+                {"key": "metadata.folder_id", "match": {"any": allowed_folder_ids}}
+            ]
+        }
+
     n8n_body = {
         "action": "sendMessage",
         "sessionId": f"{current_user.id}:{payload.session_id}",
         "chatInput": payload.message,
         "requestId": request_id,
         "sources_update_url": f"{BACKEND_CALLBACK_URL}/api/chat/sources",
+        "folderFilterEnabled": folder_filter_enabled,
+        "allowedFolderIds": allowed_folder_ids,
+        "qdrantFilter": qdrant_filter,
     }
-    logger.info(f"[CHAT] user={current_user.username} session={payload.session_id} req={request_id} -> {chat_url}")
+    logger.info(
+        f"[CHAT] user={current_user.username} role={current_user.role.value} "
+        f"session={payload.session_id} req={request_id} "
+        f"folderFilter={folder_filter_enabled} allowed={allowed_folder_ids} -> {chat_url}"
+    )
 
     client = httpx.AsyncClient(timeout=_TIMEOUT)
 

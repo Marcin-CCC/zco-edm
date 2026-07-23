@@ -69,7 +69,10 @@ export default function UsersPage() {
 
     try {
       if (editingId) {
-        const { password, ...updates } = form;
+        const { password, ...rest } = form;
+        const updates: Record<string, unknown> = { ...rest };
+        // Hasło wysyłamy tylko gdy admin je wpisał (puste = bez zmiany)
+        if (password) updates.password = password;
         await usersApi.update(token!, editingId, updates);
       } else {
         await usersApi.create(token!, form);
@@ -142,13 +145,16 @@ export default function UsersPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Hasło</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Hasło{editingId && <span className="text-gray-400 font-normal"> (zostaw puste, by nie zmieniać)</span>}
+              </label>
               <input
                 type="password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required={!editingId}
+                autoComplete="new-password"
               />
             </div>
             <div>

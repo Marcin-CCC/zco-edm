@@ -48,10 +48,28 @@ Kolejność uzgodniona z użytkownikiem:
    bufor pamięci n8n przy wznawianiu). Frontend: sidebar z listą rozmów,
    tworzenie/wznawianie/usuwanie. Wdrożone na Sparku, potwierdzone przez
    użytkownika.
-5. **#4** — upload wielu plików naraz (frontend; dyspozytor już obsługuje
-   setki PENDING). Na demo bez transferu SSH.
-6. **#3 (prawa dostępu)** — foldery-dziedziny, RBAC dla przeglądania I dla
-   odpowiedzi czatu (retrieval filtrowany po dozwolonych folderach). Docelowe.
+5. **#4** — upload wielu plików naraz ✅ zrobione (2026-07-22, frontend-only).
+   Input `multiple`, wysyłka sekwencyjna (jeden POST/plik), modal z raportem
+   per plik (czeka/wgrywa/gotowe/błąd) + licznik; błąd jednego pliku nie
+   przerywa reszty. `accept`/hint zawężone do pdf,docx,xlsx. Przetestowane
+   lokalnie (kolejka 1-naraz działa), wdrożone na Spark (commit fc1ce8c).
+   Znane do przyszłej analizy: chunkowanie złożonych dokumentów o różnorodnej
+   treści bywa niedokładne (raport problemów w mailu) — osobny wątek parsowania.
+6. **#3 (prawa dostępu)** — foldery-dziedziny, RBAC po roli ✅ zrobione
+   (2026-07-23). Model: `FolderPermission` (rola → read/write na folder) z
+   **dziedziczeniem po ścieżce**; admin = pełny dostęp; root (folder_id NULL) =
+   tylko admin. **Odczyt** = przeglądanie+pobieranie; **Zapis** = +upload+usuwanie
+   w folderze. Backend: `app/rbac.py` (readable/visible/writable_folder_ids),
+   egzekucja w files (list/queue/get/download/categories/folder-files) i folders
+   (tree/list/get); `can_write` w drzewie folderów. Frontend: 🔒 modal uprawnień
+   (admin), przyciski upload/usuń widoczne dla roli z Zapisem. **Czat (Faza C):**
+   backend liczy dozwolone foldery i wysyła gotowy `qdrantFilter` (admin=brak);
+   n8n filtruje `metadata.folder_id` (Qdrant Vector Store `searchFilterJson`).
+   **Faza B:** `folder_id` w payloadzie dispatchu → Default Data Loader (n8n).
+   Chat: `maxContextChars=20000` w Chunks Filter (okno modelu 12288) + `maxTokens`
+   podniesione. Przetestowane na 3 rolach (admin/lekarz/personel biurowy).
+   Przy okazji naprawione: zmiana hasła (UserUpdate+frontend jej nie obsługiwały),
+   czytelne błędy 422 w `apiRequest`.
 7. **Zapytania agregujące/wyliczające** („wypisz umowy", „jakie dokumenty
    masz?") — RAG tego NIE robi wyczerpująco (widzi tylko top-K chunków).
    Rozwiązanie: nie przez RAG, tylko przez **listę plików z tabeli `files`**.

@@ -24,10 +24,40 @@ interface Folder {
   name: string;
   path: string;
   parent_id: number | null;
+  can_write?: boolean;
   children: Folder[];
 }
 
+// Rekurencyjne wyszukanie folderu po id w drzewie
+function findFolder(list: Folder[], id: number | null): Folder | null {
+  if (id === null) return null;
+  for (const f of list) {
+    if (f.id === id) return f;
+    if (f.children?.length) {
+      const found = findFolder(f.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 type ViewMode = 'list' | 'grid';
+
+// Role przypisywalne do folderów (admin ma pełny dostęp, więc go nie ma na liście)
+const ASSIGNABLE_ROLES: { value: string; label: string }[] = [
+  { value: 'doctor', label: 'Lekarz' },
+  { value: 'medical_staff', label: 'Personel medyczny' },
+  { value: 'technician', label: 'Technik' },
+  { value: 'office_staff', label: 'Personel biurowy' },
+  { value: 'guest', label: 'Gość' },
+];
+const ROLE_LABELS: Record<string, string> = Object.fromEntries(
+  ASSIGNABLE_ROLES.map((r) => [r.value, r.label])
+);
+const ACCESS_LABELS: Record<string, string> = {
+  read: 'Odczyt',
+  write: 'Zapis',
+};
 
 function formatFileSize(bytes: number | null): string {
   if (bytes === null) return '-';
@@ -83,6 +113,15 @@ export default function FilesPage() {
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [folderCreating, setFolderCreating] = useState(false);
+
+  // Zarządzanie uprawnieniami folderu (RBAC po roli)
+  const [permFolder, setPermFolder] = useState<Folder | null>(null);
+  const [permissions, setPermissions] = useState<
+    { id: number; role: string; access_level: string }[]
+  >([]);
+  const [permLoading, setPermLoading] = useState(false);
+  const [newPermRole, setNewPermRole] = useState('doctor');
+  const [newPermAccess, setNewPermAccess] = useState('read');
 
   // Load folders tree
   const loadFolders = useCallback(async () => {
@@ -249,6 +288,46 @@ export default function FilesPage() {
     }
   };
 
+  // ---- Uprawnienia folderu (RBAC) ----
+  const openPermissions = async (folder: Folder) => {
+    setPermFolder(folder);
+    setPermissions([]);
+    setPermLoading(true);
+    try {
+      const res = await foldersApi.listPermissions(folder.id);
+      setPermissions(res || []);
+    } catch (err) {
+      console.error('Load permissions failed:', err);
+    } finally {
+      setPermLoading(false);
+    }
+  };
+
+  const handleAddPermission = async () => {
+    if (!permFolder) return;
+    try {
+      await foldersApi.addPermission(permFolder.id, {
+        role: newPermRole,
+        access_level: newPermAccess,
+      });
+      const res = await foldersApi.listPermissions(permFolder.id);
+      setPermissions(res || []);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Nie udało się dodać uprawnienia.');
+    }
+  };
+
+  const handleDeletePermission = async (permId: number) => {
+    if (!permFolder) return;
+    try {
+      await foldersApi.deletePermission(permFolder.id, permId);
+      setPermissions((prev) => prev.filter((p) => p.id !== permId));
+    } catch (err) {
+      console.error('Delete permission failed:', err);
+      alert('Nie udało się usunąć uprawnienia.');
+    }
+  };
+
   // Delete file
   const handleDelete = async (fileId: number) => {
     if (!confirm('Czy na pewno usunąć ten plik?')) return;
@@ -313,8 +392,12 @@ export default function FilesPage() {
 
   // Get current folder name for display
   const currentFolderName = currentFolderId
-    ? folders.find(f => f.id === currentFolderId)?.name || ''
+    ? findFolder(folders, currentFolderId)?.name || ''
     : '';
+
+  // Czy użytkownik może zapisywać w bieżącym folderze (admin wszędzie).
+  // Root (currentFolderId === null) — tylko admin.
+  const canWriteHere = isAdmin || (findFolder(folders, currentFolderId)?.can_write ?? false);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -322,21 +405,26 @@ export default function FilesPage() {
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-2xl font-bold text-gray-800">Eksplorator plików</h1>
-          {isAdmin && (
+          {(isAdmin || canWriteHere) && (
             <div className="flex gap-2">
-              <button
-                onClick={() => setShowCreateFolderModal(true)}
-                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
-              >
-                📁 Nowy folder
-              </button>
-              <button
-                onClick={() => setShowUploadModal(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-                disabled={uploading}
-              >
-                {uploading ? 'Wczytywanie...' : '⬆️ Prześlij pliki'}
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setShowCreateFolderModal(true)}
+                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+                >
+                  📁 Nowy folder
+                </button>
+              )}
+              {canWriteHere && (
+                <button
+                  onClick={() => setShowUploadModal(true)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                  disabled={uploading}
+                  title={currentFolderId === null ? 'Wybierz folder, aby wgrać pliki' : undefined}
+                >
+                  {uploading ? 'Wczytywanie...' : '⬆️ Prześlij pliki'}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -399,13 +487,22 @@ export default function FilesPage() {
                       <div className="text-xs text-gray-500">{folder.path}</div>
                     </button>
                     {isAdmin && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }}
-                        className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity p-1"
-                        title="Usuń folder"
-                      >
-                        🗑️
-                      </button>
+                      <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openPermissions(folder); }}
+                          className="text-gray-400 hover:text-blue-600 p-1"
+                          title="Uprawnienia folderu"
+                        >
+                          🔒
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }}
+                          className="text-red-400 hover:text-red-600 p-1"
+                          title="Usuń folder"
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -500,7 +597,7 @@ export default function FilesPage() {
                           >
                             ⬇️ Pobierz
                           </button>
-                          {isAdmin && (
+                          {(isAdmin || canWriteHere) && (
                             <button
                               onClick={(e) => { e.stopPropagation(); handleDelete(file.id); }}
                               className="text-red-600 hover:text-red-800 text-sm"
@@ -557,7 +654,7 @@ export default function FilesPage() {
                     >
                       ⬇️
                     </button>
-                    {isAdmin && (
+                    {(isAdmin || canWriteHere) && (
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDelete(file.id); }}
                         className="text-xs text-red-600 hover:text-red-800"
@@ -622,8 +719,97 @@ export default function FilesPage() {
         </div>
       )}
 
+      {/* Permissions Modal (RBAC) */}
+      {permFolder && isAdmin && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-lg font-bold text-gray-800">🔒 Uprawnienia folderu</h2>
+              <button
+                onClick={() => setPermFolder(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              Folder: <strong>{permFolder.name}</strong> ({permFolder.path})
+            </p>
+            <p className="text-xs text-gray-500 mb-4">
+              Rola z uprawnieniem widzi pliki w tym folderze <strong>i jego
+              podfolderach</strong>. Administrator ma zawsze pełny dostęp. Pliki
+              w katalogu głównym (root) są widoczne tylko dla administratora.
+            </p>
+
+            {/* Lista istniejących uprawnień */}
+            <div className="mb-4">
+              {permLoading ? (
+                <div className="text-sm text-gray-500 py-3">Ładowanie...</div>
+              ) : permissions.length === 0 ? (
+                <div className="text-sm text-gray-500 py-3 border border-dashed border-gray-200 rounded-md text-center">
+                  Brak uprawnień — tylko administrator widzi ten folder.
+                </div>
+              ) : (
+                <ul className="divide-y divide-gray-100 border border-gray-200 rounded-md">
+                  {permissions.map((p) => (
+                    <li key={p.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                      <span className="text-gray-800">
+                        {ROLE_LABELS[p.role] || p.role}
+                        <span className="text-gray-400"> · </span>
+                        <span className="text-gray-600">
+                          {ACCESS_LABELS[p.access_level] || p.access_level}
+                        </span>
+                      </span>
+                      <button
+                        onClick={() => handleDeletePermission(p.id)}
+                        className="text-red-500 hover:text-red-700 text-xs"
+                      >
+                        Usuń
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Formularz dodania uprawnienia */}
+            <div className="flex items-end gap-2 border-t border-gray-100 pt-4">
+              <label className="flex-1 text-xs text-gray-500">
+                Rola
+                <select
+                  value={newPermRole}
+                  onChange={(e) => setNewPermRole(e.target.value)}
+                  className="mt-1 w-full border border-gray-300 rounded-md p-2 text-sm text-gray-800"
+                >
+                  {ASSIGNABLE_ROLES.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-xs text-gray-500">
+                Poziom
+                <select
+                  value={newPermAccess}
+                  onChange={(e) => setNewPermAccess(e.target.value)}
+                  className="mt-1 border border-gray-300 rounded-md p-2 text-sm text-gray-800"
+                >
+                  <option value="read">Odczyt</option>
+                  <option value="write">Zapis</option>
+                </select>
+              </label>
+              <button
+                onClick={handleAddPermission}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm"
+              >
+                Dodaj
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Upload Modal */}
-      {showUploadModal && isAdmin && (
+      {showUploadModal && canWriteHere && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-lg font-bold text-gray-800 mb-2">Prześlij pliki</h2>
@@ -783,7 +969,7 @@ export default function FilesPage() {
                   👁️ Podgląd PDF
                 </button>
               )}
-              {isAdmin && (
+              {(isAdmin || canWriteHere) && (
                 <button
                   onClick={() => { handleDelete(selectedFile.id); setSelectedFile(null); }}
                   className="flex-1 bg-red-100 text-red-800 px-4 py-2 rounded-md hover:bg-red-200"

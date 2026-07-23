@@ -6,19 +6,28 @@ from sqlalchemy import and_
 
 from app.database import get_db
 from app.models import Folder, FolderPermission, User, UserRole
-from app.schemas import FolderResponse, FolderCreate, FolderPermissionResponse, FolderPermissionCreate, FolderTreeResponse
+from app.schemas import FolderResponse, FolderCreate, FolderPermissionResponse, FolderPermissionBase, FolderPermissionCreate, FolderTreeResponse
 from datetime import datetime
 from app.auth.auth import get_current_user
+from app.rbac import visible_folder_ids, writable_folder_ids
 
 router = APIRouter(prefix="/folders", tags=["Folders"])
 
 
-def build_folder_tree(folders: List[Folder], parent_id: Optional[int] = None) -> List[FolderTreeResponse]:
-    """Build hierarchical folder tree."""
+def build_folder_tree(
+    folders: List[Folder],
+    parent_id: Optional[int] = None,
+    writable: Optional[set] = None,
+) -> List[FolderTreeResponse]:
+    """Build hierarchical folder tree.
+
+    ``writable`` = zbiór id folderów zapisywalnych dla bieżącego użytkownika
+    (``None`` = admin → zapis wszędzie).
+    """
     tree = []
     for folder in folders:
         if folder.parent_id == parent_id:
-            children = build_folder_tree(folders, folder.id)
+            children = build_folder_tree(folders, folder.id, writable)
             tree.append(FolderTreeResponse(
                 id=folder.id,
                 name=folder.name,
@@ -28,6 +37,7 @@ def build_folder_tree(folders: List[Folder], parent_id: Optional[int] = None) ->
                 created_by=folder.created_by,
                 created_at=folder.created_at,
                 updated_at=folder.updated_at,
+                can_write=(writable is None) or (folder.id in writable),
                 children=children,
             ))
     return tree
@@ -75,7 +85,13 @@ def get_folder_tree(
 ):
     """Get hierarchical folder tree."""
     folders = db.query(Folder).all()
-    return build_folder_tree(folders)
+    # RBAC: nie-admin widzi tylko foldery dozwolone dla jego roli + ich przodków
+    # (żeby dało się nawigować do dozwolonego podfolderu).
+    visible = visible_folder_ids(current_user, db)
+    if visible is not None:
+        folders = [f for f in folders if f.id in visible]
+    writable = writable_folder_ids(current_user, db)
+    return build_folder_tree(folders, writable=writable)
 
 
 @router.get("/", response_model=List[FolderResponse])
@@ -86,7 +102,13 @@ def list_folders(
     current_user: User = Depends(get_current_user),
 ):
     """List all folders."""
-    folders = db.query(Folder).offset(skip).limit(limit).all()
+    visible = visible_folder_ids(current_user, db)
+    query = db.query(Folder)
+    if visible is not None:
+        if not visible:
+            return []
+        query = query.filter(Folder.id.in_(visible))
+    folders = query.offset(skip).limit(limit).all()
     return folders
 
 
@@ -100,6 +122,10 @@ def get_folder(
     folder = db.query(Folder).filter(Folder.id == folder_id).first()
     if not folder:
         raise HTTPException(status_code=404, detail="Folder nie istnieje.")
+    # RBAC: nie-admin widzi tylko dozwolone foldery (+ przodków dla nawigacji).
+    visible = visible_folder_ids(current_user, db)
+    if visible is not None and folder_id not in visible:
+        raise HTTPException(status_code=403, detail="Brak dostępu do tego folderu.")
     return folder
 
 
@@ -131,7 +157,7 @@ def delete_folder(
 @router.post("/{folder_id}/permissions", response_model=FolderPermissionResponse)
 def add_folder_permission(
     folder_id: int,
-    perm_data: FolderPermissionCreate,
+    perm_data: FolderPermissionBase,  # folder_id bierzemy ze ścieżki, nie z ciała
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

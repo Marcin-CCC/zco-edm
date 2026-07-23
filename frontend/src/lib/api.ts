@@ -41,7 +41,22 @@ export async function apiRequest<T>(
     } catch {
       errorData = { detail: errorText };
     }
-    throw new Error(errorData?.detail || `API Error: ${response.status}`);
+    // FastAPI: `detail` bywa stringiem (HTTPException) albo tablicą obiektów
+    // (błędy walidacji 422). Zamień na czytelny komunikat, nie "[object Object]".
+    const detail = errorData?.detail;
+    let message: string;
+    if (typeof detail === 'string') {
+      message = detail;
+    } else if (Array.isArray(detail)) {
+      message = detail
+        .map((e: any) => (e?.msg ? `${e.msg}${e?.loc ? ` (${e.loc.join('.')})` : ''}` : JSON.stringify(e)))
+        .join('; ');
+    } else if (detail) {
+      message = typeof detail === 'object' ? JSON.stringify(detail) : String(detail);
+    } else {
+      message = `API Error: ${response.status}`;
+    }
+    throw new Error(message);
   }
 
   if (response.status === 204) {
@@ -109,7 +124,7 @@ export const usersApi = {
       token,
     }),
 
-  update: (token: string, userId: number, data: { email?: string; username?: string; full_name?: string; role?: string; is_active?: boolean }) =>
+  update: (token: string, userId: number, data: { email?: string; username?: string; full_name?: string; role?: string; is_active?: boolean; password?: string }) =>
     apiRequest<any>(`/api/auth/users/${userId}`, {
       method: 'PUT',
       body: data,

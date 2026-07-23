@@ -54,7 +54,7 @@ def _get_webhook_url(db: Session) -> str | None:
 
 def _build_payload(file: FileModel) -> dict:
     from app.files.router import build_webhook_payload
-    return build_webhook_payload(file.id, file.file_path)
+    return build_webhook_payload(file.id, file.file_path, file.folder_id)
 
 
 def _reap_stale_processing(db: Session) -> None:

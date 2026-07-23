@@ -23,6 +23,7 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     role: Optional[UserRole] = None
     is_active: Optional[bool] = None
+    password: Optional[str] = None  # nowe hasło (opcjonalnie; puste = bez zmiany)
 
 
 class UserResponse(UserBase):
@@ -107,6 +108,7 @@ class FolderResponse(BaseModel):
     created_by: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    can_write: bool = False  # czy bieżący użytkownik ma prawo Zapis w tym folderze
 
     model_config = {"from_attributes": True}
 

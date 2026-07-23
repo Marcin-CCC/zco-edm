@@ -209,6 +209,9 @@ async def update_user(user_id: int, user_update: UserUpdate, current_user: User 
         user.role = user_update.role
     if user_update.is_active is not None:
         user.is_active = user_update.is_active
+    # Zmiana hasła — tylko gdy podane niepuste (puste = pozostaw bez zmian)
+    if user_update.password:
+        user.hashed_password = hash_password(user_update.password)
     db.commit()
     db.refresh(user)
     return user

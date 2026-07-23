@@ -15,6 +15,7 @@ from app.schemas import FileResponse as FileResponseSchema, FileCreate, FileUpda
 from app.auth.auth import get_current_user
 from app.config import settings
 from app.spark_transfer import spark_transfer_enabled, transfer_to_spark, SPARK_SHARED_DIR
+from app.rbac import readable_folder_ids, writable_folder_ids, can_read_file_folder
 
 router = APIRouter(prefix="/api/files", tags=["Files"])
 logger = logging.getLogger(__name__)
@@ -33,11 +34,16 @@ STORAGE_DIR = _DOCKER_SHARED if os.path.exists(_DOCKER_SHARED) else _PROJECT_ROO
 BACKEND_CALLBACK_URL = os.getenv("BACKEND_CALLBACK_URL", "http://192.168.1.34:8083").rstrip("/")
 
 
-def build_webhook_payload(file_id: int, file_path: str) -> dict:
-    """Zbuduj payload webhooka dla n8n z gotowym URL-em do aktualizacji statusu."""
+def build_webhook_payload(file_id: int, file_path: str, folder_id: int | None = None) -> dict:
+    """Zbuduj payload webhooka dla n8n z gotowym URL-em do aktualizacji statusu.
+
+    `folder_id` trafia do payloadu Qdranta (Default Data Loader) i służy do
+    filtrowania RBAC w czacie (Faza C). None = plik w katalogu głównym.
+    """
     return {
         "file_id": file_id,
         "file_path": file_path,
+        "folder_id": folder_id,
         "status_update_url": f"{BACKEND_CALLBACK_URL}/api/webhook/file/{file_id}/status",
     }
 
@@ -85,10 +91,21 @@ async def upload_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Upload a file (admin only)."""
+    """Upload a file (admin lub rola z prawem Zapis do folderu docelowego)."""
     logger.debug(f"[UPLOAD] folder_id={folder_id}, filename={file.filename}")
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Tylko administrator może wgrywać pliki.")
+    # RBAC: admin wszędzie; nie-admin tylko do folderu, w którym jego rola ma Zapis.
+    writable = writable_folder_ids(current_user, db)
+    if writable is not None:
+        if folder_id is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Wgrywanie do katalogu głównego jest zarezerwowane dla administratora.",
+            )
+        if folder_id not in writable:
+            raise HTTPException(
+                status_code=403,
+                detail="Brak uprawnień do zapisu w tym folderze.",
+            )
 
     # Read file content for size check
     content = await file.read()
@@ -208,10 +225,13 @@ def list_files(
     When folder_id=0, show all files (legacy behavior).
     When folder_id=<int>, show files in that specific folder.
     """
-    # Admin sees all files; other users only their own
+    # RBAC: admin widzi wszystko; nie-admin tylko pliki z folderów dozwolonych
+    # dla jego roli (z dziedziczeniem po ścieżce). Pliki w rootcie = tylko admin.
+    readable = readable_folder_ids(current_user, db)
+    if readable is not None and not readable:
+        return []  # brak dostępu do jakiegokolwiek folderu
+
     query = db.query(FileModel)
-    if current_user.role != UserRole.ADMIN:
-        query = query.filter(FileModel.uploaded_by == current_user.id)
 
     if folder_id is None:
         # No folder_id specified - show only root files (folder_id IS NULL)
@@ -222,6 +242,11 @@ def list_files(
     else:
         # Specific folder - show files in that folder
         query = query.filter(FileModel.folder_id == folder_id)
+
+    # Nałóż ograniczenie widoczności po folderach (nie dotyczy admina).
+    # `in_(readable)` nie obejmuje NULL, więc pliki w rootcie znikają dla nie-admina.
+    if readable is not None:
+        query = query.filter(FileModel.folder_id.in_(readable))
     if status:
         query = query.filter(FileModel.status == status)
     if mime_type:
@@ -275,14 +300,18 @@ def list_file_queue(
     Returns files from the files table with their DocumentStatus, which represents
     the processing queue status (W kolejce, Parsowanie, Przetworzono, etc.)
     """
-    # Admin sees all files; other users only their own
+    # RBAC: admin widzi wszystko; nie-admin tylko pliki z dozwolonych folderów.
+    readable = readable_folder_ids(current_user, db)
+    if readable is not None and not readable:
+        return []
+
     query = db.query(FileModel)
-    if current_user.role != UserRole.ADMIN:
-        query = query.filter(FileModel.uploaded_by == current_user.id)
+    if readable is not None:
+        query = query.filter(FileModel.folder_id.in_(readable))
 
     if status:
         query = query.filter(FileModel.status == status)
-    
+
     files = query.order_by(FileModel.created_at.desc()).offset(skip).limit(limit).all()
     
     result = []
@@ -353,15 +382,11 @@ def get_file(file_id: int, db: Session = Depends(get_db), current_user: User = D
     if not file_obj:
         raise HTTPException(status_code=404, detail="Plik nie istnieje.")
 
-    # Check access - user must have read access to the folder or be admin
-    if file_obj.folder_id:
-        folder_perm = db.query(FolderPermission).filter(
-            FolderPermission.folder_id == file_obj.folder_id,
-            FolderPermission.role == current_user.role,
-            FolderPermission.access_level == "read"
-        ).first()
-        if not folder_perm and current_user.role != UserRole.ADMIN:
-            raise HTTPException(status_code=403, detail="Brak dostępu do tego pliku.")
+    # RBAC: dostęp po roli do folderu (z dziedziczeniem); admin zawsze,
+    # pliki w rootcie tylko admin.
+    readable = readable_folder_ids(current_user, db)
+    if not can_read_file_folder(file_obj.folder_id, readable):
+        raise HTTPException(status_code=403, detail="Brak dostępu do tego pliku.")
 
     folder_data = None
     if file_obj.folder:
@@ -420,6 +445,11 @@ def download_file(file_id: int, db: Session = Depends(get_db), current_user: Use
     if not file_obj:
         raise HTTPException(status_code=404, detail="Plik nie istnieje.")
 
+    # RBAC: bez tego każdy zalogowany mógł pobrać dowolny plik po id.
+    readable = readable_folder_ids(current_user, db)
+    if not can_read_file_folder(file_obj.folder_id, readable):
+        raise HTTPException(status_code=403, detail="Brak dostępu do tego pliku.")
+
     local_path = _resolve_local_path(file_obj.file_path)
     if not os.path.exists(local_path):
         raise HTTPException(status_code=404, detail="Plik nie istnieje na dysku.")
@@ -433,13 +463,15 @@ def download_file(file_id: int, db: Session = Depends(get_db), current_user: Use
 
 @router.delete("/{file_id}")
 def delete_file(file_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Delete a file (admin only)."""
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Tylko administrator może usuwać pliki.")
-
+    """Delete a file (admin lub rola z prawem Zapis do folderu pliku)."""
     file_obj = db.query(FileModel).filter(FileModel.id == file_id).first()
     if not file_obj:
         raise HTTPException(status_code=404, detail="Plik nie istnieje.")
+
+    # RBAC: admin wszędzie; nie-admin tylko w folderze z prawem Zapis (root = admin).
+    writable = writable_folder_ids(current_user, db)
+    if writable is not None and (file_obj.folder_id is None or file_obj.folder_id not in writable):
+        raise HTTPException(status_code=403, detail="Brak uprawnień do usunięcia tego pliku.")
 
     # Usuń wektory z Qdranta (żeby usunięty/wygasły dokument nie odpowiadał
     # już w czacie). Best-effort — awaria Qdranta nie blokuje usunięcia pliku.
@@ -507,7 +539,15 @@ def update_file(
 @router.get("/categories")
 def get_categories(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Get file categories (by MIME type)."""
-    mime_types = db.query(FileModel.mime_type).distinct().all()
+    # RBAC: zliczaj tylko pliki widoczne dla użytkownika.
+    readable = readable_folder_ids(current_user, db)
+    if readable is not None and not readable:
+        return []
+
+    def _scoped(q):
+        return q.filter(FileModel.folder_id.in_(readable)) if readable is not None else q
+
+    mime_types = _scoped(db.query(FileModel.mime_type).distinct()).all()
     categories = []
     for (mt,) in mime_types:
         ext = mt.split("/")[-1] if mt else ""
@@ -515,7 +555,7 @@ def get_categories(db: Session = Depends(get_db), current_user: User = Depends(g
             "mime_type": mt,
             "extension": ext,
             "icon": get_file_icon(f"file.{ext}"),
-            "count": db.query(FileModel).filter(FileModel.mime_type == mt).count(),
+            "count": _scoped(db.query(FileModel).filter(FileModel.mime_type == mt)).count(),
         })
     return categories
 
@@ -526,6 +566,11 @@ def list_folder_files(folder_id: int, db: Session = Depends(get_db), current_use
     folder = db.query(Folder).filter(Folder.id == folder_id).first()
     if not folder:
         raise HTTPException(status_code=404, detail="Folder nie istnieje.")
+
+    # RBAC: nie-admin widzi pliki tylko w folderach dozwolonych dla jego roli.
+    readable = readable_folder_ids(current_user, db)
+    if readable is not None and folder_id not in readable:
+        raise HTTPException(status_code=403, detail="Brak dostępu do tego folderu.")
 
     files = db.query(FileModel).filter(FileModel.folder_id == folder_id).all()
 
