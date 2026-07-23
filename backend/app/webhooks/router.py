@@ -166,6 +166,11 @@ async def update_file_status(file_id: int, payload: StatusUpdate, db: Session = 
             cleaned.pop("error", None)
             file_obj.metadata_ = cleaned
 
+    # Czas parsowania: przy statusie terminalnym policz sekundy od startu (PROCESSING)
+    if new_status in (DocumentStatus.READY, DocumentStatus.ERROR):
+        from app.dispatcher import mark_processing_finished
+        mark_processing_finished(file_obj)
+
     db.commit()
 
     # >>> Kolejka: po zakończeniu przetwarzania uruchom następny plik <<<

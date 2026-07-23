@@ -10,10 +10,33 @@ interface QueueItem {
   status: string;
   page_count: number;
   error_message: string | null;
+  processing_seconds: number | null;
   created_at: string;
   updated_at: string;
   started_at: string | null;
   completed_at: string | null;
+}
+
+// Backend zapisuje czas w UTC bez strefy — dołóż 'Z', by przeglądarka przeliczyła
+// na czas lokalny (inaczej pokazałaby wartość UTC jako lokalną).
+function parseUtc(iso: string): Date {
+  const hasTz = /[zZ]|[+-]\d{2}:?\d{2}$/.test(iso);
+  return new Date(hasTz ? iso : iso + 'Z');
+}
+
+// Data + godzina i minuty (bez sekund)
+function fmtDateTime(iso: string | null): string {
+  if (!iso) return '—';
+  return parseUtc(iso).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+// Czas parsowania w formacie "X min Y s" / "Y s"
+function fmtDuration(sec: number | null | undefined): string {
+  if (sec == null) return '—';
+  const total = Math.round(sec);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return m > 0 ? `${m} min ${s} s` : `${s} s`;
 }
 
 export default function FileQueuePage() {
@@ -24,9 +47,11 @@ export default function FileQueuePage() {
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [selectedItem, setSelectedItem] = useState<QueueItem | null>(null);
   const [statusSummary, setStatusSummary] = useState<Record<string, number>>({});
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
-  const loadQueue = useCallback(async () => {
-    setLoading(true);
+  // silent=true → odświeżanie w tle (polling), bez migotania spinnera
+  const loadQueue = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
       const params = new URLSearchParams();
@@ -67,6 +92,16 @@ export default function FileQueuePage() {
     loadQueue();
     loadStatusSummary();
   }, [loadQueue, loadStatusSummary]);
+
+  // Auto-odświeżanie w locie (polling co 5 s), gdy włączone
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const id = setInterval(() => {
+      loadQueue(true);
+      loadStatusSummary();
+    }, 5000);
+    return () => clearInterval(id);
+  }, [autoRefresh, loadQueue, loadStatusSummary]);
 
   const retryItem = async (itemId: number) => {
     if (!confirm('Czy na pewno ponowić przetwarzanie?')) return;
@@ -155,6 +190,15 @@ export default function FileQueuePage() {
           >
             {loading ? 'Ładowanie...' : '🔄 Odśwież'}
           </button>
+          <label className="flex items-center gap-2 text-sm text-gray-600 ml-1">
+            <input
+              type="checkbox"
+              checked={autoRefresh}
+              onChange={(e) => setAutoRefresh(e.target.checked)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            Auto-odświeżanie (5 s)
+          </label>
         </div>
       </div>
 
@@ -203,6 +247,7 @@ export default function FileQueuePage() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plik</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data dodania</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Czas parsowania</th>
                 {isAdmin && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Akcje</th>}
               </tr>
             </thead>
@@ -221,7 +266,10 @@ export default function FileQueuePage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
-                    {new Date(item.created_at).toLocaleDateString('pl-PL')}
+                    {fmtDateTime(item.created_at)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-600">
+                    {fmtDuration(item.processing_seconds)}
                   </td>
                   {isAdmin && (
                     <td className="px-4 py-3">
@@ -255,7 +303,7 @@ export default function FileQueuePage() {
               ))}
               {filteredItems.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={isAdmin ? 6 : 5} className="px-4 py-8 text-center text-gray-500">
                     Brak pozycji w kolejce
                   </td>
                 </tr>
@@ -298,7 +346,13 @@ export default function FileQueuePage() {
               <div>
                 <dt className="text-sm text-gray-500">Data dodania</dt>
                 <dd className="text-gray-800">
-                  {new Date(selectedItem.created_at).toLocaleString('pl-PL')}
+                  {fmtDateTime(selectedItem.created_at)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-sm text-gray-500">Czas parsowania</dt>
+                <dd className="text-gray-800">
+                  {fmtDuration(selectedItem.processing_seconds)}
                 </dd>
               </div>
               {selectedItem.started_at && (

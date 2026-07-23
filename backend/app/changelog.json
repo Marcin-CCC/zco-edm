@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.1.1",
+      "date": "2026-07-23",
+      "title": "Usprawnienia kolejki plików",
+      "changes": [
+        "Kolejka plików: data dodania z godziną i minutami.",
+        "Kolejka plików: nowa kolumna „Czas parsowania” (od rozpoczęcia przetwarzania do zakończenia).",
+        "Kolejka plików: automatyczne odświeżanie listy co 5 sekund (z możliwością wyłączenia)."
+      ]
+    },
+    {
       "version": "0.1.0",
       "date": "2026-07-23",
       "title": "Pierwsze wydanie demonstracyjne",

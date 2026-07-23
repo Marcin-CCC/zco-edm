@@ -45,6 +45,33 @@ PROCESSING_TIMEOUT_MINUTES = int(os.getenv("PROCESSING_TIMEOUT_MINUTES", "30"))
 _DISPATCH_LOCK_KEY = 776_2001
 
 
+def mark_processing_started(file: FileModel) -> None:
+    """Zapisz moment startu przetwarzania (do wyliczenia czasu parsowania).
+
+    Wołane przy zajęciu slotu (PENDING → PROCESSING). Czyści stary wynik czasu,
+    bo to nowy przebieg.
+    """
+    meta = dict(file.metadata_ or {})
+    meta["processing_started_at"] = datetime.utcnow().isoformat()
+    meta.pop("processing_seconds", None)
+    file.metadata_ = meta
+
+
+def mark_processing_finished(file: FileModel) -> None:
+    """Policz i zapisz czas parsowania (sekundy) od startu do statusu terminalnego."""
+    meta = dict(file.metadata_ or {})
+    started = meta.get("processing_started_at")
+    if not started:
+        return
+    try:
+        secs = (datetime.utcnow() - datetime.fromisoformat(started)).total_seconds()
+    except (ValueError, TypeError):
+        return
+    if secs >= 0:
+        meta["processing_seconds"] = round(secs, 1)
+        file.metadata_ = meta
+
+
 def _get_webhook_url(db: Session) -> str | None:
     """Webhook URL z ustawień aplikacji (DB) z fallbackiem na env."""
     from app.settings.router import _load_cache_from_db, get_webhook_url
@@ -76,6 +103,7 @@ def _reap_stale_processing(db: Session) -> None:
             f"od > {PROCESSING_TIMEOUT_MINUTES} min — oznaczam ERROR"
         )
         f.status = DocumentStatus.ERROR
+        mark_processing_finished(f)
 
 
 def _mark_error(db: Session, file_id: int, reason: str | None = None) -> None:
@@ -88,6 +116,7 @@ def _mark_error(db: Session, file_id: int, reason: str | None = None) -> None:
         meta = dict(f.metadata_ or {})
         meta["error"] = reason[:1000]
         f.metadata_ = meta
+    mark_processing_finished(f)
     db.commit()
 
 
@@ -152,6 +181,7 @@ async def try_dispatch_next(db: Session) -> dict:
         payload = _build_payload(next_file)
         file_id, filename = next_file.id, next_file.filename
         next_file.status = DocumentStatus.PROCESSING
+        mark_processing_started(next_file)
         db.commit()
     except Exception:
         db.rollback()
