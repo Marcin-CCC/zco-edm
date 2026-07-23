@@ -168,9 +168,11 @@ export default function FileQueuePage() {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <h1 className="text-2xl font-bold text-gray-800 mb-3">Kolejka plików</h1>
+      {/* Nagłówek strony (wzorzec jak Dashboard) */}
+      <h1 className="text-2xl font-bold text-gray-800 mb-4">Kolejka plików</h1>
+
+      {/* Moduł: filtry i odświeżanie (bez nagłówka → niższy) */}
+      <div className="bg-white border-b border-gray-200 px-6 py-3">
         <div className="flex items-center space-x-3">
           {/* Status filter */}
           <select

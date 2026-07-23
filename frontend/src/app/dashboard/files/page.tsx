@@ -511,18 +511,42 @@ function FilesPageInner() {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between mb-3">
-          <h1 className="text-2xl font-bold text-gray-800">Eksplorator plików</h1>
+      {/* Nagłówek strony (wzorzec jak Dashboard) */}
+      <h1 className="text-2xl font-bold text-gray-800 mb-4">Eksplorator plików</h1>
+
+      {/* Moduł: ścieżka folderu + akcje (bez nagłówka → niższy) */}
+      <div className="bg-white border-b border-gray-200 px-6 py-3">
+        <div className="flex items-center justify-between gap-3">
+          {/* Breadcrumbs (ścieżka od root) */}
+          <div className="flex items-center space-x-2 text-sm min-w-0 overflow-x-auto">
+            <button
+              onClick={navigateToRoot}
+              className={`text-blue-600 hover:underline whitespace-nowrap ${currentFolderId === null ? 'font-semibold' : ''}`}
+            >
+              🏠 Root
+            </button>
+            {breadcrumbs.map((crumb, index) => (
+              <span key={index} className="flex items-center whitespace-nowrap">
+                <span className="text-gray-400 mx-2">/</span>
+                <button
+                  onClick={() => navigateToBreadcrumb(index)}
+                  className="text-blue-600 hover:underline"
+                >
+                  {crumb.name}
+                </button>
+              </span>
+            ))}
+          </div>
+
+          {/* Akcje */}
           {(isAdmin || canWriteHere) && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 shrink-0">
               {isAdmin && (
                 <button
                   onClick={openCreateFolderModal}
-                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+                  className="text-blue-600 hover:text-blue-800 hover:underline px-2 py-2 transition-colors"
                 >
-                  📁 Nowy folder
+                  + Nowy folder
                 </button>
               )}
               {canWriteHere && (
@@ -538,40 +562,12 @@ function FilesPageInner() {
             </div>
           )}
         </div>
-
-        {/* Breadcrumbs */}
-        <div className="flex items-center space-x-2 text-sm">
-          <button
-            onClick={navigateToRoot}
-            className={`text-blue-600 hover:underline ${currentFolderId === null ? 'font-semibold' : ''}`}
-          >
-            🏠 Root
-          </button>
-          {breadcrumbs.map((crumb, index) => (
-            <span key={index} className="flex items-center">
-              <span className="text-gray-400 mx-2">/</span>
-              <button
-                onClick={() => navigateToBreadcrumb(index)}
-                className="text-blue-600 hover:underline"
-              >
-                {crumb.name}
-              </button>
-            </span>
-          ))}
-        </div>
-        
-        {/* Current folder info */}
-        {currentFolderName && (
-          <p className="text-xs text-gray-500 mt-1">
-            Aktualny folder: <strong>{currentFolderName}</strong>
-          </p>
-        )}
       </div>
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        {/* Folders section */}
-        {(isAdmin || currentFolderChildren.length > 0) && (
+        {/* Folders section — pokazuj tylko, gdy są foldery do wyświetlenia */}
+        {(currentFolderId === null ? rootFolders : currentFolderChildren).length > 0 && (
           <div className="mb-8">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-semibold text-gray-700">📁 Foldery</h2>

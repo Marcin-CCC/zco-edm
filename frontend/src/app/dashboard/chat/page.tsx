@@ -289,7 +289,11 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-120px)]">
+    <div className="flex flex-col h-[calc(100vh-100px)]">
+      {/* Nagłówek strony (wzorzec jak Dashboard) */}
+      <h1 className="text-2xl font-bold text-gray-800 mb-4">Chat — baza wiedzy</h1>
+
+      <div className="flex gap-4 flex-1 min-h-0">
       {/* Sidebar z listą rozmów */}
       <aside className="hidden md:flex w-80 flex-col bg-white rounded-lg shadow border border-gray-200">
         <div className="p-3 border-b border-gray-200">
@@ -330,10 +334,7 @@ export default function ChatPage() {
       {/* Panel czatu */}
       <div className="w-full lg:w-[480px] xl:w-[560px] flex flex-col bg-white rounded-lg shadow border border-gray-200">
         <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-gray-800">Chat — baza wiedzy</h1>
-            <p className="text-xs text-gray-500">Odpowiedzi na podstawie przetworzonych dokumentów</p>
-          </div>
+          <p className="text-xs text-gray-500">Odpowiedzi na podstawie przetworzonych dokumentów</p>
           <button
             onClick={newConversation}
             className="md:hidden text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-100"
@@ -453,6 +454,7 @@ export default function ChatPage() {
             )}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

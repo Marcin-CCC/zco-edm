@@ -106,7 +106,10 @@ export default function DashboardLayout({
 
       {/* Main content - adjust padding based on whether tabs are shown */}
       <main className={`pt-[56px] ${showTabs ? 'lg:pt-[96px]' : 'lg:pt-[72px]'} ${showTabs ? 'lg:ml-[256px]' : 'lg:ml-64'}`}>
-        <div className="p-4 lg:p-6">
+        {/* Górny padding zredukowany (lg:pt-1) — mniejszy odstęp nad nagłówkiem,
+            jednolity na wszystkich stronach; jednocześnie zgadza się z wysokością
+            h-[calc(100vh-100px)] strony Chat (72+4+24=100), więc Chat się nie przewija. */}
+        <div className="p-4 lg:px-6 lg:pt-1 lg:pb-6">
           {children}
         </div>
       </main>

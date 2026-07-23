@@ -55,12 +55,12 @@ export default function SettingsPage() {
   };
 
   if (loading) {
-    return <div className="p-6">Ładowanie...</div>;
+    return <div className="text-gray-500">Ładowanie...</div>;
   }
 
   return (
-    <div className="p-6 max-w-2xl">
-      <h1 className="text-2xl font-bold mb-6">Ustawienia aplikacji</h1>
+    <div className="max-w-2xl">
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">Ustawienia aplikacji</h1>
 
       <div className="bg-white rounded-lg shadow p-6 space-y-6">
         <div>
