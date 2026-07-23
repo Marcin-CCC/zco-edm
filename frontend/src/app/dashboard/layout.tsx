@@ -14,6 +14,7 @@ interface SubMenuItem {
 // Submenu tabs for admin pages
 const ADMIN_SUBMENU: SubMenuItem[] = [
   { label: 'Użytkownicy', href: '/dashboard/users' },
+  { label: 'Lista dostępów', href: '/dashboard/access-list' },
   { label: 'Kolejka plików', href: '/dashboard/file-queue' },
   { label: 'Ustawienia aplikacji', href: '/dashboard/settings' },
 ];
@@ -23,7 +24,7 @@ function isActive(pathname: string, href: string): boolean {
 }
 
 // Which pages should show tabs
-const PAGES_WITH_TABS: string[] = ['/dashboard/users', '/dashboard/file-queue', '/dashboard/settings'];
+const PAGES_WITH_TABS: string[] = ['/dashboard/users', '/dashboard/access-list', '/dashboard/file-queue', '/dashboard/settings'];
 
 export default function DashboardLayout({
   children,

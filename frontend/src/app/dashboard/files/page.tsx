@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { filesApi, foldersApi } from '@/lib/api';
 import { useAuth } from '@/lib/store';
 
@@ -102,9 +103,11 @@ function getFileColor(mimeType: string | null): string {
   return 'text-gray-500';
 }
 
-export default function FilesPage() {
+function FilesPageInner() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const searchParams = useSearchParams();
+  const deepLinkDone = useRef(false); // deep-link ?folder=<id> stosujemy raz
   const [files, setFiles] = useState<File[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
@@ -438,6 +441,29 @@ export default function FilesPage() {
     loadFolders();
     loadFiles();
   }, [loadFolders, loadFiles]);
+
+  // Deep-link z Listy dostępów: /dashboard/files?folder=<id> — wejdź do folderu.
+  // Stosujemy raz, po załadowaniu drzewa folderów (potrzebne do breadcrumbów).
+  useEffect(() => {
+    if (deepLinkDone.current || folders.length === 0) return;
+    const param = searchParams.get('folder');
+    if (!param) return;
+    const id = parseInt(param, 10);
+    if (Number.isNaN(id)) return;
+    const target = findFolder(folders, id);
+    if (!target) return;
+    deepLinkDone.current = true;
+    // zbuduj breadcrumbs, idąc w górę po parent_id
+    const crumbs: { id: number; name: string }[] = [];
+    let cur: Folder | null = target;
+    while (cur) {
+      crumbs.unshift({ id: cur.id, name: cur.name });
+      cur = cur.parent_id != null ? findFolder(folders, cur.parent_id) : null;
+    }
+    setCurrentFolderId(id);
+    setBreadcrumbs(crumbs);
+    loadFiles(id);
+  }, [searchParams, folders, loadFiles]);
 
   // Normalizuj wybór w formularzu uprawnień: rola z dziedziczonym/własnym Zapisem
   // znika z listy (nic nie da się dodać), a rola z Odczytem może być tylko
@@ -1125,5 +1151,14 @@ export default function FilesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Wrapper z granicą Suspense — wymagane przez useSearchParams() w Next.js 14
+export default function FilesPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-gray-500">Ładowanie...</div>}>
+      <FilesPageInner />
+    </Suspense>
   );
 }

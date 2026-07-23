@@ -141,6 +141,67 @@ def effective_permissions(folder_id: int, db: Session) -> list[dict]:
     return [{"role": _val(r), "access_level": _val(a)} for r, a in best.items()]
 
 
+def _rank(level) -> int:
+    """Ranga poziomu dostępu: brak(0) < read(1) < write(2)."""
+    if level is None:
+        return 0
+    v = level.value if hasattr(level, "value") else str(level)
+    return 2 if v == "write" else 1 if v == "read" else 0
+
+
+def access_overview(db: Session) -> dict:
+    """Zestawienie dostępów dla wszystkich ról (poza adminem) — do audytu.
+
+    Zwraca mapę ``role -> [ {folder_id, name, path, access_level, source} ]``,
+    gdzie uwzględniony jest dostęp EFEKTYWNY (z dziedziczeniem po ścieżce):
+    - ``access_level`` — efektywny poziom roli na folderze ("read"/"write"),
+    - ``source`` — "direct" gdy poziom wynika z uprawnienia nadanego wprost na
+      tym folderze (rozszerza ponad dziedziczone), "inherited" gdy z nadrzędnego.
+    Rola bez żadnego dostępu ma pustą listę.
+    """
+    folders = db.query(Folder).all()
+    by_id = {f.id: f for f in folders}
+    perms = db.query(FolderPermission).all()
+
+    direct: dict = {}  # folder_id -> {role: access_level}
+    for p in perms:
+        direct.setdefault(p.folder_id, {})[p.role] = p.access_level
+
+    roles = [r for r in UserRole if r != UserRole.ADMIN]
+    result: dict = {r.value: [] for r in roles}
+
+    for f in folders:
+        # łańcuch przodków (bez samego f)
+        ancestors: list[int] = []
+        cur = by_id.get(f.parent_id) if f.parent_id is not None else None
+        while cur is not None:
+            ancestors.append(cur.id)
+            cur = by_id.get(cur.parent_id) if cur.parent_id is not None else None
+
+        for role in roles:
+            own = direct.get(f.id, {}).get(role)
+            inh = None
+            for aid in ancestors:
+                lvl = direct.get(aid, {}).get(role)
+                if lvl is not None and _rank(lvl) > _rank(inh):
+                    inh = lvl
+            if own is None and inh is None:
+                continue
+            eff = own if _rank(own) >= _rank(inh) else inh
+            source = "direct" if (own is not None and _rank(own) > _rank(inh)) else "inherited"
+            result[role.value].append({
+                "folder_id": f.id,
+                "name": f.name,
+                "path": f.path,
+                "access_level": eff.value if hasattr(eff, "value") else str(eff),
+                "source": source,
+            })
+
+    for r in result:
+        result[r].sort(key=lambda x: x["path"])
+    return result
+
+
 def can_read_file_folder(folder_id: Optional[int], readable: Optional[set[int]]) -> bool:
     """Czy plik w folderze ``folder_id`` jest czytelny przy danym zbiorze ``readable``.
 

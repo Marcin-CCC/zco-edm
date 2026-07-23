@@ -206,6 +206,11 @@ export const foldersApi = {
       `/api/folders/${folderId}/effective-permissions`,
       { method: 'GET', token: getAuthToken() }
     ),
+  accessOverview: () =>
+    apiRequest<Record<string, { folder_id: number; name: string; path: string; access_level: string; source: string }[]>>(
+      '/api/folders/access-overview',
+      { method: 'GET', token: getAuthToken() }
+    ),
   deletePermission: (folderId: number, permId: number) =>
     apiRequest<any>(`/api/folders/${folderId}/permissions/${permId}`, {
       method: 'DELETE',

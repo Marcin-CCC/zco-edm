@@ -9,7 +9,7 @@ from app.models import Folder, FolderPermission, File as FileModel, User, UserRo
 from app.schemas import FolderResponse, FolderCreate, FolderPermissionResponse, FolderPermissionBase, FolderPermissionCreate, FolderTreeResponse
 from datetime import datetime
 from app.auth.auth import get_current_user
-from app.rbac import visible_folder_ids, writable_folder_ids, effective_permissions
+from app.rbac import visible_folder_ids, writable_folder_ids, effective_permissions, access_overview
 
 router = APIRouter(prefix="/folders", tags=["Folders"])
 
@@ -102,6 +102,20 @@ def get_folder_tree(
         .all()
     )
     return build_folder_tree(folders, writable=writable, file_counts=file_counts)
+
+
+@router.get("/access-overview")
+def get_access_overview(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Zestawienie dostępów per rola (audyt). Tylko admin.
+
+    Trasa MUSI być przed '/{folder_id}', inaczej złapałby ją parametr int.
+    """
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Tylko administrator może przeglądać listę dostępów.")
+    return access_overview(db)
 
 
 @router.get("/", response_model=List[FolderResponse])
