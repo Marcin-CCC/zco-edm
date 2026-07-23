@@ -55,44 +55,13 @@ jobs:
         continue-on-error: true
 
   # ============================================================
-  # BUMP VERSION
+  # WERSJONOWANIE — ręczne, świadome (nie auto-bump).
+  # ------------------------------------------------------------
+  # Jedno źródło prawdy: backend/app/changelog.json (górny wpis = bieżąca wersja).
+  # Wersję ustawiamy MY, dopisując wpis do changeloga w tym samym commicie co
+  # zmiany. build-deploy czyta numer z changeloga i wpieka go do obrazu (build-arg
+  # VERSION). Wcześniejszy auto-bump usunięto (nie działał, groził pętlą deployów).
   # ============================================================
-  bump-version:
-    name: Bump Version
-    runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Increment patch version
-        id: version
-        run: |
-          VERSION_FILE="VERSION"
-          if [ ! -f "$VERSION_FILE" ]; then
-            echo "1.0.0" > "$VERSION_FILE"
-          fi
-          CURRENT=$(cat "$VERSION_FILE" | tr -d '[:space:]')
-          MAJOR=$(echo "$CURRENT" | cut -d. -f1)
-          MINOR=$(echo "$CURRENT" | cut -d. -f2)
-          PATCH=$(echo "$CURRENT" | cut -d. -f3)
-          NEW_PATCH=$((PATCH + 1))
-          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
-          echo "$NEW_VERSION" > "$VERSION_FILE"
-          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "Bumped $CURRENT -> $NEW_VERSION"
-
-      - name: Commit version bump
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add VERSION
-          git commit -m "chore: bump version to $(cat VERSION)" || echo "No changes to commit"
-          git push || echo "No changes to push"
 
   # ============================================================
   # BUILD & DEPLOY (natywnie na self-hosted ARM64 — bez QEMU)
@@ -104,7 +73,7 @@ jobs:
   # powstaje na tej samej maszynie, na której startuje compose).
   build-deploy:
     name: Build & Deploy on Spark (native ARM64)
-    needs: [test-backend, bump-version]
+    needs: [test-backend]
     runs-on: self-hosted
     if: github.event_name != 'pull_request'
     environment: spark
@@ -114,7 +83,10 @@ jobs:
 
       - name: Read version
         id: version
-        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+        run: |
+          VER=$(python3 -c "import json;print(json.load(open('backend/app/changelog.json'))['entries'][0]['version'])")
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "Deploying version $VER"
 
       - name: Build backend image (native arm64)
         run: |

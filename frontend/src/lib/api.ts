@@ -79,6 +79,11 @@ export const versionApi = {
     apiRequest<any>('/api/version', {
       method: 'GET',
     }),
+  changelog: () =>
+    apiRequest<{ entries: { version: string; date: string; title?: string; changes: string[] }[] }>(
+      '/api/changelog',
+      { method: 'GET' }
+    ),
 };
 
 // Auth endpoints

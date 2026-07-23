@@ -20,7 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', roles: ['admin', 'doctor', 'medical_staff', 'technician', 'office_staff', 'guest'], exact: true },
   { label: 'Pliki', href: '/dashboard/files', roles: ['admin', 'doctor', 'medical_staff', 'technician', 'office_staff', 'guest'], exact: true },
   { label: 'Chat', href: '/dashboard/chat', roles: ['admin', 'doctor', 'medical_staff', 'technician', 'office_staff', 'guest'], exact: true },
-  { label: 'Administracja', href: '/dashboard/users', roles: ['admin'], children: ['/dashboard/users', '/dashboard/access-packages', '/dashboard/file-queue', '/dashboard/settings'] },
+  { label: 'Administracja', href: '/dashboard/users', roles: ['admin'], children: ['/dashboard/users', '/dashboard/access-list', '/dashboard/file-queue', '/dashboard/settings'] },
 ];
 
 function isActive(pathname: string, item: NavItem): boolean {
@@ -92,7 +92,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-700">
-          <p className="text-xs text-slate-400">EDM ZCO v{version}</p>
+          <Link
+            href="/dashboard/changelog"
+            onClick={onClose}
+            className="text-xs text-slate-400 hover:text-white transition-colors"
+            title="Historia zmian"
+          >
+            EDM ZCO v{version} · Historia zmian
+          </Link>
         </div>
       </aside>
     </>

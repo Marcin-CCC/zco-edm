@@ -1,0 +1,16 @@
+{
+  "entries": [
+    {
+      "version": "0.1.0",
+      "date": "2026-07-23",
+      "title": "Pierwsze wydanie demonstracyjne",
+      "changes": [
+        "Zarządzanie dokumentami: foldery, wgrywanie wielu plików naraz, kolejka przetwarzania (jeden plik naraz) odporna na awarie.",
+        "Prawa dostępu (RBAC) per rola z dziedziczeniem po folderach; zakładka „Lista dostępów” do audytu uprawnień.",
+        "Czat z bazą wiedzy (RAG): historia rozmów, źródła odpowiedzi, wyniki filtrowane według uprawnień roli.",
+        "Panel administracyjny: użytkownicy (z resetem hasła), kolejka plików, ustawienia aplikacji, whitelist rozszerzeń.",
+        "Automatyczne wdrożenia (CI/CD) na środowisko demonstracyjne."
+      ]
+    }
+  ]
+}
