@@ -2,14 +2,14 @@ import os
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 
 from app.database import get_db
-from app.models import Folder, FolderPermission, User, UserRole
+from app.models import Folder, FolderPermission, File as FileModel, User, UserRole
 from app.schemas import FolderResponse, FolderCreate, FolderPermissionResponse, FolderPermissionBase, FolderPermissionCreate, FolderTreeResponse
 from datetime import datetime
 from app.auth.auth import get_current_user
-from app.rbac import visible_folder_ids, writable_folder_ids
+from app.rbac import visible_folder_ids, writable_folder_ids, effective_permissions
 
 router = APIRouter(prefix="/folders", tags=["Folders"])
 
@@ -18,16 +18,19 @@ def build_folder_tree(
     folders: List[Folder],
     parent_id: Optional[int] = None,
     writable: Optional[set] = None,
+    file_counts: Optional[dict] = None,
 ) -> List[FolderTreeResponse]:
     """Build hierarchical folder tree.
 
     ``writable`` = zbiór id folderów zapisywalnych dla bieżącego użytkownika
     (``None`` = admin → zapis wszędzie).
+    ``file_counts`` = mapa folder_id → liczba plików bezpośrednio w folderze.
     """
+    file_counts = file_counts or {}
     tree = []
     for folder in folders:
         if folder.parent_id == parent_id:
-            children = build_folder_tree(folders, folder.id, writable)
+            children = build_folder_tree(folders, folder.id, writable, file_counts)
             tree.append(FolderTreeResponse(
                 id=folder.id,
                 name=folder.name,
@@ -38,6 +41,7 @@ def build_folder_tree(
                 created_at=folder.created_at,
                 updated_at=folder.updated_at,
                 can_write=(writable is None) or (folder.id in writable),
+                file_count=file_counts.get(folder.id, 0),
                 children=children,
             ))
     return tree
@@ -91,7 +95,13 @@ def get_folder_tree(
     if visible is not None:
         folders = [f for f in folders if f.id in visible]
     writable = writable_folder_ids(current_user, db)
-    return build_folder_tree(folders, writable=writable)
+    file_counts = dict(
+        db.query(FileModel.folder_id, func.count(FileModel.id))
+        .filter(FileModel.folder_id.isnot(None))
+        .group_by(FileModel.folder_id)
+        .all()
+    )
+    return build_folder_tree(folders, writable=writable, file_counts=file_counts)
 
 
 @router.get("/", response_model=List[FolderResponse])
@@ -161,7 +171,8 @@ def add_folder_permission(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Add permission to a folder (admin only)."""
+    """Ustaw uprawnienie roli na folderze (admin). Upsert: gdy rola ma już
+    uprawnienie na tym folderze, podmienia poziom zamiast zwracać błąd."""
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Tylko administrator może ustawiać uprawnienia.")
 
@@ -175,7 +186,11 @@ def add_folder_permission(
     ).first()
 
     if existing:
-        raise HTTPException(status_code=400, detail="Uprawnienie dla tej roli juz istnieje.")
+        # Podmiana poziomu (np. Odczyt → Zapis) — intuicyjna zmiana z tego samego okna
+        existing.access_level = perm_data.access_level
+        db.commit()
+        db.refresh(existing)
+        return existing
 
     new_perm = FolderPermission(
         folder_id=folder_id,
@@ -186,6 +201,25 @@ def add_folder_permission(
     db.commit()
     db.refresh(new_perm)
     return new_perm
+
+
+@router.get("/{folder_id}/effective-permissions")
+def get_effective_permissions(
+    folder_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Efektywne uprawnienia folderu (własne + odziedziczone po przodkach).
+
+    Służy do pokazania w popupie 'Nowy folder', jakie role odziedziczy nowy
+    podfolder tego folderu. Tylko admin (jak pozostałe zarządzanie uprawnieniami).
+    """
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Tylko administrator może zarządzać uprawnieniami.")
+    folder = db.query(Folder).filter(Folder.id == folder_id).first()
+    if not folder:
+        raise HTTPException(status_code=404, detail="Folder nie istnieje.")
+    return effective_permissions(folder_id, db)
 
 
 @router.get("/{folder_id}/permissions", response_model=List[FolderPermissionResponse])

@@ -16,7 +16,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.models import Folder, FolderPermission, User, UserRole
+from app.models import Folder, FolderPermission, AccessLevel, User, UserRole
 
 
 def _is_under(path: str, root: str) -> bool:
@@ -105,6 +105,40 @@ def visible_folder_ids(user: User, db: Session) -> Optional[set[int]]:
             visible.add(cur.parent_id)
             cur = by_id.get(cur.parent_id)
     return visible
+
+
+def effective_permissions(folder_id: int, db: Session) -> list[dict]:
+    """Efektywne uprawnienia folderu = suma uprawnień folderu i jego przodków
+    (dziedziczenie po łańcuchu rodziców). Dla każdej roli zwraca najwyższy
+    poziom dostępu (write > read).
+
+    Używane m.in. do pokazania, jakie role odziedziczy NOWY podfolder danego
+    folderu (jego efektywny zestaw = to, co dziedziczą dzieci).
+    Zwraca listę: ``[{"role": "doctor", "access_level": "write"}, ...]``.
+    """
+    by_id = {f.id: f for f in db.query(Folder).all()}
+    chain_ids: list[int] = []
+    cur = by_id.get(folder_id)
+    while cur is not None:
+        chain_ids.append(cur.id)
+        cur = by_id.get(cur.parent_id) if cur.parent_id is not None else None
+    if not chain_ids:
+        return []
+
+    perms = (
+        db.query(FolderPermission)
+        .filter(FolderPermission.folder_id.in_(chain_ids))
+        .all()
+    )
+    best: dict = {}
+    for p in perms:
+        if p.role not in best or p.access_level == AccessLevel.WRITE:
+            best[p.role] = p.access_level
+
+    def _val(x):
+        return x.value if hasattr(x, "value") else str(x)
+
+    return [{"role": _val(r), "access_level": _val(a)} for r, a in best.items()]
 
 
 def can_read_file_folder(folder_id: Optional[int], readable: Optional[set[int]]) -> bool:

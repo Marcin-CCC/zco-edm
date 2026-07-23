@@ -25,10 +25,17 @@ def get_dashboard_stats(db: Session = Depends(get_db), current_user=Depends(get_
     
     # Licznik folderów
     folders_count = db.query(func.count(Folder.id)).scalar()
-    
+
+    # Licznik przetworzonych plików (status READY = "Przetworzono")
+    processed_count = (
+        db.query(func.count(File.id))
+        .filter(File.status == DocumentStatus.READY)
+        .scalar()
+    )
+
     return DashboardStats(
         users=users_count,
         documents=files_count,
         folders=folders_count,
-        processed=0,  # TODO: podłączymy gdy procesowanie będzie działać
+        processed=processed_count,
     )

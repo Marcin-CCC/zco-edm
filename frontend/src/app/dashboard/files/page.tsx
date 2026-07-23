@@ -25,20 +25,29 @@ interface Folder {
   path: string;
   parent_id: number | null;
   can_write?: boolean;
-  children: Folder[];
+  file_count?: number;
+  children?: Folder[];
 }
 
-// Rekurencyjne wyszukanie folderu po id w drzewie
+// Spłaszcz drzewo folderów do płaskiej listy (zachowując pola węzłów).
+// Dzięki temu filtrowanie po parent_id działa dla podfolderów na każdym poziomie
+// (drzewo z backendu ma dzieci zagnieżdżone, nie na płasko).
+function flattenFolderTree(nodes: Folder[]): Folder[] {
+  const out: Folder[] = [];
+  const walk = (list: Folder[]) => {
+    for (const n of list) {
+      out.push(n);
+      if (n.children?.length) walk(n.children);
+    }
+  };
+  walk(nodes);
+  return out;
+}
+
+// Wyszukanie folderu po id w płaskiej liście
 function findFolder(list: Folder[], id: number | null): Folder | null {
   if (id === null) return null;
-  for (const f of list) {
-    if (f.id === id) return f;
-    if (f.children?.length) {
-      const found = findFolder(f.children, id);
-      if (found) return found;
-    }
-  }
-  return null;
+  return list.find((f) => f.id === id) ?? null;
 }
 
 type ViewMode = 'list' | 'grid';
@@ -58,6 +67,8 @@ const ACCESS_LABELS: Record<string, string> = {
   read: 'Odczyt',
   write: 'Zapis',
 };
+// Ranga poziomu dostępu: brak < odczyt < zapis
+const accessRank = (lvl?: string): number => (lvl === 'write' ? 2 : lvl === 'read' ? 1 : 0);
 
 function formatFileSize(bytes: number | null): string {
   if (bytes === null) return '-';
@@ -113,11 +124,24 @@ export default function FilesPage() {
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [folderCreating, setFolderCreating] = useState(false);
+  // Role, które nowy podfolder odziedziczy po folderze nadrzędnym (informacyjnie)
+  const [inheritedPerms, setInheritedPerms] = useState<
+    { role: string; access_level: string }[]
+  >([]);
 
   // Zarządzanie uprawnieniami folderu (RBAC po roli)
   const [permFolder, setPermFolder] = useState<Folder | null>(null);
   const [permissions, setPermissions] = useState<
     { id: number; role: string; access_level: string }[]
+  >([]);
+  // Efektywne uprawnienia = własne + odziedziczone po folderach nadrzędnych
+  const [permEffective, setPermEffective] = useState<
+    { role: string; access_level: string }[]
+  >([]);
+  // Uprawnienia odziedziczone (efektywne folderu nadrzędnego) — do rozróżnienia
+  // co jest własnym rozszerzeniem, a co dziedziczonym minimum
+  const [permInherited, setPermInherited] = useState<
+    { role: string; access_level: string }[]
   >([]);
   const [permLoading, setPermLoading] = useState(false);
   const [newPermRole, setNewPermRole] = useState('doctor');
@@ -127,7 +151,7 @@ export default function FilesPage() {
   const loadFolders = useCallback(async () => {
     try {
       const res = await foldersApi.tree();
-      setFolders(res || []);
+      setFolders(flattenFolderTree(res || []));
     } catch (err) {
       console.error('Failed to load folders:', err);
     }
@@ -219,7 +243,7 @@ export default function FilesPage() {
       try {
         const formData = new FormData();
         formData.append('file', file);
-        // Upload do BIEŻĄCEGO katalogu (tego, który użytkownik przegląda)
+        // Upload do BIEŻĄCEGO folderu (tego, który użytkownik przegląda)
         if (currentFolderId !== null) {
           formData.append('folder_id', String(currentFolderId));
         }
@@ -245,6 +269,20 @@ export default function FilesPage() {
     if (errorCount === 0) {
       setShowUploadModal(false);
       setUploadItems([]);
+    }
+  };
+
+  // Otwórz popup tworzenia folderu; dla podfolderu pobierz role odziedziczone
+  const openCreateFolderModal = async () => {
+    setInheritedPerms([]);
+    setShowCreateFolderModal(true);
+    if (currentFolderId !== null) {
+      try {
+        const res = await foldersApi.effectivePermissions(currentFolderId);
+        setInheritedPerms(res || []);
+      } catch (err) {
+        console.error('Load inherited permissions failed:', err);
+      }
     }
   };
 
@@ -289,13 +327,29 @@ export default function FilesPage() {
   };
 
   // ---- Uprawnienia folderu (RBAC) ----
+  // Pobierz uprawnienia folderu: własne (bezpośrednie), efektywne (z dziedziczeniem)
+  // oraz odziedziczone (efektywne folderu nadrzędnego).
+  const reloadPerms = async (folder: Folder) => {
+    const [direct, eff, inh] = await Promise.all([
+      foldersApi.listPermissions(folder.id),
+      foldersApi.effectivePermissions(folder.id),
+      folder.parent_id != null
+        ? foldersApi.effectivePermissions(folder.parent_id)
+        : Promise.resolve([] as { role: string; access_level: string }[]),
+    ]);
+    setPermissions(direct || []);
+    setPermEffective(eff || []);
+    setPermInherited(inh || []);
+  };
+
   const openPermissions = async (folder: Folder) => {
     setPermFolder(folder);
     setPermissions([]);
+    setPermEffective([]);
+    setPermInherited([]);
     setPermLoading(true);
     try {
-      const res = await foldersApi.listPermissions(folder.id);
-      setPermissions(res || []);
+      await reloadPerms(folder);
     } catch (err) {
       console.error('Load permissions failed:', err);
     } finally {
@@ -310,8 +364,7 @@ export default function FilesPage() {
         role: newPermRole,
         access_level: newPermAccess,
       });
-      const res = await foldersApi.listPermissions(permFolder.id);
-      setPermissions(res || []);
+      await reloadPerms(permFolder);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Nie udało się dodać uprawnienia.');
     }
@@ -321,7 +374,7 @@ export default function FilesPage() {
     if (!permFolder) return;
     try {
       await foldersApi.deletePermission(permFolder.id, permId);
-      setPermissions((prev) => prev.filter((p) => p.id !== permId));
+      await reloadPerms(permFolder);
     } catch (err) {
       console.error('Delete permission failed:', err);
       alert('Nie udało się usunąć uprawnienia.');
@@ -386,6 +439,24 @@ export default function FilesPage() {
     loadFiles();
   }, [loadFolders, loadFiles]);
 
+  // Normalizuj wybór w formularzu uprawnień: rola z dziedziczonym/własnym Zapisem
+  // znika z listy (nic nie da się dodać), a rola z Odczytem może być tylko
+  // podniesiona do Zapisu (dodanie Odczytu byłoby no-opem).
+  useEffect(() => {
+    const effByRole: Record<string, string> = {};
+    permEffective.forEach((p) => { effByRole[p.role] = p.access_level; });
+    const avail = ASSIGNABLE_ROLES.filter((r) => accessRank(effByRole[r.value]) < 2);
+    if (avail.length === 0) return;
+    let role = newPermRole;
+    if (!avail.some((r) => r.value === role)) {
+      role = avail[0].value;
+      setNewPermRole(role);
+    }
+    if (accessRank(effByRole[role]) === 1 && newPermAccess !== 'write') {
+      setNewPermAccess('write');
+    }
+  }, [permEffective, newPermRole, newPermAccess]);
+
   // Top folders (root or current folder children)
   const rootFolders = folders.filter(f => f.parent_id === null);
   const currentFolderChildren = folders.filter(f => f.parent_id === currentFolderId);
@@ -399,6 +470,19 @@ export default function FilesPage() {
   // Root (currentFolderId === null) — tylko admin.
   const canWriteHere = isAdmin || (findFolder(folders, currentFolderId)?.can_write ?? false);
 
+  // --- Modal uprawnień: mapy poziomów po roli (dziedziczone + efektywne) ---
+  const permInhByRole: Record<string, string> = {};
+  permInherited.forEach((p) => { permInhByRole[p.role] = p.access_level; });
+  const permEffByRole: Record<string, string> = {};
+  permEffective.forEach((p) => { permEffByRole[p.role] = p.access_level; });
+  // Formularz „Dodaj": tylko role/poziomy, które realnie coś zmienią.
+  // Rola z efektywnym Zapisem (max) znika; rola z Odczytem może iść tylko do Zapisu.
+  const permAvailableRoles = ASSIGNABLE_ROLES.filter(
+    (r) => accessRank(permEffByRole[r.value]) < 2
+  );
+  const permAvailableLevels =
+    accessRank(permEffByRole[newPermRole]) === 1 ? ['write'] : ['read', 'write'];
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
@@ -409,7 +493,7 @@ export default function FilesPage() {
             <div className="flex gap-2">
               {isAdmin && (
                 <button
-                  onClick={() => setShowCreateFolderModal(true)}
+                  onClick={openCreateFolderModal}
                   className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
                 >
                   📁 Nowy folder
@@ -453,7 +537,7 @@ export default function FilesPage() {
         {/* Current folder info */}
         {currentFolderName && (
           <p className="text-xs text-gray-500 mt-1">
-            Aktualny katalog: <strong>{currentFolderName}</strong>
+            Aktualny folder: <strong>{currentFolderName}</strong>
           </p>
         )}
       </div>
@@ -464,10 +548,10 @@ export default function FilesPage() {
         {(isAdmin || currentFolderChildren.length > 0) && (
           <div className="mb-8">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold text-gray-700">📁 Katalogi</h2>
+              <h2 className="text-lg font-semibold text-gray-700">📁 Foldery</h2>
               {isAdmin && (
                 <span className="text-xs text-gray-400">
-                  {currentFolderId === null ? 'Katalogi rootowe' : `Dzieci katalogu`}
+                  {currentFolderId === null ? 'Foldery główne' : `Podfoldery`}
                 </span>
               )}
             </div>
@@ -485,6 +569,7 @@ export default function FilesPage() {
                       <div className="text-3xl mb-2">📁</div>
                       <div className="font-medium text-gray-800 truncate">{folder.name}</div>
                       <div className="text-xs text-gray-500">{folder.path}</div>
+                      <div className="text-xs text-gray-500">Liczba plików: {folder.file_count ?? 0}</div>
                     </button>
                     {isAdmin && (
                       <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -612,7 +697,7 @@ export default function FilesPage() {
                   {files.length === 0 && !loading && (
                     <tr>
                       <td className="px-4 py-8 text-center text-gray-500" colSpan={6}>
-                        Brak plików w tym katalogu
+                        Brak plików w tym folderze
                       </td>
                     </tr>
                   )}
@@ -667,7 +752,7 @@ export default function FilesPage() {
               ))}
               {files.length === 0 && !loading && (
                 <div className="col-span-full text-center text-gray-500 py-8">
-                  Brak plików w tym katalogu
+                  Brak plików w tym folderze
                 </div>
               )}
             </div>
@@ -683,7 +768,7 @@ export default function FilesPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-lg font-bold text-gray-800 mb-4">
-              📁 Nowy katalog
+              📁 Nowy folder
             </h2>
             <p className="text-sm text-gray-600 mb-2">
               Tworzony w: <strong>
@@ -692,16 +777,45 @@ export default function FilesPage() {
             </p>
             <input
               type="text"
-              placeholder="Nazwa katalogu"
+              placeholder="Nazwa folderu"
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleCreateFolder(); }}
               className="w-full border border-gray-300 rounded-md p-2 mb-4"
               autoFocus
             />
+
+            {/* Role odziedziczone po folderze nadrzędnym (tylko dla podfolderu, do wglądu) */}
+            {currentFolderId !== null && (
+              <div className="mb-4">
+                <p className="text-xs text-gray-500 mb-1">
+                  Nowy podfolder odziedziczy dostęp folderu nadrzędnego:
+                </p>
+                {inheritedPerms.length === 0 ? (
+                  <p className="text-xs text-gray-400">
+                    Brak ról z dostępem (poza administratorem).
+                  </p>
+                ) : (
+                  <ul className="text-sm text-gray-700 border border-gray-200 rounded-md divide-y divide-gray-100">
+                    {inheritedPerms.map((p) => (
+                      <li key={p.role} className="px-3 py-1.5">
+                        {ROLE_LABELS[p.role] || p.role}
+                        <span className="text-gray-400"> · </span>
+                        <span className="text-gray-600">
+                          {ACCESS_LABELS[p.access_level] || p.access_level}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Dostęp dziedziczony (tylko do wglądu). Zmienisz go później przez 🔒 na folderze.
+                </p>
+              </div>
+            )}
             <div className="flex justify-end space-x-2">
               <button
-                onClick={() => { setShowCreateFolderModal(false); setNewFolderName(''); }}
+                onClick={() => { setShowCreateFolderModal(false); setNewFolderName(''); setInheritedPerms([]); }}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
                 disabled={folderCreating}
               >
@@ -737,73 +851,102 @@ export default function FilesPage() {
             </p>
             <p className="text-xs text-gray-500 mb-4">
               Rola z uprawnieniem widzi pliki w tym folderze <strong>i jego
-              podfolderach</strong>. Administrator ma zawsze pełny dostęp. Pliki
-              w katalogu głównym (root) są widoczne tylko dla administratora.
+              podfolderach</strong>. Uprawnienia oznaczone „(dziedziczone)" pochodzą
+              z folderu nadrzędnego — zmienisz je na tamtym folderze. Administrator
+              ma zawsze pełny dostęp; pliki w folderze głównym (root) widzi tylko
+              administrator.
             </p>
 
-            {/* Lista istniejących uprawnień */}
+            {/* Lista uprawnień efektywnych: własne (usuwalne) + dziedziczone (do wglądu) */}
             <div className="mb-4">
               {permLoading ? (
                 <div className="text-sm text-gray-500 py-3">Ładowanie...</div>
-              ) : permissions.length === 0 ? (
+              ) : permEffective.length === 0 ? (
                 <div className="text-sm text-gray-500 py-3 border border-dashed border-gray-200 rounded-md text-center">
                   Brak uprawnień — tylko administrator widzi ten folder.
                 </div>
               ) : (
                 <ul className="divide-y divide-gray-100 border border-gray-200 rounded-md">
-                  {permissions.map((p) => (
-                    <li key={p.id} className="flex items-center justify-between px-3 py-2 text-sm">
-                      <span className="text-gray-800">
-                        {ROLE_LABELS[p.role] || p.role}
-                        <span className="text-gray-400"> · </span>
-                        <span className="text-gray-600">
-                          {ACCESS_LABELS[p.access_level] || p.access_level}
+                  {permEffective.map((eff) => {
+                    // Własne rozszerzenie = bezpośrednie uprawnienie WYŻSZE niż dziedziczone.
+                    // Bezpośrednie ≤ dziedziczone jest zdominowane → traktujemy jak dziedziczone.
+                    const direct = permissions.find((p) => p.role === eff.role);
+                    const isOwn =
+                      !!direct &&
+                      accessRank(direct.access_level) > accessRank(permInhByRole[eff.role]);
+                    return (
+                      <li key={eff.role} className="flex items-center justify-between px-3 py-2 text-sm">
+                        <span className="text-gray-800">
+                          {ROLE_LABELS[eff.role] || eff.role}
+                          <span className="text-gray-400"> · </span>
+                          <span className="text-gray-600">
+                            {ACCESS_LABELS[eff.access_level] || eff.access_level}
+                          </span>
+                          {!isOwn && (
+                            <span className="ml-2 text-xs text-gray-400">
+                              (dziedziczone z nadrzędnego)
+                            </span>
+                          )}
                         </span>
-                      </span>
-                      <button
-                        onClick={() => handleDeletePermission(p.id)}
-                        className="text-red-500 hover:text-red-700 text-xs"
-                      >
-                        Usuń
-                      </button>
-                    </li>
-                  ))}
+                        {isOwn && direct ? (
+                          <button
+                            onClick={() => handleDeletePermission(direct.id)}
+                            className="text-red-500 hover:text-red-700 text-xs"
+                          >
+                            Usuń
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
 
-            {/* Formularz dodania uprawnienia */}
-            <div className="flex items-end gap-2 border-t border-gray-100 pt-4">
-              <label className="flex-1 text-xs text-gray-500">
-                Rola
-                <select
-                  value={newPermRole}
-                  onChange={(e) => setNewPermRole(e.target.value)}
-                  className="mt-1 w-full border border-gray-300 rounded-md p-2 text-sm text-gray-800"
+            {/* Formularz dodania uprawnienia — tylko role/poziomy, które coś zmienią.
+                Można wyłącznie ROZSZERZAĆ dostęp (dodać rolę lub podnieść Odczyt→Zapis);
+                zawężać poniżej dziedziczonego nie można. */}
+            {permAvailableRoles.length === 0 ? (
+              <div className="border-t border-gray-100 pt-4 text-xs text-gray-500">
+                Wszystkie role mają już maksymalny dostęp (Zapis) — dziedziczony lub
+                własny. Nie ma czego dodać.
+              </div>
+            ) : (
+              <div className="flex items-end gap-2 border-t border-gray-100 pt-4">
+                <label className="flex-1 text-xs text-gray-500">
+                  Rola
+                  <select
+                    value={newPermRole}
+                    onChange={(e) => setNewPermRole(e.target.value)}
+                    className="mt-1 w-full border border-gray-300 rounded-md p-2 text-sm text-gray-800"
+                  >
+                    {permAvailableRoles.map((r) => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-xs text-gray-500">
+                  Poziom
+                  <select
+                    value={newPermAccess}
+                    onChange={(e) => setNewPermAccess(e.target.value)}
+                    className="mt-1 border border-gray-300 rounded-md p-2 text-sm text-gray-800"
+                  >
+                    {permAvailableLevels.map((lvl) => (
+                      <option key={lvl} value={lvl}>{ACCESS_LABELS[lvl]}</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  onClick={handleAddPermission}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm"
                 >
-                  {ASSIGNABLE_ROLES.map((r) => (
-                    <option key={r.value} value={r.value}>{r.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-xs text-gray-500">
-                Poziom
-                <select
-                  value={newPermAccess}
-                  onChange={(e) => setNewPermAccess(e.target.value)}
-                  className="mt-1 border border-gray-300 rounded-md p-2 text-sm text-gray-800"
-                >
-                  <option value="read">Odczyt</option>
-                  <option value="write">Zapis</option>
-                </select>
-              </label>
-              <button
-                onClick={handleAddPermission}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm"
-              >
-                Dodaj
-              </button>
-            </div>
+                  Dodaj
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -818,8 +961,8 @@ export default function FilesPage() {
               plików naraz.
             </p>
             <p className="text-sm text-gray-600 mb-4">
-              Docelowy katalog: <strong>
-                {currentFolderName || 'Root (brak katalogu)'}
+              Docelowy folder: <strong>
+                {currentFolderName || 'Root (brak folderu)'}
               </strong>
             </p>
             <input
@@ -928,7 +1071,7 @@ export default function FilesPage() {
               </div>
               {selectedFile.folder && (
                 <div>
-                  <dt className="text-sm text-gray-500">Katalog</dt>
+                  <dt className="text-sm text-gray-500">Folder</dt>
                   <dd className="text-gray-800">{selectedFile.folder.name}</dd>
                 </div>
               )}
