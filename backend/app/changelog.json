@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "0.3.1",
+      "date": "2026-07-24",
+      "title": "Fundament rozpoznawania typów dokumentów",
+      "changes": [
+        "Backend udostępnia sparsowany tekst dokumentów (odtwarzany z bazy wektorowej) na potrzeby budowy schematów typów dokumentów — przygotowanie pod klasyfikację i wyszukiwanie po polach (proces wewnętrzny, bez zmian w interfejsie)."
+      ]
+    },
+    {
       "version": "0.3.0",
       "date": "2026-07-24",
       "title": "Auto-wylogowanie po bezczynności",

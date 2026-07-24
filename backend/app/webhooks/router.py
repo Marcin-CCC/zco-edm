@@ -198,17 +198,32 @@ def get_files_texts(
     limit: int = 100,
     db: Session = Depends(get_db),
 ):
-    """Teksty (ocr_result) plików — dla workflow INDUKCJI schematów w n8n.
+    """Teksty plików — dla workflow INDUKCJI schematów w n8n.
 
     Chroniony sekretem webhooka (dependency na routerze), więc n8n czyta gotowe
-    sparsowane teksty bez własnego dostępu do Postgresa. Zwraca tylko pliki, które
-    mają już `ocr_result`. Dane zostają w LAN Sparka (n8n i backend na tej samej sieci).
+    sparsowane teksty bez własnego dostępu do Postgresa. Dane zostają w LAN Sparka
+    (n8n i backend na tej samej sieci).
+
+    Źródło tekstu: workflow parsowania NIE zapisuje `ocr_result` w Postgresie, więc
+    tekst odtwarzamy z chunków w Qdrancie (patrz get_texts_by_folder). Jeśli plik
+    ma jednak `ocr_result` w bazie (np. z przyszłego callbacku), ma on pierwszeństwo.
+    Zwraca wyłącznie pliki, dla których udało się uzyskać niepusty tekst.
     """
-    q = db.query(FileModel).filter(FileModel.ocr_result.isnot(None))
+    from app.qdrant_client import get_texts_by_folder
+
+    q = db.query(FileModel)
     if folder_id is not None:
         q = q.filter(FileModel.folder_id == folder_id)
-    files = q.order_by(FileModel.id.desc()).limit(min(max(limit, 1), 500)).all()
-    return [
-        {"id": f.id, "filename": f.filename, "ocr_result": f.ocr_result}
-        for f in files
-    ]
+    files = q.order_by(FileModel.id.desc()).all()
+
+    qdrant_texts = get_texts_by_folder(folder_id)
+
+    out = []
+    for f in files:
+        text = f.ocr_result or qdrant_texts.get(f.id)
+        if not text:
+            continue
+        out.append({"id": f.id, "filename": f.filename, "ocr_result": text})
+        if len(out) >= min(max(limit, 1), 500):
+            break
+    return out
