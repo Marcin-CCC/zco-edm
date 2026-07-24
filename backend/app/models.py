@@ -251,3 +251,25 @@ class Setting(Base):
     value = Column(Text, nullable=False, default='')
     description = Column(String(500), nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class DocTypeSchema(Base):
+    """Rejestr schematów typów dokumentów (#7B-2).
+
+    Jeden wpis = jeden typ dokumentu. Napędza cztery rzeczy: prompt klasyfikacji,
+    prompt ekstrakcji, walidację zapisanych pól oraz tłumaczenie NL→filtr.
+    Dodanie nowego typu = nowy wiersz (bez deployu).
+
+    `fields`: lista obiektów [{name, type, hint}], gdzie type ∈
+    string|number|date|enum:v1,v2,... — pola płaskie, skalarne, po których się filtruje.
+    """
+    __tablename__ = "doc_type_schemas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    slug = Column(String(50), unique=True, index=True, nullable=False)  # np. "umowa"
+    name = Column(String(100), nullable=False)                          # "Umowa"
+    criteria = Column(Text, nullable=True)                              # kryteria klasyfikacji
+    fields = Column(JSON, nullable=False, default=list)                 # [{name,type,hint}]
+    active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

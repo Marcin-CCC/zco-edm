@@ -190,3 +190,25 @@ async def update_file_status(file_id: int, payload: StatusUpdate, db: Session = 
         "message": "Status zaktualizowany",
         "dispatch": dispatch_info,
     }
+
+
+@router.get("/files/texts")
+def get_files_texts(
+    folder_id: int | None = None,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    """Teksty (ocr_result) plików — dla workflow INDUKCJI schematów w n8n.
+
+    Chroniony sekretem webhooka (dependency na routerze), więc n8n czyta gotowe
+    sparsowane teksty bez własnego dostępu do Postgresa. Zwraca tylko pliki, które
+    mają już `ocr_result`. Dane zostają w LAN Sparka (n8n i backend na tej samej sieci).
+    """
+    q = db.query(FileModel).filter(FileModel.ocr_result.isnot(None))
+    if folder_id is not None:
+        q = q.filter(FileModel.folder_id == folder_id)
+    files = q.order_by(FileModel.id.desc()).limit(min(max(limit, 1), 500)).all()
+    return [
+        {"id": f.id, "filename": f.filename, "ocr_result": f.ocr_result}
+        for f in files
+    ]

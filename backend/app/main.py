@@ -32,6 +32,7 @@ from app.version_router import router as version_router
 from app.processing_queue.router import router as processing_queue_router
 from app.settings.router import router as settings_router
 from app.chat.router import router as chat_router
+from app.doc_schemas import router as doc_schemas_router
 
 # Tworzenie tabel w bazie danych
 Base.metadata.create_all(bind=engine)
@@ -96,6 +97,7 @@ app.include_router(version_router)
 app.include_router(processing_queue_router)
 app.include_router(settings_router)
 app.include_router(chat_router)
+app.include_router(doc_schemas_router)
 
 
 # ============ HEALTH CHECK ============

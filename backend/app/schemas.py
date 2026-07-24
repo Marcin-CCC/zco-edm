@@ -229,3 +229,24 @@ class TurnCreate(BaseModel):
     user_message: str
     assistant_message: str
     sources: Optional[list] = None
+
+
+# ==================== Rejestr schematów typów dokumentów (#7B-2) ====================
+class DocTypeField(BaseModel):
+    name: str                       # np. "dostawca"
+    type: str                       # string | number | date | enum:PLN,EUR,...
+    hint: Optional[str] = None      # podpowiedź dla ekstrakcji
+
+
+class DocTypeSchemaBase(BaseModel):
+    slug: str                       # np. "umowa" (unikalne, [a-z0-9_-])
+    name: str                       # "Umowa"
+    criteria: Optional[str] = None  # kryteria klasyfikacji (dla promptu)
+    fields: list[DocTypeField] = []
+    active: bool = True
+
+
+class DocTypeSchemaResponse(DocTypeSchemaBase):
+    id: int
+
+    model_config = {"from_attributes": True}
