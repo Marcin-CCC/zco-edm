@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { authApi } from '@/lib/api';
+import { authApi, versionApi } from '@/lib/api';
 import { useAuth } from '@/lib/store';
 
 export default function LoginPage() {
@@ -10,8 +10,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [version, setVersion] = useState('');
   const router = useRouter();
   const { login } = useAuth();
+
+  // Aktualna wersja aplikacji (z /api/version) — bez hardkodu
+  useEffect(() => {
+    versionApi.get().then((d) => { if (d?.version) setVersion(d.version); }).catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,7 +110,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-center text-slate-400 text-sm mt-6">
-          EDM ZCO v1.0.0 &copy; 2026
+          EDM ZCO {version ? `v${version} ` : ''}&copy; 2026
         </p>
       </div>
     </div>

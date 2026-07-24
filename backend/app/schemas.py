@@ -164,12 +164,14 @@ class SettingsResponse(BaseModel):
     n8n_webhook_url: str
     chat_webhook_url: str = ""
     allowed_extensions: str = ""  # dozwolone rozszerzenia, np. "pdf,docx,xlsx"
+    idle_timeout_minutes: int = 15  # auto-wylogowanie po bezczynności (frontend)
 
 
 class SettingsUpdate(BaseModel):
     n8n_webhook_url: Optional[str] = None
     chat_webhook_url: Optional[str] = None
     allowed_extensions: Optional[str] = None
+    idle_timeout_minutes: Optional[int] = None
 
 
 # ==================== Chat ====================

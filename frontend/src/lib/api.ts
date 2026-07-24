@@ -34,6 +34,17 @@ export async function apiRequest<T>(
   const response = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
 
   if (!response.ok) {
+    // Wygasła/nieprawidłowa sesja: 401 dla żądania z tokenem → wyczyść sesję
+    // i wróć do logowania (zamiast pokazywać puste ekrany funkcjonalne).
+    // 401 z logowania nie ma tokenu → obsługiwane niżej jako błędne dane.
+    if (response.status === 401 && token && typeof window !== 'undefined') {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+      throw new Error('Sesja wygasła. Zaloguj się ponownie.');
+    }
     const errorText = await response.text();
     let errorData: any = {};
     try {
@@ -255,6 +266,18 @@ export const settingsApi = {
     apiRequest<any>('/api/settings/allowed_extensions', {
       method: 'PUT',
       body: data,
+      token: getAuthToken(),
+    }),
+  updateIdleTimeout: (data: { idle_timeout_minutes: number }) =>
+    apiRequest<any>('/api/settings/idle_timeout_minutes', {
+      method: 'PUT',
+      body: data,
+      token: getAuthToken(),
+    }),
+  // Lekki endpoint dla wszystkich zalogowanych: parametry sesji (auto-wylogowanie)
+  session: () =>
+    apiRequest<{ idle_timeout_minutes: number }>('/api/settings/session', {
+      method: 'GET',
       token: getAuthToken(),
     }),
 };

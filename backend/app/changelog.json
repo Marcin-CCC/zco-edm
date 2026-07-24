@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "0.3.0",
+      "date": "2026-07-24",
+      "title": "Auto-wylogowanie po bezczynności",
+      "changes": [
+        "Automatyczne wylogowanie po czasie bezczynności (domyślnie 15 min), konfigurowalne w Administracja → Ustawienia.",
+        "Po wygaśnięciu sesji aplikacja wraca do ekranu logowania zamiast pokazywać puste ekrany.",
+        "Numer wersji na ekranie logowania pobierany dynamicznie.",
+        "Twardy limit sesji wydłużony do 12 godzin."
+      ]
+    },
+    {
       "version": "0.2.1",
       "date": "2026-07-23",
       "title": "Poprawka widoczności folderów",

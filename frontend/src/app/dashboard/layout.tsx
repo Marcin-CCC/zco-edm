@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/sidebar';
 import { useAuth } from '@/lib/store';
+import { settingsApi } from '@/lib/api';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 
@@ -47,6 +48,40 @@ export default function DashboardLayout({
       router.push('/login');
     }
   }, [isAuthenticated, router]);
+
+  // Auto-wylogowanie po bezczynności (czas z ustawień admina, domyślnie 15 min).
+  // Główny mechanizm wylogowania; token JWT to tylko absolutny backstop.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let timeoutMs = 15 * 60 * 1000;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
+
+    const doLogout = () => {
+      logout();
+      router.push('/login');
+    };
+    const reset = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(doLogout, timeoutMs);
+    };
+    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+
+    settingsApi.session()
+      .then((d) => { if (!cancelled && d?.idle_timeout_minutes) timeoutMs = d.idle_timeout_minutes * 60 * 1000; })
+      .catch(() => { /* fallback: 15 min */ })
+      .finally(() => {
+        if (cancelled) return;
+        events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+        reset();
+      });
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, reset));
+    };
+  }, [isAuthenticated, logout, router]);
 
   if (!isReady) {
     return <div className="min-h-screen bg-gray-100 flex items-center justify-center">Ładowanie...</div>;

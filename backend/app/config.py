@@ -18,8 +18,12 @@ class Settings:
     # Bezpieczeństwo
     SECRET_KEY: str = os.getenv("SECRET_KEY", "zco-edm-secret-key-change-in-production")
     ALGORITHM: str = "HS256"
+    # Absolutny backstop sesji (token JWT). Główny mechanizm wylogowania to
+    # bezczynność (po stronie frontendu, konfigurowalna w Ustawieniach). Ten
+    # limit chroni na wypadek np. kradzieży tokenu. 720 min = 12h (aby nie ucinać
+    # sesji osobom pracującym 9–10h ciągiem).
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(
-        os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480")
+        os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "720")
     )
 
     # CORS

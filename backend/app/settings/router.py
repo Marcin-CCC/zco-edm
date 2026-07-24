@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth.auth import get_current_user
-from app.models import User, Setting
+from app.models import User, UserRole, Setting
 from app.schemas import SettingsResponse, SettingsUpdate
 from app.config import settings as app_settings
 
@@ -69,8 +69,24 @@ def get_allowed_extensions() -> set[str]:
     return set(_parse_extensions(raw))
 
 
+# Auto-wylogowanie po bezczynności (minuty) — egzekwowane po stronie frontendu.
+_DEFAULT_IDLE_TIMEOUT = 15
+_MIN_IDLE_TIMEOUT = 1
+_MAX_IDLE_TIMEOUT = 1440  # 24h
+
+
+def get_idle_timeout() -> int:
+    """Czas bezczynności do auto-wylogowania (minuty) z ustawień; fallback: domyślny."""
+    raw = _settings_cache.get("idle_timeout_minutes")
+    try:
+        val = int(raw)
+    except (TypeError, ValueError):
+        return _DEFAULT_IDLE_TIMEOUT
+    return max(_MIN_IDLE_TIMEOUT, min(_MAX_IDLE_TIMEOUT, val))
+
+
 # Klucze ustawień możliwe do edycji przez API
-_UPDATABLE_KEYS = {"n8n_webhook_url", "chat_webhook_url", "allowed_extensions"}
+_UPDATABLE_KEYS = {"n8n_webhook_url", "chat_webhook_url", "allowed_extensions", "idle_timeout_minutes"}
 _URL_KEYS = {"n8n_webhook_url", "chat_webhook_url"}
 
 
@@ -87,7 +103,24 @@ def get_settings(
         n8n_webhook_url=_settings_cache.get("n8n_webhook_url", app_settings.N8N_WEBHOOK_URL) or "",
         chat_webhook_url=_settings_cache.get("chat_webhook_url", "") or "",
         allowed_extensions=_settings_cache.get("allowed_extensions", _DEFAULT_ALLOWED_EXTENSIONS) or "",
+        idle_timeout_minutes=get_idle_timeout(),
     )
+
+
+@router.get("/session")
+def get_session_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Lekki endpoint dla wszystkich zalogowanych: parametry sesji (idle-timeout).
+
+    MUSI być przed '/{key}' (PUT) — tu tylko GET, więc kolizji nie ma, ale trzymamy
+    blisko GET '/'. Zwraca tylko niewrażliwą wartość auto-wylogowania.
+    """
+    global _cache_loaded
+    if not _cache_loaded:
+        _load_cache_from_db(db)
+    return {"idle_timeout_minutes": get_idle_timeout()}
 
 
 @router.put("/{key}")
@@ -97,18 +130,29 @@ def update_setting(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Update a setting value (n8n_webhook_url / chat_webhook_url)."""
+    """Update a setting value. Tylko administrator."""
     global _settings_cache, _cache_loaded
+
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Tylko administrator może zmieniać ustawienia.")
 
     if key not in _UPDATABLE_KEYS:
         raise HTTPException(status_code=400, detail=f"Setting '{key}' is not updatable")
 
     new_value = getattr(update_data, key, None)
-    if not new_value:
+    if new_value is None or new_value == "":
         raise HTTPException(status_code=400, detail=f"Missing value for setting '{key}'")
 
     # Walidacja zależna od klucza
-    if key in _URL_KEYS:
+    if key == "idle_timeout_minutes":
+        try:
+            minutes = int(new_value)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Czas bezczynności musi być liczbą minut.")
+        if minutes < _MIN_IDLE_TIMEOUT or minutes > _MAX_IDLE_TIMEOUT:
+            raise HTTPException(status_code=400, detail=f"Czas bezczynności: od {_MIN_IDLE_TIMEOUT} do {_MAX_IDLE_TIMEOUT} minut.")
+        new_value = str(minutes)
+    elif key in _URL_KEYS:
         if not new_value.startswith(("http://", "https://")):
             raise HTTPException(status_code=400, detail="Invalid URL format. Must start with http:// or https://")
     elif key == "allowed_extensions":

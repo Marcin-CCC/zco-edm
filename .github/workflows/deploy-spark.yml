@@ -124,6 +124,8 @@ jobs:
           echo "N8N_AUTH_HEADER=X-N8N-Webhook-Secret" >> .env
           echo "N8N_AUTH_VALUE=${{ secrets.N8N_AUTH_VALUE }}" >> .env
           echo "LOG_LEVEL=INFO" >> .env
+          # Absolutny backstop sesji (JWT). Główne wylogowanie = bezczynność (frontend).
+          echo "ACCESS_TOKEN_EXPIRE_MINUTES=720" >> .env
 
           # NIE drukować całego .env — zawiera sekrety. Tylko tagi obrazów.
           grep '^BUILD_TAG' .env
