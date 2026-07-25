@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.3.7",
+      "date": "2026-07-25",
+      "title": "Podgląd rozpoznanej kategorii dokumentu",
+      "changes": [
+        "Kolejka plików: nowa kolumna Kategoria z rozpoznanym typem dokumentu.",
+        "Szczegóły pozycji pokazują teraz kategorię oraz rozpoznane pola dokumentu.",
+        "Kolumna Plik nieco węższa dla czytelności tabeli."
+      ]
+    },
+    {
       "version": "0.3.6",
       "date": "2026-07-25",
       "title": "Poprawka wyszukiwarki po polach",

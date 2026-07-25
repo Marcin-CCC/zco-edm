@@ -324,12 +324,16 @@ def list_file_queue(
         if f.uploader:
             uploader_data = {"id": f.uploader.id, "username": f.uploader.username, "email": f.uploader.email}
         
-        # Powód błędu i czas parsowania zapisane w metadanych
+        # Powód błędu, czas parsowania oraz wynik klasyfikacji (#7B-2) z metadanych
         error_message = None
         processing_seconds = None
+        doc_type = None
+        doc_fields = None
         if isinstance(f.metadata_, dict):
             error_message = f.metadata_.get("error")
             processing_seconds = f.metadata_.get("processing_seconds")
+            doc_type = f.metadata_.get("doc_type")
+            doc_fields = f.metadata_.get("doc_fields")
 
         result.append({
             "id": f.id,
@@ -339,6 +343,8 @@ def list_file_queue(
             "page_count": 0,  # Files don't have page count yet
             "error_message": error_message,
             "processing_seconds": processing_seconds,
+            "doc_type": doc_type,
+            "doc_fields": doc_fields,
             "created_at": f.created_at.isoformat() if f.created_at else None,
             "updated_at": f.updated_at.isoformat() if f.updated_at else None,
             "started_at": None,

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/store';
+import { docSchemasApi } from '@/lib/api';
 
 interface QueueItem {
   id: number;
@@ -11,6 +12,8 @@ interface QueueItem {
   page_count: number;
   error_message: string | null;
   processing_seconds: number | null;
+  doc_type?: string | null;
+  doc_fields?: Record<string, string> | null;
   created_at: string;
   updated_at: string;
   started_at: string | null;
@@ -48,6 +51,17 @@ export default function FileQueuePage() {
   const [selectedItem, setSelectedItem] = useState<QueueItem | null>(null);
   const [statusSummary, setStatusSummary] = useState<Record<string, number>>({});
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [typeNames, setTypeNames] = useState<Record<string, string>>({});
+
+  // Mapowanie slug → nazwa typu (do kolumny „Kategoria"); włącznie z nieaktywnymi,
+  // bo dokument mógł zostać sklasyfikowany typem później wyłączonym.
+  useEffect(() => {
+    docSchemasApi.list(true)
+      .then((rows) => setTypeNames(Object.fromEntries(rows.map((s) => [s.slug, s.name]))))
+      .catch(() => { /* brak rejestru = pokażemy sam slug */ });
+  }, []);
+
+  const typeLabel = (slug?: string | null) => (slug ? (typeNames[slug] || slug) : null);
 
   // silent=true → odświeżanie w tle (polling), bez migotania spinnera
   const loadQueue = useCallback(async (silent = false) => {
@@ -246,7 +260,8 @@ export default function FileQueuePage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plik</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-[30%]">Plik</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kategoria</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data dodania</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Czas parsowania</th>
@@ -261,7 +276,16 @@ export default function FileQueuePage() {
                   onClick={() => setSelectedItem(selectedItem?.id === item.id ? null : item)}
                 >
                   <td className="px-4 py-3 text-sm text-gray-600">#{item.id}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-800">{item.file_name}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-gray-800 max-w-[220px] truncate" title={item.file_name}>{item.file_name}</td>
+                  <td className="px-4 py-3">
+                    {item.doc_type ? (
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                        {typeLabel(item.doc_type)}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 text-sm">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(item.status)}`}>
                       {item.status}
@@ -305,7 +329,7 @@ export default function FileQueuePage() {
               ))}
               {filteredItems.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={isAdmin ? 6 : 5} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={isAdmin ? 7 : 6} className="px-4 py-8 text-center text-gray-500">
                     Brak pozycji w kolejce
                   </td>
                 </tr>
@@ -346,6 +370,16 @@ export default function FileQueuePage() {
                 </dd>
               </div>
               <div>
+                <dt className="text-sm text-gray-500">Kategoria</dt>
+                <dd className="text-gray-800">
+                  {selectedItem.doc_type ? (
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                      {typeLabel(selectedItem.doc_type)}
+                    </span>
+                  ) : '—'}
+                </dd>
+              </div>
+              <div>
                 <dt className="text-sm text-gray-500">Data dodania</dt>
                 <dd className="text-gray-800">
                   {fmtDateTime(selectedItem.created_at)}
@@ -374,6 +408,20 @@ export default function FileQueuePage() {
                 </div>
               )}
             </dl>
+
+            {selectedItem.doc_fields && Object.keys(selectedItem.doc_fields).length > 0 && (
+              <div className="border border-gray-200 rounded-lg p-4 mb-4">
+                <dt className="text-sm font-medium text-gray-700 mb-2">Rozpoznane pola</dt>
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+                  {Object.entries(selectedItem.doc_fields).map(([k, v]) => (
+                    <div key={k} className="text-sm">
+                      <dt className="text-gray-500">{k}</dt>
+                      <dd className="text-gray-800 break-words">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
 
             {selectedItem.error_message && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
