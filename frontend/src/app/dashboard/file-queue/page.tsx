@@ -139,6 +139,30 @@ export default function FileQueuePage() {
     }
   };
 
+  // NARZĘDZIE TESTOWE (strojenie klasyfikacji) — przetwórz od nowa z kasowaniem
+  // wektorów. Docelowo do usunięcia razem z przyciskiem w kolumnie Akcje.
+  const reparseItem = async (fileId: number) => {
+    if (!confirm('Przetworzyć plik od nowa? Wektory zostaną skasowane i utworzone ponownie przy parsowaniu.')) return;
+    try {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`/api/processing-queue/${fileId}/reparse`, {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        loadQueue();
+        loadStatusSummary();
+      } else {
+        alert(`Błąd: ${data?.detail || data?.message || res.statusText}`);
+        loadQueue();
+      }
+    } catch {
+      alert('Błąd podczas ponownego przetwarzania.');
+      loadQueue();
+    }
+  };
+
   const deleteItem = async (fileId: number) => {
     if (!confirm('Czy na pewno usunąć ten plik?')) return;
     try {
@@ -306,6 +330,16 @@ export default function FileQueuePage() {
                             className="text-blue-600 hover:text-blue-800 text-sm"
                           >
                             🔄 Ponów
+                          </button>
+                        )}
+                        {/* NARZĘDZIE TESTOWE — reparse z kasowaniem wektorów (do usunięcia po testach) */}
+                        {item.status === 'Przetworzono' && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); reparseItem(item.id); }}
+                            className="text-indigo-600 hover:text-indigo-800 text-sm whitespace-nowrap"
+                            title="Przetwórz od nowa z wyczyszczeniem wektorów (narzędzie testowe)"
+                          >
+                            ♻️ Przetwórz ponownie
                           </button>
                         )}
                         <button

@@ -7,7 +7,7 @@ from typing import List, Optional
 import httpx
 
 from app.database import get_db
-from app.models import ProcessingQueue, Document, File as FileModel, DocumentStatus
+from app.models import ProcessingQueue, Document, File as FileModel, DocumentStatus, UserRole
 from app.auth.auth import get_current_user
 from app.config import settings
 from app.settings.router import get_webhook_url, _load_cache_from_db
@@ -122,6 +122,52 @@ async def retry_processing(
         else "Plik wrócił do kolejki i czeka na swoją kolej."
     )
     return {"message": message, "file_id": file.id, "filename": file.filename, "dispatch": dispatch_result}
+
+
+@router.post("/{file_id}/reparse")
+async def reparse_file(
+    file_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    """TESTOWE (#7B-2, strojenie klasyfikacji): przetwórz plik OD NOWA z wyczyszczeniem
+    wektorów. Kasuje wektory pliku z Qdranta (bez duplikatów przy ponownym parsowaniu),
+    czyści wynik klasyfikacji/parsowania i status → PENDING, uruchamia dyspozytor.
+
+    Docelowo do usunięcia — przycisk włączony tylko na czas testów klasyfikacji.
+    """
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Tylko administrator.")
+
+    file = db.query(FileModel).filter(FileModel.id == file_id).first()
+    if not file:
+        raise HTTPException(status_code=404, detail="Plik nie istnieje.")
+
+    # 1) Skasuj wektory pliku (uniknij duplikatów w Qdrancie przy ponownym parsowaniu)
+    from app.qdrant_client import delete_vectors_by_file_id
+    delete_vectors_by_file_id(file_id)
+
+    # 2) Wyczyść wynik klasyfikacji/parsowania i ewentualny błąd
+    if isinstance(file.metadata_, dict):
+        cleaned = dict(file.metadata_)
+        for k in ("doc_type", "doc_fields", "error", "processing_seconds", "processing_started_at"):
+            cleaned.pop(k, None)
+        file.metadata_ = cleaned
+    file.ocr_result = None
+    file.status = DocumentStatus.PENDING
+    db.commit()
+
+    # 3) Uruchom dyspozytor (wyśle plik do parsowania, jeśli slot wolny)
+    from app.dispatcher import try_dispatch_next
+    dispatch = await try_dispatch_next(db)
+    db.refresh(file)
+    logger.info(f"[REPARSE] Plik {file_id} → PENDING (wektory skasowane); dispatch: {dispatch}")
+    return {
+        "message": "Plik skierowany do ponownego przetwarzania (wektory skasowane).",
+        "file_id": file_id,
+        "filename": file.filename,
+        "dispatch": dispatch,
+    }
 
 
 @router.post("/{item_id}/skip-page")
