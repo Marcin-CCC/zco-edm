@@ -159,14 +159,19 @@ async def try_dispatch_next(db: Session) -> dict:
             return {"dispatched": False, "file_id": None,
                     "reason": f"{in_flight} plik(ów) w trakcie przetwarzania"}
 
-        # Priorytet czatu: gdy trwa czat, nie startuj kolejnego pliku (dzielą model
-        # vLLM). Kolejka wznawia się sama po zakończeniu czatu (chat router woła
-        # try_dispatch_next w finally strumienia). Plik w trakcie i tak dokończy.
-        from app.activity import is_chat_active
+        # Priorytet czatu + brak kolizji z klasyfikacją: gdy trwa czat LUB ekstrakcja
+        # pól, nie startuj kolejnego pliku (dzielą model vLLM). Kolejka wznawia się
+        # sama po zakończeniu czatu (chat router) lub ekstrakcji (doc_extract).
+        # Plik będący w trakcie i tak dokończy.
+        from app.activity import is_chat_active, is_extraction_active
         if is_chat_active():
             db.commit()  # zapisz reap, zwolnij blokadę
             return {"dispatched": False, "file_id": None,
                     "reason": "czat w toku — kolejka wstrzymana (priorytet czatu)"}
+        if is_extraction_active():
+            db.commit()  # zapisz reap, zwolnij blokadę
+            return {"dispatched": False, "file_id": None,
+                    "reason": "klasyfikacja w toku — kolejka wstrzymana"}
 
         next_file = (
             db.query(FileModel)

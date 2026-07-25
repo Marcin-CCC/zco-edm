@@ -24,6 +24,10 @@ router = APIRouter(
     dependencies=[Depends(verify_webhook_secret)],
 )
 
+# Referencje do zadań w tle (klasyfikacja #7B-2), żeby GC nie przerwał zadania
+# przed zakończeniem (asyncio trzyma tylko słabe referencje do tasków).
+_bg_tasks: set = set()
+
 
 def _resolve_status(value: str) -> DocumentStatus:
     """Map an incoming status string (enum name or value, PL/EN) to DocumentStatus."""
@@ -173,12 +177,33 @@ async def update_file_status(file_id: int, payload: StatusUpdate, db: Session = 
 
     db.commit()
 
-    # >>> Kolejka: po zakończeniu przetwarzania uruchom następny plik <<<
+    # >>> Kolejka: po zakończeniu przetwarzania <<<
+    import logging
     dispatch_info = None
-    if new_status in (DocumentStatus.READY, DocumentStatus.ERROR):
+    if new_status == DocumentStatus.READY:
+        # #7B-2: jeśli rejestr niepusty, po sparsowaniu odpal klasyfikację/ekstrakcję.
+        # Ekstrakcja podnosi flagę (wstrzymuje dyspozytora), a po sobie sama wznawia
+        # kolejkę → parsowanie i klasyfikacja nie kolidują o model. Pusty rejestr =
+        # brak klasyfikacji → normalny dispatch (bezpieczne wdrożenie).
+        from app.doc_schemas.router import get_active_schemas
+        schemas = get_active_schemas(db)
+        if schemas:
+            import asyncio
+            from app.activity import extraction_started
+            from app.doc_extract import run_extraction
+            extraction_started()  # SYNCHRONICZNIE — dyspozytor od razu widzi zajętość
+            task = asyncio.create_task(run_extraction(file_id, schemas))
+            _bg_tasks.add(task)
+            task.add_done_callback(_bg_tasks.discard)
+            dispatch_info = {"deferred": "extraction", "file_id": file_id}
+        else:
+            from app.dispatcher import try_dispatch_next
+            dispatch_info = await try_dispatch_next(db)
+    elif new_status == DocumentStatus.ERROR:
         from app.dispatcher import try_dispatch_next
-        import logging
         dispatch_info = await try_dispatch_next(db)
+
+    if dispatch_info is not None:
         logging.getLogger(__name__).info(
             f"[WEBHOOK] Plik {file_id} zakończony ({new_status.name}); dispatch: {dispatch_info}"
         )

@@ -308,6 +308,28 @@ export interface DocTypeSchema {
   active: boolean;
 }
 
+// Wyszukiwanie po polach strukturalnych (#7B-2)
+export interface DocSearchHit {
+  id: number;
+  filename: string;
+  folder_id?: number | null;
+  doc_type?: string | null;
+  fields: Record<string, string>;
+}
+
+export const docSearchApi = {
+  search: (body: {
+    doc_type?: string | null;
+    filters: { field: string; op: string; value: string }[];
+    limit?: number;
+  }) =>
+    apiRequest<DocSearchHit[]>('/api/doc-search', {
+      method: 'POST',
+      body,
+      token: getAuthToken(),
+    }),
+};
+
 export const docSchemasApi = {
   list: (includeInactive = false) =>
     apiRequest<DocTypeSchema[]>(

@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { DocSearchPanel } from '@/components/doc-search-panel';
 
 interface ChatSource {
   filename?: string;
@@ -74,6 +75,7 @@ export default function ChatPage() {
   const [parseWait, setParseWait] = useState(false);
   const [conversations, setConversations] = useState<ConvSummary[]>([]);
   const [currentConvId, setCurrentConvId] = useState<number | null>(null);
+  const [showSearch, setShowSearch] = useState(false);  // boczne okno wyszukiwania po polach
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -319,7 +321,20 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-100px)]">
       {/* Nagłówek strony (wzorzec jak Dashboard) */}
-      <h1 className="text-2xl font-bold text-gray-800 mb-4">Chat — baza wiedzy</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold text-gray-800">Chat — baza wiedzy</h1>
+        <button
+          onClick={() => setShowSearch((v) => !v)}
+          className={`hidden lg:inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
+            showSearch
+              ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+          }`}
+          title="Wyszukiwanie dokumentów po polach"
+        >
+          🔎 Wyszukiwarka pól
+        </button>
+      </div>
 
       <div className="flex gap-4 flex-1 min-h-0">
       {/* Sidebar z listą rozmów */}
@@ -489,6 +504,8 @@ export default function ChatPage() {
           </div>
         </div>
       </div>
+
+      {showSearch && <DocSearchPanel />}
       </div>
     </div>
   );

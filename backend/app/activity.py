@@ -13,6 +13,7 @@ import threading
 
 _lock = threading.Lock()
 _active_chats = 0
+_active_extractions = 0
 
 
 def chat_started() -> None:
@@ -29,3 +30,23 @@ def chat_finished() -> None:
 
 def is_chat_active() -> bool:
     return _active_chats > 0
+
+
+# ---- Ekstrakcja/klasyfikacja pól (#7B-2) — też używa modelu ----
+# Model robi z toru ingestu jedno naraz: albo parsuje, albo klasyfikuje. Gdy trwa
+# ekstrakcja, dyspozytor nie startuje nowego parsowania (i odwrotnie: ekstrakcję
+# odpalamy po zakończeniu parsowania danego pliku, przed wysłaniem następnego).
+def extraction_started() -> None:
+    global _active_extractions
+    with _lock:
+        _active_extractions += 1
+
+
+def extraction_finished() -> None:
+    global _active_extractions
+    with _lock:
+        _active_extractions = max(0, _active_extractions - 1)
+
+
+def is_extraction_active() -> bool:
+    return _active_extractions > 0

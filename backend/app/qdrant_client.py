@@ -106,3 +106,48 @@ def get_texts_by_folder(folder_id: int | None = None) -> dict[int, str]:
         parts.sort(key=lambda p: (p[0], p[1]))
         texts[fid] = "\n".join(p[2] for p in parts if p[2]).strip()
     return texts
+
+
+def get_text_by_file_id(file_id: int, max_chars: int = 6000) -> str:
+    """Odtwórz tekst JEDNEGO dokumentu z chunków w Qdrancie (dla klasyfikacji #7B-2).
+
+    Filtruje po `metadata.file_id`, skleja `content` w kolejności (strona, wiersz).
+    Zwraca początek dokumentu (do `max_chars`) — do klasyfikacji typu i pól
+    nagłówkowych wystarcza nagłówek/pierwsze strony. Pusty string, gdy brak chunków.
+    """
+    base = settings.QDRANT_URL.rstrip("/")
+    collection = settings.QDRANT_COLLECTION
+    url = f"{base}/collections/{collection}/points/scroll"
+    body = {
+        "limit": 500,
+        "with_payload": True,
+        "with_vector": False,
+        "filter": {"must": [{"key": "metadata.file_id", "match": {"value": file_id}}]},
+    }
+    parts: list[tuple[int, int, str]] = []
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            offset = None
+            while True:
+                page_body = dict(body)
+                if offset is not None:
+                    page_body["offset"] = offset
+                resp = client.post(url, json=page_body)
+                resp.raise_for_status()
+                result = resp.json().get("result", {})
+                for pt in result.get("points", []):
+                    payload = pt.get("payload") or {}
+                    meta = payload.get("metadata") or {}
+                    page = meta.get("page") or 0
+                    line_from = (((meta.get("loc") or {}).get("lines") or {}).get("from")) or 0
+                    parts.append((int(page), int(line_from), payload.get("content") or ""))
+                offset = result.get("next_page_offset")
+                if not offset:
+                    break
+    except Exception as e:
+        logger.warning(f"[QDRANT] Odczyt tekstu pliku {file_id} nieudany: {e}")
+        return ""
+
+    parts.sort(key=lambda p: (p[0], p[1]))
+    text = "\n".join(p[2] for p in parts if p[2]).strip()
+    return text[:max_chars]

@@ -47,5 +47,10 @@ class Settings:
     DOCLING_API_URL: str = os.getenv("DOCLING_API_URL", "http://docling:8002")
     OLLAMA_API_URL: str = os.getenv("OLLAMA_API_URL", "http://192.168.1.34:11434")
 
+    # vLLM (OpenAI-compatible) — klasyfikacja i ekstrakcja pól (#7B-2).
+    # Ten sam model, którego używa czat/parsowanie; arbitraż dostępu w app/activity.py.
+    VLLM_URL: str = os.getenv("VLLM_URL", "http://192.168.1.34:8002")
+    VLLM_MODEL: str = os.getenv("VLLM_MODEL", "Qwen/Qwen3-VL-30B-A3B-Instruct")
+
 
 settings = Settings()
