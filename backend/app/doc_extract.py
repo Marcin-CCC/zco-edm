@@ -115,42 +115,61 @@ async def _classify(schemas: list[dict], text: str) -> dict | None:
 
 
 async def run_extraction(file_id: int, schemas: list[dict]) -> None:
-    """Sklasyfikuj i wyciągnij pola dla pliku, zapisz w metadata_, wznów kolejkę.
+    """Sklasyfikuj i wyciągnij pola dla pliku, ustaw READY, wznów kolejkę.
+
+    Opcja B (#7B-2): plik wchodzi tu ze statusem „Przetwarzanie" (ustawionym przez
+    handler READY) i DOPIERO TU przechodzi na „Przetworzono" — po zakończeniu
+    klasyfikacji. Parsowanie się udało niezależnie od wyniku klasyfikacji, więc
+    READY ustawiamy zawsze (klasyfikacja jest best-effort).
 
     Zakłada, że flaga extraction_started() jest już podniesiona przez wołającego.
     """
     import asyncio
     from app.database import SessionLocal
-    from app.models import File as FileModel
+    from app.models import File as FileModel, DocumentStatus
     from app.qdrant_client import get_text_by_file_id
-    from app.dispatcher import try_dispatch_next
+    from app.dispatcher import try_dispatch_next, mark_processing_finished
 
     db = SessionLocal()
     try:
-        text = await asyncio.to_thread(get_text_by_file_id, file_id)
-        if not text:
-            logger.info(f"[EXTRACT] Plik {file_id}: brak tekstu w Qdrancie — pomijam klasyfikację")
-            return
+        # 1) Klasyfikacja (best-effort)
+        result = None
+        try:
+            text = await asyncio.to_thread(get_text_by_file_id, file_id)
+            if text:
+                result = await _classify(schemas, text)
+            else:
+                logger.info(f"[EXTRACT] Plik {file_id}: brak tekstu w Qdrancie — pomijam klasyfikację")
+        except Exception as e:
+            logger.warning(f"[EXTRACT] Plik {file_id}: klasyfikacja nieudana: {e}")
 
-        result = await _classify(schemas, text)
-        if not result:
-            return
-
+        # 2) Finalizacja: zapisz wynik (jeśli jest) i ustaw „Przetworzono".
         f = db.query(FileModel).filter(FileModel.id == file_id).first()
-        if not f:
-            return
-        meta = dict(f.metadata_ or {})
-        meta["doc_type"] = result["doc_type"]
-        meta["doc_fields"] = result["doc_fields"]
-        f.metadata_ = meta
-        db.commit()
-        logger.info(
-            f"[EXTRACT] Plik {file_id}: doc_type={result['doc_type']} "
-            f"pól={len(result['doc_fields'])}"
-        )
+        if f:
+            if result:
+                meta = dict(f.metadata_ or {})
+                meta["doc_type"] = result["doc_type"]
+                meta["doc_fields"] = result["doc_fields"]
+                f.metadata_ = meta
+                logger.info(
+                    f"[EXTRACT] Plik {file_id}: doc_type={result['doc_type']} "
+                    f"pól={len(result['doc_fields'])}"
+                )
+            f.status = DocumentStatus.READY
+            mark_processing_finished(f)
+            db.commit()
     except Exception as e:
         db.rollback()
-        logger.warning(f"[EXTRACT] Plik {file_id}: klasyfikacja nieudana: {e}")
+        logger.warning(f"[EXTRACT] Plik {file_id}: finalizacja nieudana: {e}")
+        # Awaryjnie: nie zostawiaj pliku w „Przetwarzanie" — spróbuj ustawić READY.
+        try:
+            f = db.query(FileModel).filter(FileModel.id == file_id).first()
+            if f and f.status != DocumentStatus.READY:
+                f.status = DocumentStatus.READY
+                mark_processing_finished(f)
+                db.commit()
+        except Exception:
+            db.rollback()
     finally:
         extraction_finished()
         try:

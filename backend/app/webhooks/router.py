@@ -150,7 +150,17 @@ async def update_file_status(file_id: int, payload: StatusUpdate, db: Session = 
 
     # Aktualizuj status (mapowanie stringa na DocumentStatus)
     new_status = _resolve_status(payload.status)
-    file_obj.status = new_status
+
+    # #7B-2 (opcja B): gdy n8n zgłasza READY, a rejestr niepusty, plik NIE przechodzi
+    # jeszcze na „Przetworzono" — zostaje „Przetwarzanie" na czas klasyfikacji.
+    # READY (i czas przetwarzania) ustawi run_extraction po jej zakończeniu.
+    active_schemas: list = []
+    if new_status == DocumentStatus.READY:
+        from app.doc_schemas.router import get_active_schemas
+        active_schemas = get_active_schemas(db)
+    will_classify = new_status == DocumentStatus.READY and bool(active_schemas)
+
+    file_obj.status = DocumentStatus.PROCESSING if will_classify else new_status
 
     # Aktualizuj OCR wynik
     if payload.ocr_result:
@@ -163,15 +173,16 @@ async def update_file_status(file_id: int, payload: StatusUpdate, db: Session = 
         merged.update(payload.metadata)
         file_obj.metadata_ = merged
 
-    # Sukces kasuje ewentualny stary błąd (np. po ponowieniu wcześniejszej awarii)
+    # Sukces parsowania kasuje ewentualny stary błąd (parsowanie się udało).
     if new_status == DocumentStatus.READY and isinstance(file_obj.metadata_, dict):
         if "error" in file_obj.metadata_:
             cleaned = dict(file_obj.metadata_)
             cleaned.pop("error", None)
             file_obj.metadata_ = cleaned
 
-    # Czas parsowania: przy statusie terminalnym policz sekundy od startu (PROCESSING)
-    if new_status in (DocumentStatus.READY, DocumentStatus.ERROR):
+    # Czas parsowania: licz przy prawdziwym końcu. ERROR i READY-bez-klasyfikacji — teraz;
+    # READY-z-klasyfikacją — dopiero po niej (w run_extraction).
+    if new_status == DocumentStatus.ERROR or (new_status == DocumentStatus.READY and not will_classify):
         from app.dispatcher import mark_processing_finished
         mark_processing_finished(file_obj)
 
@@ -180,26 +191,18 @@ async def update_file_status(file_id: int, payload: StatusUpdate, db: Session = 
     # >>> Kolejka: po zakończeniu przetwarzania <<<
     import logging
     dispatch_info = None
-    if new_status == DocumentStatus.READY:
-        # #7B-2: jeśli rejestr niepusty, po sparsowaniu odpal klasyfikację/ekstrakcję.
-        # Ekstrakcja podnosi flagę (wstrzymuje dyspozytora), a po sobie sama wznawia
-        # kolejkę → parsowanie i klasyfikacja nie kolidują o model. Pusty rejestr =
-        # brak klasyfikacji → normalny dispatch (bezpieczne wdrożenie).
-        from app.doc_schemas.router import get_active_schemas
-        schemas = get_active_schemas(db)
-        if schemas:
-            import asyncio
-            from app.activity import extraction_started
-            from app.doc_extract import run_extraction
-            extraction_started()  # SYNCHRONICZNIE — dyspozytor od razu widzi zajętość
-            task = asyncio.create_task(run_extraction(file_id, schemas))
-            _bg_tasks.add(task)
-            task.add_done_callback(_bg_tasks.discard)
-            dispatch_info = {"deferred": "extraction", "file_id": file_id}
-        else:
-            from app.dispatcher import try_dispatch_next
-            dispatch_info = await try_dispatch_next(db)
-    elif new_status == DocumentStatus.ERROR:
+    if will_classify:
+        # Plik zostaje „Przetwarzanie"; klasyfikacja w tle podnosi flagę (dyspozytor
+        # wstrzymany), a po sobie ustawia READY i wznawia kolejkę.
+        import asyncio
+        from app.activity import extraction_started
+        from app.doc_extract import run_extraction
+        extraction_started()  # SYNCHRONICZNIE — dyspozytor od razu widzi zajętość
+        task = asyncio.create_task(run_extraction(file_id, active_schemas))
+        _bg_tasks.add(task)
+        task.add_done_callback(_bg_tasks.discard)
+        dispatch_info = {"deferred": "extraction", "file_id": file_id}
+    elif new_status in (DocumentStatus.READY, DocumentStatus.ERROR):
         from app.dispatcher import try_dispatch_next
         dispatch_info = await try_dispatch_next(db)
 

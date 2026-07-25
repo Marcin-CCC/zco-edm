@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.3.5",
+      "date": "2026-07-25",
+      "title": "Drobne poprawki statusu przetwarzania",
+      "changes": [
+        "Eksplorator plików: etykieta statusu Przetwarzanie ma teraz ten sam niebieski kolor co w Kolejce plików.",
+        "Status Przetwarzanie utrzymuje się aż do zakończenia rozpoznawania typu i pól dokumentu — plik przechodzi na Przetworzono dopiero, gdy jest w pełni gotowy."
+      ]
+    },
+    {
       "version": "0.3.4",
       "date": "2026-07-25",
       "title": "Rozpoznawanie typów i wyszukiwanie po polach",
