@@ -117,6 +117,76 @@ async def _classify(schemas: list[dict], text: str, filename: str = "") -> dict 
     return {"doc_type": doc_type, "doc_fields": doc_fields}
 
 
+def _extract_response_format(schema: dict) -> dict:
+    """Guided schema do samej ekstrakcji pól narzuconego typu (nazwy pól = enum)."""
+    names = [f.get("name") for f in (schema.get("fields") or []) if f.get("name")]
+    name_prop = {"type": "string", "enum": names} if names else {"type": "string"}
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "ekstrakcja_pol",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "fields": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {"name": name_prop, "value": {"type": "string"}},
+                            "required": ["name", "value"],
+                        },
+                    }
+                },
+                "required": ["fields"],
+            },
+        },
+    }
+
+
+async def extract_fields(schema: dict, text: str, filename: str = "") -> dict:
+    """Wyciągnij pola dla NARZUCONEGO typu (bez klasyfikacji) — dla ręcznej korekty.
+
+    Zwraca {nazwa_pola: wartość} ograniczone do pól zadeklarowanych w schemacie.
+    """
+    import json
+
+    fields_list = ", ".join(
+        f"{f.get('name')} ({f.get('type', 'string')})" for f in (schema.get("fields") or [])
+    ) or "—"
+    system = (
+        "Wyciągasz wartości pól nagłówkowych z dokumentu o ZNANYM typie. Zwróć wyłącznie "
+        "JSON zgodny ze schematem. Podawaj wartości tylko dla wymienionych pól; pomiń "
+        "pole, którego nie ma w dokumencie."
+    )
+    user = (
+        f"TYP DOKUMENTU: {schema.get('name', schema.get('slug'))}\n"
+        f"POLA DO WYCIĄGNIĘCIA: {fields_list}\n"
+        f"NAZWA PLIKU: {filename}\n\nDOKUMENT (początek):\n{text}"
+    )
+    body = {
+        "model": settings.VLLM_MODEL,
+        "temperature": 0,
+        "max_tokens": 600,
+        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        "response_format": _extract_response_format(schema),
+    }
+    url = f"{settings.VLLM_URL.rstrip('/')}/v1/chat/completions"
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.post(url, json=body)
+    resp.raise_for_status()
+    parsed = json.loads(resp.json()["choices"][0]["message"]["content"])
+    allowed = {f.get("name") for f in (schema.get("fields") or [])}
+    out = {}
+    for item in parsed.get("fields") or []:
+        n, v = item.get("name"), item.get("value")
+        if n and v and (not allowed or n in allowed):
+            out[n] = v
+    return out
+
+
 async def run_extraction(file_id: int, schemas: list[dict], filename: str = "") -> None:
     """Sklasyfikuj i wyciągnij pola dla pliku, ustaw READY, wznów kolejkę.
 
@@ -135,16 +205,25 @@ async def run_extraction(file_id: int, schemas: list[dict], filename: str = "") 
 
     db = SessionLocal()
     try:
-        # 1) Klasyfikacja (best-effort)
+        # Ręcznie zweryfikowany typ — nie nadpisuj auto-klasyfikacją (tylko sfinalizuj READY)
+        vrow = db.query(FileModel).filter(FileModel.id == file_id).first()
+        already_verified = bool(
+            vrow and isinstance(vrow.metadata_, dict) and vrow.metadata_.get("doc_type_verified")
+        )
+
+        # 1) Klasyfikacja (best-effort), o ile typ nie został zatwierdzony ręcznie
         result = None
-        try:
-            text = await asyncio.to_thread(get_text_by_file_id, file_id)
-            if text:
-                result = await _classify(schemas, text, filename)
-            else:
-                logger.info(f"[EXTRACT] Plik {file_id}: brak tekstu w Qdrancie — pomijam klasyfikację")
-        except Exception as e:
-            logger.warning(f"[EXTRACT] Plik {file_id}: klasyfikacja nieudana: {e}")
+        if already_verified:
+            logger.info(f"[EXTRACT] Plik {file_id}: typ zweryfikowany ręcznie — pomijam auto-klasyfikację")
+        else:
+            try:
+                text = await asyncio.to_thread(get_text_by_file_id, file_id)
+                if text:
+                    result = await _classify(schemas, text, filename)
+                else:
+                    logger.info(f"[EXTRACT] Plik {file_id}: brak tekstu w Qdrancie — pomijam klasyfikację")
+            except Exception as e:
+                logger.warning(f"[EXTRACT] Plik {file_id}: klasyfikacja nieudana: {e}")
 
         # 2) Finalizacja: zapisz wynik (jeśli jest) i ustaw „Przetworzono".
         f = db.query(FileModel).filter(FileModel.id == file_id).first()

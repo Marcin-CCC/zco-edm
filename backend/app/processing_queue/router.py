@@ -150,7 +150,7 @@ async def reparse_file(
     # 2) Wyczyść wynik klasyfikacji/parsowania i ewentualny błąd
     if isinstance(file.metadata_, dict):
         cleaned = dict(file.metadata_)
-        for k in ("doc_type", "doc_fields", "error", "processing_seconds", "processing_started_at"):
+        for k in ("doc_type", "doc_fields", "doc_type_verified", "error", "processing_seconds", "processing_started_at"):
             cleaned.pop(k, None)
         file.metadata_ = cleaned
     file.ocr_result = None

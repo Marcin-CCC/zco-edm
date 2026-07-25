@@ -14,6 +14,7 @@ interface QueueItem {
   processing_seconds: number | null;
   doc_type?: string | null;
   doc_fields?: Record<string, string> | null;
+  doc_type_verified?: boolean;
   created_at: string;
   updated_at: string;
   started_at: string | null;
@@ -62,6 +63,42 @@ export default function FileQueuePage() {
   }, []);
 
   const typeLabel = (slug?: string | null) => (slug ? (typeNames[slug] || slug) : null);
+
+  // Ręczna korekta kategorii w „Szczegóły pozycji" (#7B-2)
+  const [overrideType, setOverrideType] = useState('');
+  const [savingOverride, setSavingOverride] = useState(false);
+  useEffect(() => {
+    setOverrideType(selectedItem?.doc_type || '');
+  }, [selectedItem]);
+
+  const saveOverride = async () => {
+    if (!selectedItem || !overrideType) return;
+    setSavingOverride(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`/api/files/${selectedItem.id}/doc-type`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ doc_type: overrideType }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setSelectedItem({
+          ...selectedItem,
+          doc_type: data.doc_type,
+          doc_fields: data.doc_fields,
+          doc_type_verified: true,
+        });
+        loadQueue(true);
+      } else {
+        alert(`Błąd: ${data?.detail || data?.message || res.statusText}`);
+      }
+    } catch {
+      alert('Błąd zapisu kategorii.');
+    } finally {
+      setSavingOverride(false);
+    }
+  };
 
   // silent=true → odświeżanie w tle (polling), bez migotania spinnera
   const loadQueue = useCallback(async (silent = false) => {
@@ -405,12 +442,17 @@ export default function FileQueuePage() {
               </div>
               <div>
                 <dt className="text-sm text-gray-500">Kategoria</dt>
-                <dd className="text-gray-800">
+                <dd className="text-gray-800 flex items-center gap-2 flex-wrap">
                   {selectedItem.doc_type ? (
                     <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
                       {typeLabel(selectedItem.doc_type)}
                     </span>
                   ) : '—'}
+                  {selectedItem.doc_type_verified && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800" title="Kategoria zatwierdzona ręcznie — auto-klasyfikacja jej nie zmieni">
+                      ✓ ręcznie
+                    </span>
+                  )}
                 </dd>
               </div>
               <div>
@@ -442,6 +484,37 @@ export default function FileQueuePage() {
                 </div>
               )}
             </dl>
+
+            {/* Ręczna korekta kategorii (admin) — ustawia typ i dolicza pola dla niego */}
+            {isAdmin && (
+              <div className="border border-gray-200 rounded-lg p-4 mb-4">
+                <dt className="text-sm font-medium text-gray-700 mb-2">Zmień kategorię (korekta ręczna)</dt>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={overrideType}
+                    onChange={(e) => setOverrideType(e.target.value)}
+                    disabled={savingOverride}
+                    className="flex-1 min-w-0 px-2 py-1.5 border border-gray-300 rounded-md text-sm bg-white"
+                  >
+                    <option value="">— wybierz typ —</option>
+                    {Object.entries(typeNames).map(([slug, name]) => (
+                      <option key={slug} value={slug}>{name}</option>
+                    ))}
+                    <option value="inny">Inny / nieokreślony</option>
+                  </select>
+                  <button
+                    onClick={saveOverride}
+                    disabled={savingOverride || !overrideType || overrideType === selectedItem.doc_type}
+                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {savingOverride ? 'Zapisywanie…' : 'Zapisz kategorię'}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Zapis dolicza pola dla nowego typu (~kilkanaście s) i oznacza kategorię jako zatwierdzoną ręcznie.
+                </p>
+              </div>
+            )}
 
             {selectedItem.doc_fields && Object.keys(selectedItem.doc_fields).length > 0 && (
               <div className="border border-gray-200 rounded-lg p-4 mb-4">

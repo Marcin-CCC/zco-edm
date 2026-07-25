@@ -6,11 +6,12 @@ from typing import List, Optional
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Form
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 
 from app.database import get_db
-from app.models import File as FileModel, Folder, FolderPermission, User, DocumentStatus, UserRole
+from app.models import File as FileModel, Folder, FolderPermission, User, DocumentStatus, UserRole, DocTypeSchema
 from app.schemas import FileResponse as FileResponseSchema, FileCreate, FileUpdate
 from app.auth.auth import get_current_user
 from app.config import settings
@@ -329,11 +330,13 @@ def list_file_queue(
         processing_seconds = None
         doc_type = None
         doc_fields = None
+        doc_type_verified = False
         if isinstance(f.metadata_, dict):
             error_message = f.metadata_.get("error")
             processing_seconds = f.metadata_.get("processing_seconds")
             doc_type = f.metadata_.get("doc_type")
             doc_fields = f.metadata_.get("doc_fields")
+            doc_type_verified = bool(f.metadata_.get("doc_type_verified"))
 
         result.append({
             "id": f.id,
@@ -345,6 +348,7 @@ def list_file_queue(
             "processing_seconds": processing_seconds,
             "doc_type": doc_type,
             "doc_fields": doc_fields,
+            "doc_type_verified": doc_type_verified,
             "created_at": f.created_at.isoformat() if f.created_at else None,
             "updated_at": f.updated_at.isoformat() if f.updated_at else None,
             "started_at": None,
@@ -354,6 +358,73 @@ def list_file_queue(
         })
     
     return result
+
+
+class DocTypeOverride(BaseModel):
+    doc_type: str  # slug typu z rejestru albo "inny"
+
+
+@router.patch("/{file_id}/doc-type")
+async def override_doc_type(
+    file_id: int,
+    payload: DocTypeOverride,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Ręczna korekta kategorii dokumentu (#7B-2) + re-ekstrakcja pól dla nowego typu.
+
+    Ustawia `doc_type` i flagę `doc_type_verified` (trwała korekta — auto-klasyfikacja
+    jej nie nadpisze). Dla typu innego niż „inny" wyciąga pola dla nowego typu jednym
+    wywołaniem modelu (tekst z Qdranta; respektuje arbitraż modelu). Tylko admin.
+    """
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Tylko administrator może zmieniać kategorię.")
+
+    file = db.query(FileModel).filter(FileModel.id == file_id).first()
+    if not file:
+        raise HTTPException(status_code=404, detail="Plik nie istnieje.")
+
+    slug = (payload.doc_type or "").strip()
+    schema_row = None
+    if slug and slug != "inny":
+        schema_row = db.query(DocTypeSchema).filter(DocTypeSchema.slug == slug).first()
+        if not schema_row:
+            raise HTTPException(status_code=400, detail=f"Nieznany typ: {slug}")
+
+    # Re-ekstrakcja pól dla nowego typu (jeśli to konkretny typ)
+    doc_fields: dict = {}
+    if schema_row:
+        from app.qdrant_client import get_text_by_file_id
+        from app.doc_extract import extract_fields
+        from app.activity import extraction_started, extraction_finished
+        import asyncio as _asyncio
+        text = await _asyncio.to_thread(get_text_by_file_id, file_id)
+        if text:
+            extraction_started()  # nie koliduj z parsowaniem/czatem o model
+            try:
+                schema_dict = {
+                    "slug": schema_row.slug, "name": schema_row.name,
+                    "fields": schema_row.fields or [],
+                }
+                doc_fields = await extract_fields(schema_dict, text, file.filename)
+            except Exception as e:
+                logger.warning(f"[OVERRIDE] Plik {file_id}: re-ekstrakcja pól nieudana: {e}")
+            finally:
+                extraction_finished()
+                from app.dispatcher import try_dispatch_next
+                try:
+                    await try_dispatch_next(db)  # wznów kolejkę wstrzymaną na czas ekstrakcji
+                except Exception:
+                    pass
+
+    meta = dict(file.metadata_ or {})
+    meta["doc_type"] = slug
+    meta["doc_type_verified"] = True
+    meta["doc_fields"] = doc_fields
+    file.metadata_ = meta
+    db.commit()
+    logger.info(f"[OVERRIDE] Plik {file_id}: kategoria ręcznie → {slug} (pól={len(doc_fields)})")
+    return {"file_id": file_id, "doc_type": slug, "doc_fields": doc_fields, "doc_type_verified": True}
 
 
 @router.get("/status-summary")
