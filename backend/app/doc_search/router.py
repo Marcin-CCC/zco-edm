@@ -58,9 +58,10 @@ def search_documents(
     """Znajdź dokumenty po typie i wartościach pól (SQL po metadata_)."""
     q = db.query(FileModel).filter(FileModel.metadata_.isnot(None))
 
-    # Typ dokumentu (metadata->>'doc_type')
+    # Typ dokumentu (metadata->>'doc_type'). UWAGA: kolumna to generic JSON (nie JSONB),
+    # więc `.astext` nie działa — używamy operatorów PostgreSQL ->/->>  przez .op().
     if payload.doc_type:
-        q = q.filter(FileModel.metadata_["doc_type"].astext == payload.doc_type.strip())
+        q = q.filter(FileModel.metadata_.op("->>")("doc_type") == payload.doc_type.strip())
 
     # Warunki na polach (metadata->'doc_fields'->>'<field>')
     for f in payload.filters:
@@ -69,7 +70,7 @@ def search_documents(
             raise HTTPException(status_code=400, detail=f"Nieobsługiwany operator: {f.op}")
         if not f.field.strip():
             continue
-        col = FileModel.metadata_["doc_fields"][f.field.strip()].astext
+        col = FileModel.metadata_.op("->")("doc_fields").op("->>")(f.field.strip())
         val = f.value.strip()
         if op == "eq":
             q = q.filter(func.lower(col) == val.lower())

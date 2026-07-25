@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "0.3.6",
+      "date": "2026-07-25",
+      "title": "Poprawka wyszukiwarki po polach",
+      "changes": [
+        "Naprawiono wyszukiwanie po typie dokumentu i wartościach pól — zapytania z filtrem działają teraz poprawnie."
+      ]
+    },
+    {
       "version": "0.3.5",
       "date": "2026-07-25",
       "title": "Drobne poprawki statusu przetwarzania",
