@@ -281,3 +281,39 @@ export const settingsApi = {
       token: getAuthToken(),
     }),
 };
+
+// ==================== Rejestr schematów typów dokumentów (#7B-2) ====================
+export interface DocTypeField {
+  name: string;
+  type: string; // string | number | date | enum:v1,v2,...
+  hint?: string | null;
+}
+
+export interface DocTypeSchema {
+  id?: number;
+  slug: string;
+  name: string;
+  criteria?: string | null;
+  fields: DocTypeField[];
+  active: boolean;
+}
+
+export const docSchemasApi = {
+  list: (includeInactive = false) =>
+    apiRequest<DocTypeSchema[]>(
+      `/api/doc-schemas${includeInactive ? '?include_inactive=true' : ''}`,
+      { method: 'GET', token: getAuthToken() }
+    ),
+  // Upsert po slugu (dodaje lub aktualizuje). Tylko admin.
+  upsert: (data: DocTypeSchema) =>
+    apiRequest<DocTypeSchema>('/api/doc-schemas', {
+      method: 'POST',
+      body: data,
+      token: getAuthToken(),
+    }),
+  delete: (slug: string) =>
+    apiRequest<any>(`/api/doc-schemas/${slug}`, {
+      method: 'DELETE',
+      token: getAuthToken(),
+    }),
+};

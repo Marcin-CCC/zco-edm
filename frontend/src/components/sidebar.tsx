@@ -20,7 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', roles: ['admin', 'doctor', 'medical_staff', 'technician', 'office_staff', 'guest'], exact: true },
   { label: 'Pliki', href: '/dashboard/files', roles: ['admin', 'doctor', 'medical_staff', 'technician', 'office_staff', 'guest'], exact: true },
   { label: 'Chat', href: '/dashboard/chat', roles: ['admin', 'doctor', 'medical_staff', 'technician', 'office_staff', 'guest'], exact: true },
-  { label: 'Administracja', href: '/dashboard/users', roles: ['admin'], children: ['/dashboard/users', '/dashboard/access-list', '/dashboard/file-queue', '/dashboard/settings'] },
+  { label: 'Administracja', href: '/dashboard/users', roles: ['admin'], children: ['/dashboard/users', '/dashboard/access-list', '/dashboard/doc-schemas', '/dashboard/file-queue', '/dashboard/settings'] },
 ];
 
 function isActive(pathname: string, item: NavItem): boolean {

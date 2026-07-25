@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.3.2",
+      "date": "2026-07-25",
+      "title": "Edytor schematów dokumentów",
+      "changes": [
+        "Nowa podstrona Administracja → Schematy dokumentów: przeglądanie, dodawanie, edycja i usuwanie typów dokumentów wraz z polami nagłówkowymi (tekst, liczba, data, lista wartości).",
+        "Schematy z indukcji na próbkach można teraz korygować i zatwierdzać wprost w aplikacji, bez wdrożenia."
+      ]
+    },
+    {
       "version": "0.3.1",
       "date": "2026-07-24",
       "title": "Fundament rozpoznawania typów dokumentów",
