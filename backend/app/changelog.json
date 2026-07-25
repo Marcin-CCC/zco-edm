@@ -6,7 +6,7 @@
       "title": "Rozpoznawanie typów i wyszukiwanie po polach",
       "changes": [
         "Po sparsowaniu dokument jest automatycznie klasyfikowany (typ) i opisywany wartościami pól nagłówkowych wg schematów z rejestru.",
-        "Nowa wyszukiwarka po polach w czacie (przycisk „Wyszukiwarka pól"): filtrowanie dokumentów po typie i wartościach pól, z poszanowaniem uprawnień roli.",
+        "Nowa wyszukiwarka po polach w czacie (przycisk Wyszukiwarka pól): filtrowanie dokumentów po typie i wartościach pól, z poszanowaniem uprawnień roli.",
         "Klasyfikacja i parsowanie nie konkurują o model — wykonują się po kolei, a czat ma nad nimi pierwszeństwo.",
         "Uwaga: aby objąć wcześniej wgrane dokumenty, po dodaniu schematów należy je ponownie przetworzyć (Retry w kolejce plików)."
       ]
