@@ -33,6 +33,7 @@ from app.settings.router import _load_cache_from_db, get_chat_webhook_url
 from app.webhook_auth import verify_webhook_secret
 from app.n8n_auth import outgoing_headers
 from app.rbac import readable_folder_ids
+from app.activity import chat_started, chat_finished, is_chat_active
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
@@ -123,16 +124,22 @@ async def chat(
 
     client = httpx.AsyncClient(timeout=_TIMEOUT)
 
+    # Priorytet czatu nad parsowaniem: od teraz dyspozytor nie wyśle kolejnego
+    # pliku do parsowania, aż strumień się zakończy (chat_finished w finally).
+    chat_started()
+
     try:
         req = client.build_request("POST", chat_url, json=n8n_body, headers=outgoing_headers())
         upstream = await client.send(req, stream=True)
     except httpx.HTTPError as e:
+        chat_finished()
         await client.aclose()
         logger.error(f"[CHAT] Błąd połączenia z n8n: {e}")
         raise HTTPException(status_code=502, detail=f"Nie można połączyć z czatem n8n: {e}")
 
     if upstream.status_code != 200:
         body = await upstream.aread()
+        chat_finished()
         await upstream.aclose()
         await client.aclose()
         detail = body.decode(errors="replace")[:500]
@@ -148,6 +155,19 @@ async def chat(
         finally:
             await upstream.aclose()
             await client.aclose()
+            chat_finished()
+            # Wznów kolejkę wstrzymaną na czas czatu (gdy to był ostatni aktywny czat).
+            # Świeża sesja — sesja żądania jest już zamknięta, bo strumień leci po zwrocie.
+            if not is_chat_active():
+                from app.database import SessionLocal
+                from app.dispatcher import try_dispatch_next
+                _db = SessionLocal()
+                try:
+                    await try_dispatch_next(_db)
+                except Exception as e:
+                    logger.warning(f"[CHAT] Wznowienie kolejki po czacie nieudane: {e}")
+                finally:
+                    _db.close()
 
     media_type = upstream.headers.get("content-type", "text/plain; charset=utf-8")
     return StreamingResponse(
@@ -184,6 +204,26 @@ async def get_sources(
     _purge_expired_sources()
     entry = _sources_store.get(request_id)
     return {"request_id": request_id, "sources": entry["sources"] if entry else []}
+
+
+@router.get("/parse-active")
+def parse_active(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Czy trwa teraz parsowanie pliku (dzieli model z czatem).
+
+    Frontend pokazuje na tej podstawie komunikat, że odpowiedź może chwilę
+    poczekać (czat i parsowanie współdzielą model vLLM). Dostępne dla każdego
+    zalogowanego — nie ujawnia treści, tylko fakt zajętości.
+    """
+    from app.models import File as FileModel, DocumentStatus
+    active = (
+        db.query(FileModel)
+        .filter(FileModel.status == DocumentStatus.PROCESSING)
+        .count()
+    ) > 0
+    return {"active": active}
 
 
 # ==================== Historia rozmów ====================

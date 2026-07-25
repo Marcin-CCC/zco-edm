@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.3.3",
+      "date": "2026-07-25",
+      "title": "Priorytet czatu podczas przetwarzania",
+      "changes": [
+        "Gdy trwa parsowanie dokumentów, pytanie w czacie ma pierwszeństwo — system nie rozpoczyna kolejnego pliku, dopóki nie odpowie na pytanie (czat i parsowanie korzystają z tego samego modelu).",
+        "Podczas oczekiwania czat pokazuje komunikat, że odpowiedź pojawi się za chwilę."
+      ]
+    },
+    {
       "version": "0.3.2",
       "date": "2026-07-25",
       "title": "Edytor schematów dokumentów",

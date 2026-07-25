@@ -70,6 +70,8 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
+  // Trwa parsowanie (dzieli model z czatem) → pokaż komunikat, że odpowiedź chwilę poczeka
+  const [parseWait, setParseWait] = useState(false);
   const [conversations, setConversations] = useState<ConvSummary[]>([]);
   const [currentConvId, setCurrentConvId] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -139,12 +141,21 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, { role: 'user', content: text }, { role: 'assistant', content: '' }]);
     setStreaming(true);
 
+    // Czy trwa parsowanie? Jeśli tak, model jest zajęty — pokaż komunikat oczekiwania.
+    // (backend wstrzymuje start kolejnego pliku na czas czatu; czekamy tylko na bieżący)
+    setParseWait(false);
+    fetch('/api/chat/parse-active', { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.active) setParseWait(true); })
+      .catch(() => { /* komunikat to tylko UX */ });
+
     const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     let assistantText = '';
     let finalSources: ChatSource[] = [];
     let aborted = false;
 
     const appendText = (t: string) => {
+      setParseWait(false); // pierwszy token → model już odpowiada, chowamy komunikat
       assistantText += t;
       setMessages((prev) => {
         const next = [...prev];
@@ -281,6 +292,7 @@ export default function ChatPage() {
     } finally {
       abortRef.current = null;
       setStreaming(false);
+      setParseWait(false);
     }
   };
 
@@ -404,7 +416,13 @@ export default function ChatPage() {
                       </ReactMarkdown>
                     </div>
                   ) : (
-                    streaming && idx === messages.length - 1 ? '…' : ''
+                    streaming && idx === messages.length - 1 ? (
+                      parseWait ? (
+                        <span className="text-gray-500 italic">
+                          ⏳ Trwa przetwarzanie dokumentów — odpowiedź pojawi się za chwilę.
+                        </span>
+                      ) : '…'
+                    ) : ''
                   )
                 ) : (
                   m.content || (streaming && idx === messages.length - 1 ? '…' : '')

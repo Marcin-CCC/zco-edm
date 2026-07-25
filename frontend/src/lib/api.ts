@@ -282,6 +282,16 @@ export const settingsApi = {
     }),
 };
 
+// Chat — pomocnicze (samo wysyłanie wiadomości leci strumieniowo w chat/page.tsx)
+export const chatApi = {
+  // Czy trwa parsowanie (dzieli model z czatem) — do komunikatu „chwila".
+  parseActive: () =>
+    apiRequest<{ active: boolean }>('/api/chat/parse-active', {
+      method: 'GET',
+      token: getAuthToken(),
+    }),
+};
+
 // ==================== Rejestr schematów typów dokumentów (#7B-2) ====================
 export interface DocTypeField {
   name: string;
