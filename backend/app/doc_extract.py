@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 _TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0)
 
 
-def _build_messages(schemas: list[dict], text: str) -> list[dict]:
+def _build_messages(schemas: list[dict], text: str, filename: str = "") -> list[dict]:
     lines = ["KATALOG TYPÓW DOKUMENTÓW:"]
     for s in schemas:
         fields = ", ".join(
@@ -39,14 +39,17 @@ def _build_messages(schemas: list[dict], text: str) -> list[dict]:
                      f"{(' | kryteria: ' + crit) if crit else ''} | pola: {fields}")
     catalog = "\n".join(lines)
     system = (
-        "Jesteś klasyfikatorem dokumentów urzędowych. Dostajesz katalog typów "
-        "(z kryteriami i polami) oraz początek dokumentu. Wybierz NAJLEPIEJ pasujący "
-        "typ (jego slug). Jeśli żaden nie pasuje, użyj doc_type='inny'. Następnie "
-        "wyciągnij z dokumentu wartości pól WYŁĄCZNIE dla wybranego typu (nazwy pól "
-        "dokładnie jak w katalogu). Jeśli pola nie ma w dokumencie — pomiń je. "
-        "Zwróć wyłącznie JSON zgodny ze schematem."
+        "Jesteś klasyfikatorem dokumentów urzędowych. Dostajesz nazwę pliku, katalog "
+        "typów (z kryteriami i polami) oraz początek dokumentu. Wybierz NAJLEPIEJ "
+        "pasujący typ (jego slug). Nazwa pliku bywa mocną wskazówką co do typu "
+        "(np. nazwa zaczynająca się od 'Załącznik nr' wskazuje na załącznik, a "
+        "'Zarządzenie Nr' na zarządzenie), ale gdy treść wyraźnie przeczy nazwie, "
+        "rozstrzyga treść. Jeśli żaden typ nie "
+        "pasuje, użyj doc_type='inny'. Następnie wyciągnij wartości pól WYŁĄCZNIE dla "
+        "wybranego typu (nazwy pól dokładnie jak w katalogu). Jeśli pola nie ma w "
+        "dokumencie — pomiń je. Zwróć wyłącznie JSON zgodny ze schematem."
     )
-    user = f"{catalog}\n\nDOKUMENT (początek):\n{text}"
+    user = f"NAZWA PLIKU: {filename}\n\n{catalog}\n\nDOKUMENT (początek):\n{text}"
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
@@ -81,7 +84,7 @@ def _response_format(schemas: list[dict]) -> dict:
     }
 
 
-async def _classify(schemas: list[dict], text: str) -> dict | None:
+async def _classify(schemas: list[dict], text: str, filename: str = "") -> dict | None:
     """Jedno wywołanie vLLM. Zwraca {'doc_type', 'doc_fields'} albo None przy błędzie."""
     import json
 
@@ -89,7 +92,7 @@ async def _classify(schemas: list[dict], text: str) -> dict | None:
         "model": settings.VLLM_MODEL,
         "temperature": 0,
         "max_tokens": 600,
-        "messages": _build_messages(schemas, text),
+        "messages": _build_messages(schemas, text, filename),
         "response_format": _response_format(schemas),
     }
     url = f"{settings.VLLM_URL.rstrip('/')}/v1/chat/completions"
@@ -114,7 +117,7 @@ async def _classify(schemas: list[dict], text: str) -> dict | None:
     return {"doc_type": doc_type, "doc_fields": doc_fields}
 
 
-async def run_extraction(file_id: int, schemas: list[dict]) -> None:
+async def run_extraction(file_id: int, schemas: list[dict], filename: str = "") -> None:
     """Sklasyfikuj i wyciągnij pola dla pliku, ustaw READY, wznów kolejkę.
 
     Opcja B (#7B-2): plik wchodzi tu ze statusem „Przetwarzanie" (ustawionym przez
@@ -137,7 +140,7 @@ async def run_extraction(file_id: int, schemas: list[dict]) -> None:
         try:
             text = await asyncio.to_thread(get_text_by_file_id, file_id)
             if text:
-                result = await _classify(schemas, text)
+                result = await _classify(schemas, text, filename)
             else:
                 logger.info(f"[EXTRACT] Plik {file_id}: brak tekstu w Qdrancie — pomijam klasyfikację")
         except Exception as e:

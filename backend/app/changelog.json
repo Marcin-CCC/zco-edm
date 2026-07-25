@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "0.3.8",
+      "date": "2026-07-25",
+      "title": "Lepsze rozpoznawanie typu dokumentu",
+      "changes": [
+        "Klasyfikator uwzględnia teraz nazwę pliku jako dodatkową wskazówkę co do typu dokumentu (rozstrzyga treść, ale nazwa pomaga np. przy załącznikach)."
+      ]
+    },
+    {
       "version": "0.3.7",
       "date": "2026-07-25",
       "title": "Podgląd rozpoznanej kategorii dokumentu",

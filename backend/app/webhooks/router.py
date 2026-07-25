@@ -198,7 +198,7 @@ async def update_file_status(file_id: int, payload: StatusUpdate, db: Session = 
         from app.activity import extraction_started
         from app.doc_extract import run_extraction
         extraction_started()  # SYNCHRONICZNIE — dyspozytor od razu widzi zajętość
-        task = asyncio.create_task(run_extraction(file_id, active_schemas))
+        task = asyncio.create_task(run_extraction(file_id, active_schemas, file_obj.filename))
         _bg_tasks.add(task)
         task.add_done_callback(_bg_tasks.discard)
         dispatch_info = {"deferred": "extraction", "file_id": file_id}
