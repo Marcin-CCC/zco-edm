@@ -28,6 +28,8 @@ export function DocSearchPanel() {
   const [hits, setHits] = useState<DocSearchHit[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [nlQuery, setNlQuery] = useState('');
+  const [nlLoading, setNlLoading] = useState(false);
 
   useEffect(() => {
     docSchemasApi.list().then(setSchemas).catch(() => { /* rejestr może być pusty */ });
@@ -54,6 +56,23 @@ export function DocSearchPanel() {
       setError(e.message || 'Błąd wyszukiwania');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Pytanie po polsku → LLM rozpoznaje filtr → wypełnia formularz + pokazuje wyniki
+  const nlSearch = async () => {
+    if (!nlQuery.trim()) return;
+    setNlLoading(true);
+    setError('');
+    try {
+      const res = await docSearchApi.nl(nlQuery.trim());
+      setDocType(res.filter.doc_type || '');
+      setFilters((res.filter.filters || []).map((f) => ({ field: f.field, op: f.op, value: f.value })));
+      setHits(res.hits);
+    } catch (e: any) {
+      setError(e.message || 'Nie udało się zrozumieć zapytania');
+    } finally {
+      setNlLoading(false);
     }
   };
 
@@ -87,7 +106,30 @@ export function DocSearchPanel() {
           </p>
         )}
 
+        {/* Pytanie po polsku → filtr (NL→filtr) */}
         <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Zapytaj po polsku</label>
+          <div className="flex gap-1.5">
+            <input
+              type="text"
+              value={nlQuery}
+              onChange={(e) => setNlQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') nlSearch(); }}
+              placeholder="np. wszystkie zarządzenia z 2023"
+              className="flex-1 min-w-0 px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+            />
+            <button
+              onClick={nlSearch}
+              disabled={nlLoading || !nlQuery.trim()}
+              className="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 whitespace-nowrap"
+            >
+              {nlLoading ? '…' : 'Zapytaj'}
+            </button>
+          </div>
+          <p className="text-xs text-gray-400 mt-1">Rozpoznane zapytanie wypełni filtr poniżej — możesz go poprawić i wyszukać ponownie.</p>
+        </div>
+
+        <div className="border-t border-gray-100 pt-3">
           <label className="block text-xs font-medium text-gray-600 mb-1">Typ dokumentu</label>
           <select
             value={docType}

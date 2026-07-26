@@ -317,6 +317,11 @@ export interface DocSearchHit {
   fields: Record<string, string>;
 }
 
+export interface DocSearchFilter {
+  doc_type: string | null;
+  filters: { field: string; op: string; value: string }[];
+}
+
 export const docSearchApi = {
   search: (body: {
     doc_type?: string | null;
@@ -326,6 +331,13 @@ export const docSearchApi = {
     apiRequest<DocSearchHit[]>('/api/doc-search', {
       method: 'POST',
       body,
+      token: getAuthToken(),
+    }),
+  // Pytanie po polsku → LLM zamienia na filtr → wyniki (+ rozpoznany filtr)
+  nl: (query: string) =>
+    apiRequest<{ filter: DocSearchFilter; hits: DocSearchHit[] }>('/api/doc-search/nl', {
+      method: 'POST',
+      body: { query },
       token: getAuthToken(),
     }),
 };

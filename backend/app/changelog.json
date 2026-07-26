@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "0.4.0",
+      "date": "2026-07-25",
+      "title": "Wyszukiwanie dokumentów pytaniem po polsku",
+      "changes": [
+        "Panel wyszukiwarki: nowe pole Zapytaj po polsku — system zamienia pytanie na filtr (typ dokumentu + warunki na polach), pokazuje wyniki oraz rozpoznany filtr, który można poprawić i wyszukać ponownie."
+      ]
+    },
+    {
       "version": "0.3.10",
       "date": "2026-07-25",
       "title": "Ręczna korekta kategorii dokumentu",
