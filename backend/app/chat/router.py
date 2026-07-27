@@ -55,15 +55,51 @@ def _purge_expired_sources() -> None:
 
 
 def _enrich_with_file_ids(sources: list[dict], db: Session) -> list[dict]:
-    """Dopasuj file_id po nazwie pliku (dla linku do pobrania)."""
+    """Dopasuj file_id po nazwie pliku (link do pobrania) + dołóż typ dokumentu.
+
+    Faza B (#7): źródła pokazują też rozpoznany typ i kluczowe pola (numer/data),
+    więc zamiast samej nazwy pliku użytkownik widzi np. „Zarządzenie nr 8/2023".
+    Dane bierzemy z `files.metadata_` (Postgres) — bez zmian w n8n.
+    """
     filenames = {s.get("filename") for s in sources if s.get("filename")}
     if not filenames:
         return sources
-    rows = db.query(FileModel.id, FileModel.filename).filter(FileModel.filename.in_(filenames)).all()
-    by_name = {filename: fid for fid, filename in rows}
+    rows = (
+        db.query(FileModel.id, FileModel.filename, FileModel.metadata_)
+        .filter(FileModel.filename.in_(filenames))
+        .all()
+    )
+    by_name = {filename: (fid, meta) for fid, filename, meta in rows}
+
+    # Nazwy typów z rejestru (slug → czytelna nazwa)
+    type_names: dict[str, str] = {}
+    try:
+        from app.doc_schemas.router import get_active_schemas
+        type_names = {s["slug"]: s.get("name") or s["slug"] for s in get_active_schemas(db)}
+    except Exception:  # rejestr nie jest krytyczny dla cytowań
+        pass
+
+    # Pola najlepiej identyfikujące dokument (pierwsze pasujące trafia do etykiety)
+    _KEY_FIELDS = ("numer_dokumentu", "numer", "numer_aneksu", "numer_zalacznika", "data")
+
     for s in sources:
-        if not s.get("file_id") and s.get("filename") in by_name:
-            s["file_id"] = by_name[s["filename"]]
+        entry = by_name.get(s.get("filename"))
+        if not entry:
+            continue
+        fid, meta = entry
+        if not s.get("file_id"):
+            s["file_id"] = fid
+        if not isinstance(meta, dict):
+            continue
+        slug = meta.get("doc_type")
+        if slug and slug != "inny":
+            s["doc_type"] = slug
+            s["doc_type_name"] = type_names.get(slug, slug)
+            fields = meta.get("doc_fields") or {}
+            for k in _KEY_FIELDS:
+                if fields.get(k):
+                    s["doc_key"] = str(fields[k])
+                    break
     return sources
 
 

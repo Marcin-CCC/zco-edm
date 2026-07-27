@@ -9,6 +9,9 @@ interface ChatSource {
   file_id?: number;
   url?: string;
   page?: number;
+  doc_type?: string;
+  doc_type_name?: string;
+  doc_key?: string;
 }
 
 interface ChatMessage {
@@ -298,7 +301,14 @@ export default function ChatPage() {
     }
   };
 
-  const renderSourceLabel = (s: ChatSource, i: number) => s.filename || s.url || `Dokument ${i + 1}`;
+  // Etykieta źródła: gdy znamy typ dokumentu, pokaż go zamiast samej nazwy pliku
+  // (np. „Zarządzenie nr 8/2023"), nazwa pliku ląduje wtedy w drugiej linii.
+  const renderSourceLabel = (s: ChatSource, i: number) => {
+    if (s.doc_type_name) {
+      return s.doc_key ? `${s.doc_type_name} ${s.doc_key}` : s.doc_type_name;
+    }
+    return s.filename || s.url || `Dokument ${i + 1}`;
+  };
   const sourceHref = (s: ChatSource): string | null => {
     if (s.url) return s.url;
     if (s.file_id) return `/api/files/${s.file_id}/download`;
@@ -457,6 +467,9 @@ export default function ChatPage() {
                               </button>
                             ) : (
                               <span className="text-gray-600">📄 {renderSourceLabel(s, i)}{s.page ? ` (str. ${s.page})` : ''}</span>
+                            )}
+                            {s.doc_type_name && s.filename && (
+                              <div className="text-gray-400 pl-4 break-all">{s.filename}</div>
                             )}
                           </li>
                         );

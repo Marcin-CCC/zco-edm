@@ -187,6 +187,10 @@ class ChatSourceItem(BaseModel):
     score: Optional[float] = None
     file_id: Optional[int] = None
     url: Optional[str] = None
+    # Faza B (#7): typ dokumentu i kluczowe pole — czytelniejsza etykieta źródła
+    doc_type: Optional[str] = None
+    doc_type_name: Optional[str] = None
+    doc_key: Optional[str] = None
 
 
 class ChatSourcesPayload(BaseModel):

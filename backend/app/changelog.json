@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "0.4.1",
+      "date": "2026-07-25",
+      "title": "Czytelniejsze źródła odpowiedzi w czacie",
+      "changes": [
+        "Źródła pod odpowiedzią pokazują rozpoznany typ dokumentu wraz z jego numerem lub datą (np. Zarządzenie 8/2023), a nazwa pliku jest widoczna poniżej."
+      ]
+    },
+    {
       "version": "0.4.0",
       "date": "2026-07-25",
       "title": "Wyszukiwanie dokumentów pytaniem po polsku",
