@@ -806,26 +806,31 @@ function FilesPageInner() {
                         {new Date(file.created_at).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex space-x-2">
+                        {/* Akcje: ikona NAD podpisem — układ jawny (flex-col), żeby
+                            wszystkie trzy wyglądały tak samo niezależnie od długości słowa */}
+                        <div className="flex items-start space-x-4">
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDownload(file); }}
-                            className="text-blue-600 hover:text-blue-800 text-sm"
+                            className="flex flex-col items-center gap-0.5 text-blue-600 hover:text-blue-800 text-sm"
                           >
-                            ⬇️ Pobierz
+                            <span className="text-base leading-none">⬇️</span>
+                            <span>Pobierz</span>
                           </button>
                           {(isAdmin || canWriteHere) && (
                             <>
                               <button
                                 onClick={(e) => { e.stopPropagation(); setMoveTarget([file.id]); setMoveFolderId(''); }}
-                                className="text-blue-600 hover:text-blue-800 text-sm whitespace-nowrap"
+                                className="flex flex-col items-center gap-0.5 text-blue-600 hover:text-blue-800 text-sm"
                               >
-                                📂 Przenieś
+                                <span className="text-base leading-none">📂</span>
+                                <span>Przenieś</span>
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleDelete(file.id); }}
-                                className="text-red-600 hover:text-red-800 text-sm"
+                                className="flex flex-col items-center gap-0.5 text-red-600 hover:text-red-800 text-sm"
                               >
-                                🗑️ Usuń
+                                <span className="text-base leading-none">🗑️</span>
+                                <span>Usuń</span>
                               </button>
                             </>
                           )}

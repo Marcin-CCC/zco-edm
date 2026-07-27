@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "0.7.2",
+      "date": "2026-07-27",
+      "title": "Spójny układ akcji na liście plików",
+      "changes": [
+        "Ikony akcji Pobierz, Przenieś i Usuń są teraz jednakowo umieszczone nad podpisami, niezależnie od długości nazwy."
+      ]
+    },
+    {
       "version": "0.7.1",
       "date": "2026-07-27",
       "title": "Poprawne rozpoznawanie pól z polskimi znakami",
