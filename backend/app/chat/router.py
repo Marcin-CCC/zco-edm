@@ -249,13 +249,21 @@ class RouteRequest(BaseModel):
 
 
 _ROUTE_SYSTEM = (
-    "Klasyfikujesz pytanie uzytkownika do systemu dokumentow firmowych.\n"
-    "LISTA = uzytkownik prosi o wypisanie, znalezienie lub policzenie DOKUMENTOW "
-    "(przyklady: wszystkie zarzadzenia; wypisz umowy z 2023; ile jest wnioskow; "
-    "pokaz aneksy do regulaminu).\n"
-    "TRESC = uzytkownik pyta o tresc, meritum, zasady lub konkretna informacje "
-    "(przyklady: jak przejsc na prace zdalna; ile wynosi dodatek stazowy; "
-    "regulamin wynagradzania).\n"
+    "Klasyfikujesz wypowiedz uzytkownika w systemie dokumentow firmowych.\n"
+    "LISTA = uzytkownik chce ZOBACZYC, ZNALEZC, WSKAZAC lub POLICZYC dokumenty. Naleza tu:\n"
+    " - polecenia: pokaz, znajdz, wyszukaj, wylistuj, wypisz, podaj, otworz, daj "
+    "(np. pokaz regulamin wynagradzania)\n"
+    " - pytania o zbior dokumentow: wszystkie zarzadzenia; jakie umowy z 2023; ile jest wnioskow\n"
+    " - sama nazwa lub typ dokumentu bez pytania (np. regulamin; regulamin wynagradzania; "
+    "zarzadzenie 30/2024)\n"
+    "TRESC = uzytkownik pyta o to, CO JEST W dokumentach: tresc, zasady, definicje, "
+    "konkretne wartosci. Naleza tu:\n"
+    " - pytania zaczynajace sie od: co, jak, kto, kiedy, ile wynosi, czy, dlaczego, gdzie znajde\n"
+    " - przyklady: co jest w regulaminie wynagradzania; jak przejsc na prace zdalna; "
+    "ile wynosi dodatek stazowy;\n"
+    "   jaka kategorie zaszeregowania ma sanitariusz\n"
+    "W razie watpliwosci: jesli wypowiedz to polecenie lub sama nazwa dokumentu -> LISTA; "
+    "jesli to pytanie o wiedze -> TRESC.\n"
     "Zwroc wylacznie JSON zgodny ze schematem."
 )
 

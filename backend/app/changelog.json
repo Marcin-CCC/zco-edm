@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.5.2",
+      "date": "2026-07-27",
+      "title": "Trafniejsze rozpoznawanie poleceń typu pokaż dokument",
+      "changes": [
+        "Polecenia w rodzaju pokaż regulamin wynagradzania oraz same nazwy dokumentów (np. regulamin) prowadzą teraz do listy dokumentów, zamiast trafiać do wyszukiwania w treści i kończyć się komunikatem o braku informacji.",
+        "Pytania o treść (co jest w…, jak…, ile wynosi…) działają bez zmian."
+      ]
+    },
+    {
       "version": "0.5.1",
       "date": "2026-07-27",
       "title": "Poprawne wyszukiwanie dokumentów po dacie",
