@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "0.5.9",
+      "date": "2026-07-27",
+      "title": "Numer strony w dymku cytowania",
+      "changes": [
+        "Dymek przy klikalnym numerze w treści pokazuje teraz nazwę dokumentu, numer strony i nazwę pliku — wcześniej dwa fragmenty tego samego dokumentu miały identyczny opis."
+      ]
+    },
+    {
       "version": "0.5.8",
       "date": "2026-07-27",
       "title": "Klikalne odnośniki do źródeł w treści odpowiedzi",

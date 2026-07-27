@@ -483,6 +483,16 @@ export default function ChatPage() {
     }
     return s.filename || s.url || `Dokument ${i + 1}`;
   };
+
+  // Opis do dymka przy cytowaniu: etykieta + STRONA + nazwa pliku. Bez strony dwa
+  // fragmenty tego samego dokumentu dawały identyczny dymek (np. „Załącznik 2").
+  const sourceTitle = (s: ChatSource, i: number) => {
+    const parts = [renderSourceLabel(s, i)];
+    if (s.page) parts.push(`str. ${s.page}`);
+    if (s.doc_type_name && s.filename) parts.push(s.filename);
+    return parts.join(' · ');
+  };
+
   const sourceHref = (s: ChatSource): string | null => {
     if (s.url) return s.url;
     if (s.file_id) return `/api/files/${s.file_id}/download`;
@@ -612,7 +622,7 @@ export default function ChatPage() {
                               return (
                                 <button
                                   onClick={() => src && openSource(src)}
-                                  title={src ? renderSourceLabel(src, idx) : undefined}
+                                  title={src ? sourceTitle(src, idx) : undefined}
                                   className="align-super text-[10px] leading-none px-1 py-0.5 mx-0.5 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium"
                                 >
                                   {children}
