@@ -20,7 +20,7 @@ from typing import Optional
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -96,6 +96,24 @@ class SearchHit(BaseModel):
     fields: dict = {}
 
 
+def _field_condition(field: str, op: str, val: str):
+    """Warunek SQL na jednym polu z `metadata->doc_fields`."""
+    col = FileModel.metadata_.op("->")("doc_fields").op("->>")(field)
+    if op == "eq":
+        return func.lower(col) == val.lower()
+    if op == "contains":
+        return col.ilike(f"%{val}%")
+    if op == "gte":
+        return col >= _expand_date_bound(val, "gte")
+    if op == "lte":
+        return col <= _expand_date_bound(val, "lte")
+    if op == "gt":     # „po 2024" — rok 2024 NIE wchodzi
+        return col > _expand_date_bound(val, "gt")
+    if op == "lt":     # „przed 2024" — rok 2024 NIE wchodzi
+        return col < _expand_date_bound(val, "lt")
+    return None
+
+
 def _run_search(
     db: Session,
     current_user: User,
@@ -103,33 +121,41 @@ def _run_search(
     filters: list[FieldFilter],
     limit: int = 100,
 ) -> list[SearchHit]:
-    """Wspólna logika: filtr strukturalny → SQL po metadata_ + RBAC roli."""
-    q = db.query(FileModel).filter(FileModel.metadata_.isnot(None))
+    """Wspólna logika: filtr strukturalny → SQL po metadata_ + RBAC roli.
+
+    UWAGA co do łączenia warunków: warunki o RÓŻNYCH parametrach (np. dostawca=X
+    oraz kwota>1000) łączymy przez AND, ale ten SAM warunek rozłożony na różne
+    nazwy pól (np. „po 2024" dla typu nieokreślonego → data, data_wydania,
+    data_podpisania…) łączymy przez OR. Bez tego pytanie „dokumenty po 2024"
+    wymagałoby, by jeden dokument miał JEDNOCZEŚNIE wszystkie te pola — czyli
+    zawsze zero wyników.
+    """
+    # Brak filtra po metadata_ IS NOT NULL: pliki bez metadanych (sparsowane przed
+    # wdrożeniem klasyfikacji) też mają się pokazywać, gdy nie ma warunków na polach.
+    q = db.query(FileModel)
 
     # Typ dokumentu (metadata->>'doc_type'). Kolumna to generic JSON (nie JSONB),
     # więc `.astext` nie działa — używamy operatorów PostgreSQL ->/->> przez .op().
     if doc_type:
         q = q.filter(FileModel.metadata_.op("->>")("doc_type") == doc_type.strip())
 
-    # Warunki na polach (metadata->'doc_fields'->>'<field>')
+    # Grupuj warunki po (operator, wartość); różne pola w grupie → OR
+    groups: dict[tuple[str, str], list[str]] = {}
     for f in filters:
         op = (f.op or "contains").lower()
-        if op not in _ALLOWED_OPS or not f.field.strip():
+        field = (f.field or "").strip()
+        if op not in _ALLOWED_OPS or not field:
             continue
-        col = FileModel.metadata_.op("->")("doc_fields").op("->>")(f.field.strip())
-        val = f.value.strip()
-        if op == "eq":
-            q = q.filter(func.lower(col) == val.lower())
-        elif op == "contains":
-            q = q.filter(col.ilike(f"%{val}%"))
-        elif op == "gte":
-            q = q.filter(col >= _expand_date_bound(val, "gte"))
-        elif op == "lte":
-            q = q.filter(col <= _expand_date_bound(val, "lte"))
-        elif op == "gt":   # „po 2024" — rok 2024 NIE wchodzi
-            q = q.filter(col > _expand_date_bound(val, "gt"))
-        elif op == "lt":   # „przed 2024" — rok 2024 NIE wchodzi
-            q = q.filter(col < _expand_date_bound(val, "lt"))
+        key = (op, (f.value or "").strip())
+        fields = groups.setdefault(key, [])
+        if field not in fields:          # odsiej duplikaty (model bywa gadatliwy)
+            fields.append(field)
+
+    for (op, val), fields in groups.items():
+        conds = [c for c in (_field_condition(fl, op, val) for fl in fields) if c is not None]
+        if not conds:
+            continue
+        q = q.filter(or_(*conds) if len(conds) > 1 else conds[0])
 
     # RBAC: tylko foldery czytelne dla roli (admin: readable is None → bez filtra)
     readable = readable_folder_ids(current_user, db)
@@ -277,13 +303,17 @@ async def nl_search(
     if doc_type and doc_type not in valid_slugs:
         doc_type = None
 
-    # Pola dozwolone dla wybranego typu (odsiej wymyślone przez model)
+    # Pola dozwolone (odsiej wymyślone przez model): dla wybranego typu — jego pola,
+    # dla typu nieokreślonego — suma pól ze WSZYSTKICH aktywnych schematów.
     allowed_fields = set()
     if doc_type:
         for s in schemas:
             if s["slug"] == doc_type:
                 allowed_fields = {f.get("name") for f in (s.get("fields") or [])}
                 break
+    else:
+        for s in schemas:
+            allowed_fields |= {f.get("name") for f in (s.get("fields") or [])}
 
     filters: list[FieldFilter] = []
     for f in (parsed.get("filters") or []):

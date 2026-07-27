@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "0.5.10",
+      "date": "2026-07-27",
+      "title": "Wyszukiwanie bez wskazania typu dokumentu",
+      "changes": [
+        "Zapytania w rodzaju dokumenty po 2024 działają teraz także bez wskazania typu — wcześniej zwracały pustą listę, bo warunek dla różnych nazw pól z datą był łączony jak wymóg spełnienia ich wszystkich naraz.",
+        "Wyszukiwarka pokazuje również dokumenty przetworzone przed wprowadzeniem rozpoznawania typów (wcześniej były pomijane).",
+        "Powtórzone warunki na tym samym polu są scalane.",
+        "Wartości pól z datą, które nie są datą (np. kropkowana linia z formularza), nie są już zapisywane i zostały usunięte z istniejących dokumentów — zaśmiecały wyniki filtrowania po zakresach."
+      ]
+    },
+    {
       "version": "0.5.9",
       "date": "2026-07-27",
       "title": "Numer strony w dymku cytowania",

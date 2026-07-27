@@ -78,12 +78,27 @@ def normalize_date(value: str) -> str:
 
 
 def _normalize_fields(fields: dict, schema: dict) -> dict:
-    """Znormalizuj wartości pól zadeklarowanych w schemacie jako `date`."""
+    """Znormalizuj pola typu `date` do YYYY-MM-DD; odrzuć wartości niebędące datą.
+
+    Model potrafi wyciągnąć z formularza śmieć (np. linię kropek „…........"), a taka
+    wartość przy porównaniu tekstowym wypada „po" każdej dacie i zaśmieca wyniki
+    filtrowania po zakresach. Lepiej nie mieć pola niż mieć w nim nie-datę.
+    """
     date_names = {
         f.get("name") for f in (schema.get("fields") or [])
         if (f.get("type") or "").strip().lower() == "date"
     }
-    return {k: (normalize_date(v) if k in date_names else v) for k, v in fields.items()}
+    out = {}
+    for k, v in fields.items():
+        if k not in date_names:
+            out[k] = v
+            continue
+        norm = normalize_date(v)
+        if _ISO_RE.match(norm or ""):
+            out[k] = norm
+        else:
+            logger.info(f"[EXTRACT] Odrzucono nie-datę w polu '{k}': {v!r}")
+    return out
 
 
 def _build_messages(schemas: list[dict], text: str, filename: str = "") -> list[dict]:
