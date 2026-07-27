@@ -1,6 +1,7 @@
 import os
 import logging
 import shutil
+import uuid
 from datetime import datetime
 from typing import List, Optional
 import httpx
@@ -129,16 +130,25 @@ async def upload_file(
             detail=f"Nieobsługiwany typ pliku '.{ext}'. Dozwolone: {', '.join(sorted(allowed_extensions))}"
         )
 
-    # Generate storage path
+    # Sprawdź, czy wskazany folder istnieje (przynależność jest LOGICZNA — trzymana
+    # w bazie, nie w układzie katalogów; patrz niżej).
     if folder_id:
         folder = db.query(Folder).filter(Folder.id == folder_id).first()
         if not folder:
             logger.warning(f"[UPLOAD] Folder {folder_id} nie istnieje")
             raise HTTPException(status_code=404, detail="Folder nie istnieje.")
-        relative_path = os.path.join(folder.path.lstrip("/"), file.filename)
-    else:
-        logger.debug("[UPLOAD] Brak folder_id — zapis do katalogu głównego")
-        relative_path = file.filename
+
+    # Ścieżka zapisu: OSOBNY KATALOG NA PLIK (losowy identyfikator) + ORYGINALNA nazwa.
+    # - katalog gwarantuje unikalność, więc dwa pliki o tej samej nazwie nie nadpisują
+    #   się nawzajem (wcześniej `open(..., "wb")` po cichu nadpisywał);
+    # - nazwa pliku MUSI zostać nietknięta: chunki w Qdrancie zapisują
+    #   `metadata.filename` wyciągnięty z fizycznej ścieżki, a backend dopasowuje po
+    #   niej źródła czatu do dokumentów (klikalne cytowania, etykiety typu);
+    # - układ katalogów nie odwzorowuje już drzewa folderów aplikacji — folder to
+    #   informacja logiczna w bazie, dzięki czemu zmiana nazwy folderu i przenoszenie
+    #   plików nie wymagają ruszania dysku (ani lokalnie, ani na Sparku).
+    safe_name = os.path.basename(file.filename)
+    relative_path = f"{uuid.uuid4().hex}/{safe_name}"
     storage_path = os.path.join(STORAGE_DIR, relative_path)
 
     os.makedirs(os.path.dirname(storage_path) or STORAGE_DIR, exist_ok=True)
@@ -167,7 +177,8 @@ async def upload_file(
 
     # Create DB record (file_path = ścieżka widziana przez n8n/backend na Sparku)
     db_file = FileModel(
-        filename=file.filename,
+        # nazwa w bazie MUSI być identyczna z fizyczną (dopasowanie źródeł czatu po nazwie)
+        filename=safe_name,
         file_path=effective_path,
         mime_type=get_mime_type(file.filename),
         size=file_size,

@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.6.2",
+      "date": "2026-07-27",
+      "title": "Bezpieczne zapisywanie plików o tej samej nazwie",
+      "changes": [
+        "Wgranie dwóch plików o identycznej nazwie nie powoduje już nadpisania — każdy plik zapisywany jest w osobnym miejscu, a jego nazwa pozostaje bez zmian.",
+        "Przynależność pliku do folderu jest informacją w bazie, niezależną od miejsca zapisu na dysku — przygotowanie pod zmianę nazwy folderu i przenoszenie plików."
+      ]
+    },
+    {
       "version": "0.6.1",
       "date": "2026-07-27",
       "title": "Spójne przyciski w wyszukiwarce",
