@@ -108,6 +108,44 @@ def get_texts_by_folder(folder_id: int | None = None) -> dict[int, str]:
     return texts
 
 
+def set_doc_type(file_id: int, doc_type: str | None) -> dict:
+    """Dopisz `doc_type` do payloadów wszystkich chunków danego pliku.
+
+    Klucz jest TOP-LEVEL (obok `content` i `metadata`), a nie w środku `metadata` —
+    dzięki temu operacja tylko dokłada pole i nie może nadpisać istniejących metadanych
+    (w tym `metadata.folder_id`, na którym opiera się filtr RBAC czatu).
+
+    Dzięki temu typ dokumentu jest dostępny przy wyszukiwaniu wektorowym (filtrowanie
+    lub premiowanie po typie) — dziś tylko go zapisujemy.
+
+    Best-effort: awaria Qdranta nie może przerwać klasyfikacji. Zwraca diagnostykę.
+    """
+    if not doc_type:
+        return {"ok": False, "reason": "brak doc_type"}
+
+    base = settings.QDRANT_URL.rstrip("/")
+    collection = settings.QDRANT_COLLECTION
+    url = f"{base}/collections/{collection}/points/payload?wait=true"
+    body = {
+        "payload": {"doc_type": doc_type},
+        "filter": {"must": [{"key": "metadata.file_id", "match": {"value": file_id}}]},
+    }
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            resp = client.post(url, json=body)
+    except Exception as e:
+        logger.warning(f"[QDRANT] Zapis doc_type dla pliku {file_id} nieudany: {e}")
+        return {"ok": False, "error": str(e)}
+
+    if resp.status_code == 200:
+        logger.info(f"[QDRANT] Plik {file_id}: doc_type='{doc_type}' zapisany w chunkach")
+        return {"ok": True}
+    logger.warning(
+        f"[QDRANT] Zapis doc_type pliku {file_id}: HTTP {resp.status_code}: {resp.text[:200]}"
+    )
+    return {"ok": False, "status": resp.status_code}
+
+
 def get_text_by_file_id(file_id: int, max_chars: int = 6000) -> str:
     """Odtwórz tekst JEDNEGO dokumentu z chunków w Qdrancie (dla klasyfikacji #7B-2).
 

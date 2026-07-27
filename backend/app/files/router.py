@@ -423,6 +423,11 @@ async def override_doc_type(
     meta["doc_fields"] = doc_fields
     file.metadata_ = meta
     db.commit()
+
+    # Skorygowany typ trafia też do chunków w Qdrancie (best-effort)
+    import asyncio as _aio
+    from app.qdrant_client import set_doc_type
+    await _aio.to_thread(set_doc_type, file_id, slug)
     logger.info(f"[OVERRIDE] Plik {file_id}: kategoria ręcznie → {slug} (pól={len(doc_fields)})")
     return {"file_id": file_id, "doc_type": slug, "doc_fields": doc_fields, "doc_type_verified": True}
 

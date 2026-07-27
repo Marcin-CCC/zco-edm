@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "0.5.7",
+      "date": "2026-07-27",
+      "title": "Typ dokumentu zapisywany przy treści w bazie wektorowej",
+      "changes": [
+        "Rozpoznany typ dokumentu jest zapisywany także przy fragmentach treści w bazie wektorowej — przygotowanie pod wyszukiwanie uwzględniające typ. Bez zmian w działaniu czatu i bez potrzeby ponownego przetwarzania dokumentów."
+      ]
+    },
+    {
       "version": "0.5.6",
       "date": "2026-07-27",
       "title": "Pytania nawiązujące do rozmowy",

@@ -300,6 +300,9 @@ async def run_extraction(file_id: int, schemas: list[dict], filename: str = "") 
                     f"[EXTRACT] Plik {file_id}: doc_type={result['doc_type']} "
                     f"pól={len(result['doc_fields'])}"
                 )
+                # Typ dokumentu trafia też do chunków w Qdrancie (best-effort)
+                from app.qdrant_client import set_doc_type
+                await asyncio.to_thread(set_doc_type, file_id, result["doc_type"])
             f.status = DocumentStatus.READY
             mark_processing_finished(f)
             db.commit()
