@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "0.5.4",
+      "date": "2026-07-27",
+      "title": "Odmowy nie zakłócają kolejnych odpowiedzi",
+      "changes": [
+        "Historia rozmowy przekazywana modelowi pomija tury zakończone komunikatem o braku informacji. Wcześniej jedna taka odpowiedź powodowała, że kolejne podobne pytania również kończyły się odmową, mimo dostępnych dokumentów."
+      ]
+    },
+    {
       "version": "0.5.3",
       "date": "2026-07-27",
       "title": "Rozróżnianie po/przed od od/do w wyszukiwaniu",

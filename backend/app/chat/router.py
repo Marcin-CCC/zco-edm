@@ -56,6 +56,61 @@ def _purge_expired_sources() -> None:
         _sources_store.pop(k, None)
 
 
+# Odpowiedzi, których NIE przenosimy do historii rozmowy (zatruwają kolejne tury:
+# model widzi własną odmowę i powiela ją mimo dobrego kontekstu).
+_NO_ANSWER = "Niestety, nie znaleziono w dokumentach informacji na ten temat."
+_NO_MATCH_PREFIX = "_Nie znalazłem dokumentów spełniających kryteria"
+
+_HISTORY_TURNS = 3          # ile ostatnich par pytanie–odpowiedź
+_HISTORY_USER_CHARS = 300   # przycięcie pytania
+_HISTORY_ASSIST_CHARS = 700  # przycięcie odpowiedzi
+
+
+def _is_refusal(content: str) -> bool:
+    c = (content or "").replace(" ", " ").strip()
+    return c.rstrip() == _NO_ANSWER or c.startswith(_NO_MATCH_PREFIX)
+
+
+def build_history(db: Session, user: User, session_id: str) -> str:
+    """Zbuduj historię rozmowy dla n8n — BEZ odmów.
+
+    Zastępuje węzeł Simple Memory, który zapisywał wszystko automatycznie: gdy raz
+    padła odmowa („nie znaleziono"), model widział ją w pamięci i powtarzał dla
+    kolejnych podobnych pytań, nawet mając dobry kontekst. Tutaj pomijamy całe tury
+    zakończone odmową, a resztę przycinamy do budżetu kontekstu.
+
+    Zwraca tekst „Użytkownik: … / Asystent: …" albo pusty string.
+    """
+    try:
+        conv_id = int(str(session_id).strip())
+    except (TypeError, ValueError):
+        return ""
+
+    conv = db.query(Conversation).filter(Conversation.id == conv_id).first()
+    if not conv or conv.user_id != user.id:
+        return ""
+
+    # Sparuj kolejne wiadomości user→assistant i odrzuć tury z odmową
+    turns: list[tuple[str, str]] = []
+    pending_user: str | None = None
+    for m in conv.messages:
+        if m.role == "user":
+            pending_user = m.content or ""
+        elif m.role == "assistant" and pending_user is not None:
+            if not _is_refusal(m.content):
+                turns.append((pending_user, m.content or ""))
+            pending_user = None
+
+    if not turns:
+        return ""
+
+    lines = []
+    for u, a in turns[-_HISTORY_TURNS:]:
+        lines.append(f"Użytkownik: {u.strip()[:_HISTORY_USER_CHARS]}")
+        lines.append(f"Asystent: {a.strip()[:_HISTORY_ASSIST_CHARS]}")
+    return "\n".join(lines)
+
+
 def _enrich_with_file_ids(sources: list[dict], db: Session) -> list[dict]:
     """Dopasuj file_id po nazwie pliku (link do pobrania) + dołóż typ dokumentu.
 
@@ -144,10 +199,14 @@ async def chat(
             ]
         }
 
+    # Historia rozmowy budowana po naszej stronie (bez odmów) — zastępuje Simple Memory
+    history = build_history(db, current_user, payload.session_id)
+
     n8n_body = {
         "action": "sendMessage",
         "sessionId": f"{current_user.id}:{payload.session_id}",
         "chatInput": payload.message,
+        "history": history,
         "requestId": request_id,
         "sources_update_url": f"{BACKEND_CALLBACK_URL}/api/chat/sources",
         "folderFilterEnabled": folder_filter_enabled,
