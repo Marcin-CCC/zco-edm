@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.6.1",
+      "date": "2026-07-27",
+      "title": "Spójne przyciski w wyszukiwarce",
+      "changes": [
+        "Przycisk Zapytaj ma teraz kolor zgodny z resztą aplikacji (wcześniej był fioletowy).",
+        "Nieaktywne przyciski Zapytaj i Szukaj są jasnoniebieskie zamiast przygaszonych.",
+        "Przycisk Szukaj nie rozciąga się już na całą szerokość panelu i jest wyrównany do lewej; staje się aktywny po wskazaniu typu dokumentu lub dodaniu warunku."
+      ]
+    },
+    {
       "version": "0.6.0",
       "date": "2026-07-27",
       "title": "Uporządkowany widok Bazy wiedzy",

@@ -40,6 +40,9 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
   const currentSchema = schemas.find((s) => s.slug === docType);
   const fieldNames = currentSchema?.fields.map((f) => f.name) || [];
 
+  // „Szukaj" ma sens dopiero, gdy jest jakiekolwiek kryterium (typ albo warunek)
+  const hasCriteria = !!docType || filters.some((f) => f.field.trim() && f.value.trim());
+
   const addFilter = () => setFilters((f) => [...f, { field: '', op: 'contains', value: '' }]);
   const updateFilter = (i: number, patch: Partial<FilterRow>) =>
     setFilters((f) => f.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -137,7 +140,7 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
             <button
               onClick={nlSearch}
               disabled={nlLoading || !nlQuery.trim()}
-              className="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 whitespace-nowrap"
+              className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed whitespace-nowrap"
             >
               {nlLoading ? '…' : 'Zapytaj'}
             </button>
@@ -208,13 +211,15 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
           </button>
         </div>
 
-        <button
-          onClick={search}
-          disabled={loading}
-          className="w-full px-3 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-        >
-          {loading ? 'Szukam…' : 'Szukaj'}
-        </button>
+        <div>
+          <button
+            onClick={search}
+            disabled={loading || !hasCriteria}
+            className="px-6 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Szukam…' : 'Szukaj'}
+          </button>
+        </div>
         {error && <p className="text-xs text-red-600">{error}</p>}
       </div>
 
