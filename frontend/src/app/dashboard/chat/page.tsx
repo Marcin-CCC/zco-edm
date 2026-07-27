@@ -17,7 +17,9 @@ function pluralDocs(n: number): string {
 // Pole najlepiej identyfikujące dokument na liście (pierwsze pasujące)
 const KEY_FIELDS = ['numer_dokumentu', 'numer', 'numer_aneksu', 'numer_zalacznika', 'data'];
 
-const OP_LABELS: Record<string, string> = { eq: '=', contains: 'zawiera', gte: 'od', lte: 'do' };
+const OP_LABELS: Record<string, string> = {
+  eq: '=', contains: 'zawiera', gte: 'od', lte: 'do', gt: 'po', lt: 'przed',
+};
 
 /** Opisz rozpoznany filtr po ludzku, np. „typ: Zarządzenie, data od 2023, data do 2023". */
 function describeFilter(

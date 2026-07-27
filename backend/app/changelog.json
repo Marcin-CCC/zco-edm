@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.5.3",
+      "date": "2026-07-27",
+      "title": "Rozróżnianie po/przed od od/do w wyszukiwaniu",
+      "changes": [
+        "Zapytanie po 2024 nie obejmuje już roku 2024 (a przed 2026 nie obejmuje 2026) — wcześniej działały tak samo jak od/do.",
+        "W wyszukiwarce pól doszły operatory > (po) oraz < (przed) do ręcznego budowania filtrów."
+      ]
+    },
+    {
       "version": "0.5.2",
       "date": "2026-07-27",
       "title": "Trafniejsze rozpoznawanie poleceń typu pokaż dokument",

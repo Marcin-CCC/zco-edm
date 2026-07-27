@@ -8,6 +8,8 @@ const OPS = [
   { value: 'eq', label: 'równe' },
   { value: 'gte', label: '≥ (od)' },
   { value: 'lte', label: '≤ (do)' },
+  { value: 'gt', label: '> (po)' },
+  { value: 'lt', label: '< (przed)' },
 ];
 
 interface FilterRow {

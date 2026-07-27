@@ -33,7 +33,7 @@ from app.doc_schemas.router import get_active_schemas
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/doc-search", tags=["DocSearch"])
 
-_ALLOWED_OPS = {"eq", "contains", "gte", "lte"}
+_ALLOWED_OPS = {"eq", "contains", "gte", "lte", "gt", "lt"}
 _NL_TIMEOUT = httpx.Timeout(connect=10.0, read=60.0, write=30.0, pool=10.0)
 
 _YEAR_RE = re.compile(r"^\d{4}$")
@@ -45,20 +45,27 @@ def _expand_date_bound(value: str, op: str) -> str:
 
     Porównania idą po TEKŚCIE, więc `data <= '2023'` nie łapie '2023-04-07'
     (dłuższy napis o tym samym prefiksie jest większy) — przez to pytania
-    „w roku 2023" dawały 0 wyników. Rozwijamy więc granice:
-      gte 2023    → 2023-01-01     lte 2023    → 2023-12-31
-      gte 2023-04 → 2023-04-01     lte 2023-04 → 2023-04-30
+    „w roku 2023" dawały 0 wyników. Rozwijamy więc granicę okresu, zależnie
+    od tego, czy operator sięga jego POCZĄTKU czy KOŃCA:
+
+      gte 2023 (od 2023)    → 2023-01-01     lt  2023 (przed 2023) → 2023-01-01
+      lte 2023 (do 2023)    → 2023-12-31     gt  2023 (po 2023)    → 2023-12-31
+
+    Dzięki temu „od 2024" obejmuje rok 2024, a „po 2024" już nie.
     Wartości pełnych dat zostawiamy bez zmian.
     """
+    # gte/lt sięgają POCZĄTKU okresu, lte/gt jego KOŃCA
+    to_start = op in ("gte", "lt")
+
     if _YEAR_RE.match(value):
-        return f"{value}-01-01" if op == "gte" else f"{value}-12-31"
+        return f"{value}-01-01" if to_start else f"{value}-12-31"
     if _YEAR_MONTH_RE.match(value):
         year, month = value.split("-")
         month_i = int(month)
         if not 1 <= month_i <= 12:
             return value
         norm = f"{int(year):04d}-{month_i:02d}"
-        if op == "gte":
+        if to_start:
             return f"{norm}-01"
         return f"{norm}-{calendar.monthrange(int(year), month_i)[1]:02d}"
     return value
@@ -119,6 +126,10 @@ def _run_search(
             q = q.filter(col >= _expand_date_bound(val, "gte"))
         elif op == "lte":
             q = q.filter(col <= _expand_date_bound(val, "lte"))
+        elif op == "gt":   # „po 2024" — rok 2024 NIE wchodzi
+            q = q.filter(col > _expand_date_bound(val, "gt"))
+        elif op == "lt":   # „przed 2024" — rok 2024 NIE wchodzi
+            q = q.filter(col < _expand_date_bound(val, "lt"))
 
     # RBAC: tylko foldery czytelne dla roli (admin: readable is None → bez filtra)
     readable = readable_folder_ids(current_user, db)
@@ -176,7 +187,10 @@ def _nl_response_format(schemas: list[dict]) -> dict:
                             "additionalProperties": False,
                             "properties": {
                                 "field": {"type": "string"},
-                                "op": {"type": "string", "enum": ["eq", "contains", "gte", "lte"]},
+                                "op": {
+                                    "type": "string",
+                                    "enum": ["eq", "contains", "gte", "lte", "gt", "lt"],
+                                },
                                 "value": {"type": "string"},
                             },
                             "required": ["field", "op", "value"],
@@ -200,10 +214,20 @@ async def _nl_to_filter(query: str, schemas: list[dict]) -> dict:
         "Zamieniasz pytanie użytkownika na filtr wyszukiwania dokumentów. Masz katalog "
         "typów i ich pól. Ustaw doc_type (slug) TYLKO jeśli pytanie wyraźnie wskazuje typ; "
         "w przeciwnym razie doc_type=\"\". Dodaj warunki na polach (nazwa pola DOKŁADNIE z "
-        "katalogu wybranego typu, operator, wartość). Operatory: eq (równe), contains "
-        "(zawiera), gte (od/większe-równe), lte (do/mniejsze-równe). Dla zakresów dat użyj "
-        "gte i/lub lte (wartości jako tekst, np. 2023 albo 2023-04). Nie wymyślaj pól "
-        "spoza katalogu. Zwróć wyłącznie JSON zgodny ze schematem."
+        "katalogu wybranego typu, operator, wartość).\n"
+        "OPERATORY — rozróżniaj włączające od wyłączających:\n"
+        "  eq       = równe dokładnie\n"
+        "  contains = zawiera\n"
+        "  gte      = OD danego roku/daty WŁĄCZNIE (np. 'od 2024', 'począwszy od 2024', "
+        "'2024 i później')\n"
+        "  lte      = DO danego roku/daty WŁĄCZNIE (np. 'do 2024', 'najpóźniej 2024')\n"
+        "  gt       = PO danym roku/dacie, BEZ NIEGO (np. 'po 2024', 'późniejsze niż 2024', "
+        "'nowsze niż 2024')\n"
+        "  lt       = PRZED danym rokiem/datą, BEZ NIEGO (np. 'przed 2024', 'sprzed 2024', "
+        "'wcześniejsze niż 2024', 'starsze niż 2024')\n"
+        "Dla przedziału 'w latach 2023-2026' użyj gte 2023 oraz lte 2026. Dla 'w 2023 roku' "
+        "użyj gte 2023 oraz lte 2023. Wartości podawaj jako tekst (np. 2023 albo 2023-04). "
+        "Nie wymyślaj pól spoza katalogu. Zwróć wyłącznie JSON zgodny ze schematem."
     )
     body = {
         "model": settings.VLLM_MODEL,
