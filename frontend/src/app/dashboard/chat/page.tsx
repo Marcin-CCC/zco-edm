@@ -17,6 +17,22 @@ function pluralDocs(n: number): string {
 // Pole najlepiej identyfikujące dokument na liście (pierwsze pasujące)
 const KEY_FIELDS = ['numer_dokumentu', 'numer', 'numer_aneksu', 'numer_zalacznika', 'data'];
 
+const OP_LABELS: Record<string, string> = { eq: '=', contains: 'zawiera', gte: 'od', lte: 'do' };
+
+/** Opisz rozpoznany filtr po ludzku, np. „typ: Zarządzenie, data od 2023, data do 2023". */
+function describeFilter(
+  filter: { doc_type?: string | null; filters?: { field: string; op: string; value: string }[] } | undefined,
+  typeNames: Record<string, string>
+): string {
+  if (!filter) return '';
+  const parts: string[] = [];
+  if (filter.doc_type) parts.push(`typ: ${typeNames[filter.doc_type] || filter.doc_type}`);
+  for (const f of filter.filters || []) {
+    parts.push(`${f.field} ${OP_LABELS[f.op] || f.op} ${f.value}`);
+  }
+  return parts.join(', ');
+}
+
 interface ChatSource {
   filename?: string;
   file_id?: number;
@@ -277,9 +293,22 @@ export default function ChatPage() {
             }
             return;  // obsłużone — finally posprząta stan
           }
-          // 0 wyników → po cichu przechodzimy do odpowiedzi z treści (RAG)
+          // 0 wyników: NIE udajemy, że nic się nie stało. Mówimy wprost, że żaden
+          // dokument nie spełnia kryteriów, a odpowiedź z treści (RAG) doklejamy
+          // niżej, wyraźnie oznaczoną — inaczej użytkownik dostaje pewną siebie,
+          // ale nietrafioną odpowiedź (np. o rozporządzeniu zamiast zarządzeniu).
+          const desc = describeFilter(listRes.filter, typeNames);
+          const notice =
+            `_Nie znalazłem dokumentów spełniających kryteria${desc ? ` (${desc})` : ''}. ` +
+            `Poniżej odpowiedź na podstawie treści dokumentów:_\n\n`;
+          assistantText = notice;
+          setMessages((prev) => {
+            const next = [...prev];
+            next[next.length - 1] = { ...next[next.length - 1], content: notice };
+            return next;
+          });
         } catch {
-          // awaria wyszukiwania → też przechodzimy do RAG
+          // awaria wyszukiwania → przechodzimy do RAG bez komunikatu
         }
       }
       // ===== KONIEC ROUTERA =====

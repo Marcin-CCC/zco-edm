@@ -17,6 +17,7 @@ zajętość i nie startuje kolejnego parsowania. Tu, w `finally`, flagę zwalnia
 i wołamy dyspozytora.
 """
 import logging
+import re
 
 import httpx
 
@@ -26,6 +27,63 @@ from app.activity import extraction_finished
 logger = logging.getLogger(__name__)
 
 _TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0)
+
+# ==================== Normalizacja dat ====================
+# Wartości pól typu `date` zapisujemy ZAWSZE jako YYYY-MM-DD. Bez tego filtrowanie
+# zakresami nie działa (porównania idą po tekście), np. „19 stycznia 2026 r." nie
+# daje się porównać z „2023". Model bywa niekonsekwentny, więc normalizujemy sami.
+_PL_MONTHS = {
+    "stycznia": 1, "styczeń": 1, "styczen": 1,
+    "lutego": 2, "luty": 2,
+    "marca": 3, "marzec": 3,
+    "kwietnia": 4, "kwiecień": 4, "kwiecien": 4,
+    "maja": 5, "maj": 5,
+    "czerwca": 6, "czerwiec": 6,
+    "lipca": 7, "lipiec": 7,
+    "sierpnia": 8, "sierpień": 8, "sierpien": 8,
+    "września": 9, "wrzesnia": 9, "wrzesień": 9, "wrzesien": 9,
+    "października": 10, "pazdziernika": 10, "październik": 10, "pazdziernik": 10,
+    "listopada": 11, "listopad": 11,
+    "grudnia": 12, "grudzień": 12, "grudzien": 12,
+}
+
+_ISO_RE = re.compile(r"^(\d{4})-(\d{1,2})-(\d{1,2})$")
+_DOTTED_RE = re.compile(r"^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})$")
+_PL_TEXT_RE = re.compile(r"(\d{1,2})\s+([a-ząćęłńóśźż]+)\s+(\d{4})", re.IGNORECASE)
+
+
+def normalize_date(value: str) -> str:
+    """Sprowadź datę do YYYY-MM-DD. Gdy się nie da — zwróć wartość bez zmian."""
+    if not value:
+        return value
+    v = str(value).strip()
+
+    m = _ISO_RE.match(v)
+    if m:
+        y, mo, d = (int(x) for x in m.groups())
+        return f"{y:04d}-{mo:02d}-{d:02d}" if 1 <= mo <= 12 and 1 <= d <= 31 else v
+
+    m = _DOTTED_RE.match(v)  # 11.12.2024 / 11-12-2024
+    if m:
+        d, mo, y = (int(x) for x in m.groups())
+        return f"{y:04d}-{mo:02d}-{d:02d}" if 1 <= mo <= 12 and 1 <= d <= 31 else v
+
+    m = _PL_TEXT_RE.search(v)  # „19 stycznia 2026 r."
+    if m:
+        d, month_name, y = m.group(1), m.group(2).lower(), m.group(3)
+        mo = _PL_MONTHS.get(month_name)
+        if mo:
+            return f"{int(y):04d}-{mo:02d}-{int(d):02d}"
+    return v
+
+
+def _normalize_fields(fields: dict, schema: dict) -> dict:
+    """Znormalizuj wartości pól zadeklarowanych w schemacie jako `date`."""
+    date_names = {
+        f.get("name") for f in (schema.get("fields") or [])
+        if (f.get("type") or "").strip().lower() == "date"
+    }
+    return {k: (normalize_date(v) if k in date_names else v) for k, v in fields.items()}
 
 
 def _build_messages(schemas: list[dict], text: str, filename: str = "") -> list[dict]:
@@ -47,7 +105,8 @@ def _build_messages(schemas: list[dict], text: str, filename: str = "") -> list[
         "rozstrzyga treść. Jeśli żaden typ nie "
         "pasuje, użyj doc_type='inny'. Następnie wyciągnij wartości pól WYŁĄCZNIE dla "
         "wybranego typu (nazwy pól dokładnie jak w katalogu). Jeśli pola nie ma w "
-        "dokumencie — pomiń je. Zwróć wyłącznie JSON zgodny ze schematem."
+        "dokumencie — pomiń je. Daty zwracaj w formacie YYYY-MM-DD. "
+        "Zwróć wyłącznie JSON zgodny ze schematem."
     )
     user = f"NAZWA PLIKU: {filename}\n\n{catalog}\n\nDOKUMENT (początek):\n{text}"
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
@@ -105,8 +164,10 @@ async def _classify(schemas: list[dict], text: str, filename: str = "") -> dict 
     doc_type = (parsed.get("doc_type") or "").strip()
     # Zostaw tylko pola zadeklarowane w wybranym typie (odsiej szum modelu)
     allowed = set()
+    chosen: dict = {}
     for s in schemas:
         if s["slug"] == doc_type:
+            chosen = s
             allowed = {f.get("name") for f in (s.get("fields") or [])}
             break
     doc_fields = {}
@@ -114,6 +175,8 @@ async def _classify(schemas: list[dict], text: str, filename: str = "") -> dict 
         name, value = item.get("name"), item.get("value")
         if name and value and (not allowed or name in allowed):
             doc_fields[name] = value
+    if chosen:
+        doc_fields = _normalize_fields(doc_fields, chosen)  # daty → YYYY-MM-DD
     return {"doc_type": doc_type, "doc_fields": doc_fields}
 
 
@@ -159,7 +222,7 @@ async def extract_fields(schema: dict, text: str, filename: str = "") -> dict:
     system = (
         "Wyciągasz wartości pól nagłówkowych z dokumentu o ZNANYM typie. Zwróć wyłącznie "
         "JSON zgodny ze schematem. Podawaj wartości tylko dla wymienionych pól; pomiń "
-        "pole, którego nie ma w dokumencie."
+        "pole, którego nie ma w dokumencie. Daty zwracaj w formacie YYYY-MM-DD."
     )
     user = (
         f"TYP DOKUMENTU: {schema.get('name', schema.get('slug'))}\n"
@@ -184,7 +247,7 @@ async def extract_fields(schema: dict, text: str, filename: str = "") -> dict:
         n, v = item.get("name"), item.get("value")
         if n and v and (not allowed or n in allowed):
             out[n] = v
-    return out
+    return _normalize_fields(out, schema)  # daty → YYYY-MM-DD
 
 
 async def run_extraction(file_id: int, schemas: list[dict], filename: str = "") -> None:

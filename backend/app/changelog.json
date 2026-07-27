@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.5.1",
+      "date": "2026-07-27",
+      "title": "Poprawne wyszukiwanie dokumentów po dacie",
+      "changes": [
+        "Pytania w rodzaju jakie zarządzenia wydano w 2023 roku dają teraz poprawne wyniki — wcześniej zwracały pustą listę.",
+        "Daty w dokumentach są zapisywane w jednolitym formacie (również te zapisane słownie, np. 19 stycznia 2026 r.), dzięki czemu zakresy lat działają prawidłowo.",
+        "Gdy żaden dokument nie spełnia kryteriów, czat mówi o tym wprost i wyraźnie oznacza dalszą odpowiedź wyszukaną w treści dokumentów — zamiast po cichu podawać odpowiedź o innym rodzaju dokumentu."
+      ]
+    },
+    {
       "version": "0.5.0",
       "date": "2026-07-27",
       "title": "Jedno pole czatu — automatyczne rozpoznawanie rodzaju pytania",

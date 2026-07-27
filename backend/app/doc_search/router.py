@@ -11,8 +11,10 @@ Dwa wejścia:
 Oba używają tej samej logiki SQL (`_run_search`) po JSON w Postgresie i tego samego
 RBAC-u roli (użytkownik widzi tylko dokumenty z dozwolonych folderów).
 """
+import calendar
 import json
 import logging
+import re
 from typing import Optional
 
 import httpx
@@ -33,6 +35,33 @@ router = APIRouter(prefix="/api/doc-search", tags=["DocSearch"])
 
 _ALLOWED_OPS = {"eq", "contains", "gte", "lte"}
 _NL_TIMEOUT = httpx.Timeout(connect=10.0, read=60.0, write=30.0, pool=10.0)
+
+_YEAR_RE = re.compile(r"^\d{4}$")
+_YEAR_MONTH_RE = re.compile(r"^\d{4}-\d{1,2}$")
+
+
+def _expand_date_bound(value: str, op: str) -> str:
+    """Rozwiń „rok" / „rok-miesiąc" do pełnej daty granicznej.
+
+    Porównania idą po TEKŚCIE, więc `data <= '2023'` nie łapie '2023-04-07'
+    (dłuższy napis o tym samym prefiksie jest większy) — przez to pytania
+    „w roku 2023" dawały 0 wyników. Rozwijamy więc granice:
+      gte 2023    → 2023-01-01     lte 2023    → 2023-12-31
+      gte 2023-04 → 2023-04-01     lte 2023-04 → 2023-04-30
+    Wartości pełnych dat zostawiamy bez zmian.
+    """
+    if _YEAR_RE.match(value):
+        return f"{value}-01-01" if op == "gte" else f"{value}-12-31"
+    if _YEAR_MONTH_RE.match(value):
+        year, month = value.split("-")
+        month_i = int(month)
+        if not 1 <= month_i <= 12:
+            return value
+        norm = f"{int(year):04d}-{month_i:02d}"
+        if op == "gte":
+            return f"{norm}-01"
+        return f"{norm}-{calendar.monthrange(int(year), month_i)[1]:02d}"
+    return value
 
 
 class FieldFilter(BaseModel):
@@ -87,9 +116,9 @@ def _run_search(
         elif op == "contains":
             q = q.filter(col.ilike(f"%{val}%"))
         elif op == "gte":
-            q = q.filter(col >= val)
+            q = q.filter(col >= _expand_date_bound(val, "gte"))
         elif op == "lte":
-            q = q.filter(col <= val)
+            q = q.filter(col <= _expand_date_bound(val, "lte"))
 
     # RBAC: tylko foldery czytelne dla roli (admin: readable is None → bez filtra)
     readable = readable_folder_ids(current_user, db)
