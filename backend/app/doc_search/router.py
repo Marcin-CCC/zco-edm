@@ -226,7 +226,16 @@ async def _nl_to_filter(query: str, schemas: list[dict]) -> dict:
         "  lt       = PRZED danym rokiem/datą, BEZ NIEGO (np. 'przed 2024', 'sprzed 2024', "
         "'wcześniejsze niż 2024', 'starsze niż 2024')\n"
         "Dla przedziału 'w latach 2023-2026' użyj gte 2023 oraz lte 2026. Dla 'w 2023 roku' "
-        "użyj gte 2023 oraz lte 2023. Wartości podawaj jako tekst (np. 2023 albo 2023-04). "
+        "użyj gte 2023 oraz lte 2023.\n"
+        "WARTOŚCI:\n"
+        "  - Daty i lata podawaj jako tekst (np. 2023 albo 2023-04).\n"
+        "  - Nazwiska, nazwy i frazy podawaj w formie PODSTAWOWEJ (mianownik), nie w tej "
+        "odmienionej z pytania: 'podpisane przez Sikorskiego' → wartość 'Sikorski'; "
+        "'zarządzenia dyrektora Kowalskiego' → 'Kowalski'; 'umowy z Polmedi' → 'Polmedi'.\n"
+        "  - Dla nazwisk, nazw i fragmentów tekstu używaj operatora contains, bo pole zawiera "
+        "zwykle pełniejszą wartość (np. w polu jest 'Adrian Sikorski', a pytanie mówi tylko "
+        "'Sikorski'). Operatora eq używaj WYŁĄCZNIE do dokładnych identyfikatorów, np. numeru "
+        "dokumentu '30/2024' albo wartości ze słownika.\n"
         "Nie wymyślaj pól spoza katalogu. Zwróć wyłącznie JSON zgodny ze schematem."
     )
     body = {

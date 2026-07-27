@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.5.5",
+      "date": "2026-07-27",
+      "title": "Wyszukiwanie po nazwiskach i nazwach",
+      "changes": [
+        "Pytania w rodzaju zarządzenia podpisane przez Sikorskiego znajdują teraz dokumenty — także gdy nazwisko jest odmienione, a w dokumencie zapisano imię i nazwisko.",
+        "Nazwiska i nazwy są dopasowywane fragmentem, a dokładne porównanie zarezerwowano dla identyfikatorów, np. numeru dokumentu."
+      ]
+    },
+    {
       "version": "0.5.4",
       "date": "2026-07-27",
       "title": "Odmowy nie zakłócają kolejnych odpowiedzi",
