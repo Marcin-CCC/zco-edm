@@ -1,6 +1,18 @@
 {
   "entries": [
     {
+      "version": "0.5.0",
+      "date": "2026-07-27",
+      "title": "Jedno pole czatu — automatyczne rozpoznawanie rodzaju pytania",
+      "changes": [
+        "Czat sam rozpoznaje, czy pytasz o listę dokumentów, czy o ich treść. Pytania w rodzaju wypisz wszystkie zarządzenia dają teraz listę dokumentów wprost w oknie czatu — bez przełączania się do osobnej wyszukiwarki.",
+        "Pytania o treść działają jak dotychczas; gdy dla zapytania o listę nie ma dokumentów, system automatycznie szuka odpowiedzi w treści.",
+        "Podczas rozpoznawania rodzaju pytania pojawia się krótka informacja (tylko gdy trwa to dłuższą chwilę).",
+        "Panel Wyszukiwarka pól pozostaje dostępny jako tryb zaawansowany z ręcznymi filtrami.",
+        "Poprawka: z treści odpowiedzi znikają wszystkie znaczniki źródeł, również w formie listy."
+      ]
+    },
+    {
       "version": "0.4.1",
       "date": "2026-07-25",
       "title": "Czytelniejsze źródła odpowiedzi w czacie",

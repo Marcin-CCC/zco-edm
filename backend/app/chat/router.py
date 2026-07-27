@@ -20,6 +20,7 @@ from datetime import datetime
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -34,6 +35,7 @@ from app.webhook_auth import verify_webhook_secret
 from app.n8n_auth import outgoing_headers
 from app.rbac import readable_folder_ids
 from app.activity import chat_started, chat_finished, is_chat_active
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
@@ -240,6 +242,86 @@ async def get_sources(
     _purge_expired_sources()
     entry = _sources_store.get(request_id)
     return {"request_id": request_id, "sources": entry["sources"] if entry else []}
+
+
+class RouteRequest(BaseModel):
+    message: str
+
+
+_ROUTE_SYSTEM = (
+    "Klasyfikujesz pytanie uzytkownika do systemu dokumentow firmowych.\n"
+    "LISTA = uzytkownik prosi o wypisanie, znalezienie lub policzenie DOKUMENTOW "
+    "(przyklady: wszystkie zarzadzenia; wypisz umowy z 2023; ile jest wnioskow; "
+    "pokaz aneksy do regulaminu).\n"
+    "TRESC = uzytkownik pyta o tresc, meritum, zasady lub konkretna informacje "
+    "(przyklady: jak przejsc na prace zdalna; ile wynosi dodatek stazowy; "
+    "regulamin wynagradzania).\n"
+    "Zwroc wylacznie JSON zgodny ze schematem."
+)
+
+_ROUTE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "typ_pytania",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {"typ": {"type": "string", "enum": ["LISTA", "TRESC"]}},
+            "required": ["typ"],
+        },
+    },
+}
+
+
+@router.post("/route")
+async def route_question(
+    payload: RouteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Rozpoznaj typ pytania: LISTA (wypisz dokumenty) czy TRESC (odpowiedź z treści).
+
+    Mini-wywołanie modelu (8–9 tokenów wyjścia, ~0,4 s). ZASADA BEZPIECZEŃSTWA: przy
+    jakimkolwiek problemie (brak schematów, awaria modelu, zła odpowiedź) zwracamy
+    TRESC — czyli dotychczasowe zachowanie czatu. Router może tylko poprawić UX,
+    nigdy go nie zepsuć.
+    """
+    import json as _json
+
+    # Bez rejestru ścieżka LISTA nie ma sensu (nie ma po czym filtrować)
+    from app.doc_schemas.router import get_active_schemas
+    if not get_active_schemas(db):
+        return {"mode": "TRESC", "reason": "brak schematów"}
+
+    text = (payload.message or "").strip()
+    if not text:
+        return {"mode": "TRESC", "reason": "puste pytanie"}
+
+    body = {
+        "model": settings.VLLM_MODEL,
+        "temperature": 0,
+        "max_tokens": 10,
+        "messages": [
+            {"role": "system", "content": _ROUTE_SYSTEM},
+            {"role": "user", "content": text},
+        ],
+        "response_format": _ROUTE_FORMAT,
+    }
+    url = f"{settings.VLLM_URL.rstrip('/')}/v1/chat/completions"
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(connect=5.0, read=20.0, write=10.0, pool=5.0)) as client:
+            resp = await client.post(url, json=body)
+        resp.raise_for_status()
+        mode = _json.loads(resp.json()["choices"][0]["message"]["content"]).get("typ")
+    except Exception as e:
+        logger.warning(f"[CHAT-ROUTE] Rozpoznanie typu pytania nieudane: {e}")
+        return {"mode": "TRESC", "reason": "błąd rozpoznania"}
+
+    if mode not in ("LISTA", "TRESC"):
+        mode = "TRESC"
+    logger.info(f"[CHAT-ROUTE] user={current_user.username} → {mode}: {text[:60]}")
+    return {"mode": mode}
 
 
 @router.get("/parse-active")

@@ -3,6 +3,19 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { DocSearchPanel } from '@/components/doc-search-panel';
+import { docSchemasApi, docSearchApi } from '@/lib/api';
+
+// Polska odmiana rzeczownika „dokument" po liczbie
+function pluralDocs(n: number): string {
+  if (n === 1) return 'dokument';
+  const last = n % 10;
+  const lastTwo = n % 100;
+  if (last >= 2 && last <= 4 && !(lastTwo >= 12 && lastTwo <= 14)) return 'dokumenty';
+  return 'dokumentów';
+}
+
+// Pole najlepiej identyfikujące dokument na liście (pierwsze pasujące)
+const KEY_FIELDS = ['numer_dokumentu', 'numer', 'numer_aneksu', 'numer_zalacznika', 'data'];
 
 interface ChatSource {
   filename?: string;
@@ -37,8 +50,9 @@ function stripSourceMarker(text: string): string {
   return text
     // stary znacznik zbiorczy na końcu: „[[ŹRÓDŁA: 1,3]]" / „[[ŹRÓDŁA:…"
     .replace(/\s*\[\[\s*(ŹRÓDŁA|ZRODLA)\s*:[\s\S]*$/i, '')
-    // inline cytaty z treści: „[Źródło 3]" lub „[[Źródło 3]]" (tolerancyjnie 1–2 nawiasy)
-    .replace(/\s*\[{1,2}\s*Źródło\s*\d+\s*\]{1,2}/gi, '')
+    // inline cytaty z treści: „[Źródło 3]", „[[Źródło 3]]" oraz listy „[Źródło 2, 5]"
+    // (tolerancyjnie 1–2 nawiasy, dowolnie wiele numerów po przecinku)
+    .replace(/\s*\[{1,2}\s*Źród(?:ło|ła)\s*\d+(?:\s*,\s*\d+)*\s*\]{1,2}/gi, '')
     // częściowy, niedomknięty znacznik w trakcie streamowania (np. „[[Źró") — żeby nic nie migało
     .replace(/\s*\[{1,2}[^\]]*$/, '');
 }
@@ -76,6 +90,16 @@ export default function ChatPage() {
   const [streaming, setStreaming] = useState(false);
   // Trwa parsowanie (dzieli model z czatem) → pokaż komunikat, że odpowiedź chwilę poczeka
   const [parseWait, setParseWait] = useState(false);
+  // Router typu pytania: komunikat pokazujemy dopiero po progu, żeby nie migał (~0,4 s)
+  const [routingHint, setRoutingHint] = useState(false);
+  const [typeNames, setTypeNames] = useState<Record<string, string>>({});
+
+  // Nazwy typów dokumentów (slug → nazwa) do etykiet na liście wyników
+  useEffect(() => {
+    docSchemasApi.list(true)
+      .then((rows) => setTypeNames(Object.fromEntries(rows.map((s) => [s.slug, s.name]))))
+      .catch(() => { /* brak rejestru = pokażemy same nazwy plików */ });
+  }, []);
   const [conversations, setConversations] = useState<ConvSummary[]>([]);
   const [currentConvId, setCurrentConvId] = useState<number | null>(null);
   const [showSearch, setShowSearch] = useState(false);  // boczne okno wyszukiwania po polach
@@ -196,6 +220,70 @@ export default function ChatPage() {
         }
       }
 
+      // ===== ROUTER TYPU PYTANIA =====
+      // LISTA → wypisz dokumenty (filtr po metadanych), TRESC → odpowiedź z treści (RAG).
+      // Błąd/brak schematów → TRESC, czyli dotychczasowe zachowanie.
+      const routeTimer = setTimeout(() => setRoutingHint(true), 600);
+      let mode = 'TRESC';
+      try {
+        const rr = await fetch('/api/chat/route', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({ message: text }),
+        });
+        if (rr.ok) {
+          const d = await rr.json();
+          if (d?.mode) mode = d.mode;
+        }
+      } catch { /* zostaje TRESC */ }
+      clearTimeout(routeTimer);
+      setRoutingHint(false);
+
+      if (mode === 'LISTA') {
+        try {
+          const listRes = await docSearchApi.nl(text);
+          const listHits = listRes.hits || [];
+          if (listHits.length > 0) {
+            const docs: ChatSource[] = listHits.map((h) => {
+              const f = h.fields || {};
+              const key = KEY_FIELDS.map((k) => f[k]).find((v) => !!v);
+              return {
+                filename: h.filename,
+                file_id: h.id,
+                doc_type: h.doc_type || undefined,
+                doc_type_name: h.doc_type ? (typeNames[h.doc_type] || h.doc_type) : undefined,
+                doc_key: key || undefined,
+              };
+            });
+            const slug = listRes.filter?.doc_type;
+            const typeName = slug ? (typeNames[slug] || slug) : null;
+            const summary =
+              `Znalazłem ${listHits.length} ${pluralDocs(listHits.length)}` +
+              (typeName ? ` (typ: ${typeName})` : '') + '.';
+            setMessages((prev) => {
+              const next = [...prev];
+              next[next.length - 1] = { ...next[next.length - 1], content: summary, sources: docs };
+              return next;
+            });
+            if (convId != null) {
+              try {
+                await fetch(`/api/chat/conversations/${convId}/turn`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                  body: JSON.stringify({ user_message: text, assistant_message: summary, sources: docs }),
+                });
+                loadConversations();
+              } catch { /* zapis historii nie jest krytyczny */ }
+            }
+            return;  // obsłużone — finally posprząta stan
+          }
+          // 0 wyników → po cichu przechodzimy do odpowiedzi z treści (RAG)
+        } catch {
+          // awaria wyszukiwania → też przechodzimy do RAG
+        }
+      }
+      // ===== KONIEC ROUTERA =====
+
       const controller = new AbortController();
       abortRef.current = controller;
       const res = await fetch('/api/chat', {
@@ -298,6 +386,7 @@ export default function ChatPage() {
       abortRef.current = null;
       setStreaming(false);
       setParseWait(false);
+      setRoutingHint(false);
     }
   };
 
@@ -446,6 +535,8 @@ export default function ChatPage() {
                         <span className="text-gray-500 italic">
                           ⏳ Trwa przetwarzanie dokumentów — odpowiedź pojawi się za chwilę.
                         </span>
+                      ) : routingHint ? (
+                        <span className="text-gray-500 italic">Rozpoznaję rodzaj pytania…</span>
                       ) : '…'
                     ) : ''
                   )
