@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.5.8",
+      "date": "2026-07-27",
+      "title": "Klikalne odnośniki do źródeł w treści odpowiedzi",
+      "changes": [
+        "W odpowiedzi pojawiają się małe, klikalne numery przy zdaniach — kliknięcie otwiera dokument, na którym dane zdanie się opiera.",
+        "Numery w treści odpowiadają numeracji listy źródeł pod odpowiedzią.",
+        "Gdy przypisanie numerów nie jest jednoznaczne, odnośniki są pomijane, a odpowiedź wygląda jak dotychczas."
+      ]
+    },
+    {
       "version": "0.5.7",
       "date": "2026-07-27",
       "title": "Typ dokumentu zapisywany przy treści w bazie wektorowej",

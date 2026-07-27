@@ -14,6 +14,7 @@ Przepływ:
 """
 
 import logging
+import re
 import time
 from datetime import datetime
 
@@ -66,6 +67,16 @@ _HISTORY_USER_CHARS = 300   # przycięcie pytania
 _HISTORY_ASSIST_CHARS = 700  # przycięcie odpowiedzi
 
 
+# Inline znaczniki cytowań („[Źródło 3]", „[Źródło 2, 5]") — zapisujemy je w treści
+# odpowiedzi (frontend robi z nich klikalne odnośniki), ale do historii dla modelu
+# przekazujemy tekst bez nich, żeby nie zaśmiecać promptu.
+_MARKER_RE = re.compile(r"\s*\[{1,2}\s*Źród(?:ło|ła)\s*\d+(?:\s*,\s*\d+)*\s*\]{1,2}", re.IGNORECASE)
+
+
+def _strip_markers(content: str) -> str:
+    return _MARKER_RE.sub("", content or "")
+
+
 def _is_refusal(content: str) -> bool:
     c = (content or "").replace(" ", " ").strip()
     return c.rstrip() == _NO_ANSWER or c.startswith(_NO_MATCH_PREFIX)
@@ -107,7 +118,7 @@ def build_history(db: Session, user: User, session_id: str) -> str:
     lines = []
     for u, a in turns[-_HISTORY_TURNS:]:
         lines.append(f"Użytkownik: {u.strip()[:_HISTORY_USER_CHARS]}")
-        lines.append(f"Asystent: {a.strip()[:_HISTORY_ASSIST_CHARS]}")
+        lines.append(f"Asystent: {_strip_markers(a).strip()[:_HISTORY_ASSIST_CHARS]}")
     return "\n".join(lines)
 
 

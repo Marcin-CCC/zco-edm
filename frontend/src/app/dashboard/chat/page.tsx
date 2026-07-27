@@ -64,23 +64,74 @@ interface ConvSummary {
  * Regex tnie od znacznika do końca — działa też dla częściowego znacznika w trakcie
  * streamowania (np. „[[ŹRÓDŁA: 1," bez domknięcia).
  */
-function stripSourceMarker(text: string): string {
+// Inline znacznik cytowania: „[Źródło 3]", „[[Źródło 3]]", lista „[Źródło 2, 5]"
+const INLINE_MARKER_RE = /\[{1,2}\s*Źród(?:ło|ła)\s*(\d+(?:\s*,\s*\d+)*)\s*\]{1,2}/gi;
+
+/** Usuń maszynowy znacznik zbiorczy z końca oraz niedomknięty ogon w trakcie streamowania. */
+function stripEndMarker(text: string): string {
   return text
     // stary znacznik zbiorczy na końcu: „[[ŹRÓDŁA: 1,3]]" / „[[ŹRÓDŁA:…"
     .replace(/\s*\[\[\s*(ŹRÓDŁA|ZRODLA)\s*:[\s\S]*$/i, '')
-    // inline cytaty z treści: „[Źródło 3]", „[[Źródło 3]]" oraz listy „[Źródło 2, 5]"
-    // (tolerancyjnie 1–2 nawiasy, dowolnie wiele numerów po przecinku)
-    .replace(/\s*\[{1,2}\s*Źród(?:ło|ła)\s*\d+(?:\s*,\s*\d+)*\s*\]{1,2}/gi, '')
     // częściowy, niedomknięty znacznik w trakcie streamowania (np. „[[Źró") — żeby nic nie migało
     .replace(/\s*\[{1,2}[^\]]*$/, '');
 }
 
+/** Usuń inline znaczniki „[Źródło N]" (gdy nie da się ich zamienić na odnośniki). */
+function stripInlineMarkers(text: string): string {
+  return text.replace(new RegExp(`\\s*${INLINE_MARKER_RE.source}`, 'gi'), '');
+}
+
 /**
- * Przygotuj tekst odpowiedzi do renderowania Markdown.
- * Usuwa znacznik cytowań oraz skraca "wystające" linie kropek z formularzy.
+ * Zamień inline znaczniki „[Źródło N]" na klikalne odnośniki.
+ *
+ * Numery w tekście to indeksy POBRANYCH fragmentów (1..15), a lista pod odpowiedzią
+ * zawiera tylko te faktycznie zacytowane — dlatego przenumerowujemy je w kolejności
+ * pierwszego wystąpienia (pierwszy → 1, kolejny nowy → 2), co odpowiada kolejności
+ * listy źródeł budowanej po stronie n8n.
+ *
+ * Zwraca null, gdy mapowanie nie jest pewne (model podał numer spoza zakresu) —
+ * wtedy wołający po prostu usuwa znaczniki, czyli zachowuje się jak dotąd.
  */
-function normalizeAnswer(text: string): string {
-  return stripSourceMarker(text).replace(/\.{6,}/g, '……………').replace(/_{6,}/g, '……………');
+function linkifyMarkers(text: string, sourcesCount: number): string | null {
+  if (!sourcesCount) return null;
+
+  // 1) numery w kolejności pierwszego wystąpienia
+  const order: string[] = [];
+  for (const m of text.matchAll(INLINE_MARKER_RE)) {
+    for (const num of m[1].split(',').map((s) => s.trim())) {
+      if (num && !order.includes(num)) order.push(num);
+    }
+  }
+  if (order.length === 0) return null;
+  // Rozjazd = nie mamy pewności, który znacznik odpowiada której pozycji → nie linkujemy
+  if (order.length !== sourcesCount) return null;
+
+  const display = new Map(order.map((num, i) => [num, i + 1]));
+
+  // 2) podmiana na odnośniki markdown (obsługiwane przez własny renderer `a`)
+  return text.replace(INLINE_MARKER_RE, (_full, nums: string) =>
+    nums
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((num) => {
+        const d = display.get(num);
+        return d ? `[${d}](#src-${d})` : '';
+      })
+      .join('')
+  );
+}
+
+/**
+ * Przygotuj tekst odpowiedzi do renderowania Markdown: znaczniki cytowań zamieniamy
+ * na odnośniki (gdy się da) albo usuwamy, plus skracamy „wystające" linie kropek.
+ */
+function renderAnswer(text: string, sources?: ChatSource[]): string {
+  const base = stripEndMarker(text);
+  const linked = sources && sources.length ? linkifyMarkers(base, sources.length) : null;
+  return (linked ?? stripInlineMarkers(base))
+    .replace(/\.{6,}/g, '……………')
+    .replace(/_{6,}/g, '……………');
 }
 
 /**
@@ -390,7 +441,10 @@ export default function ChatPage() {
             headers: { 'Content-Type': 'application/json', ...authHeaders() },
             body: JSON.stringify({
               user_message: text,
-              assistant_message: stripSourceMarker(assistantText),
+              // Zapisujemy z inline znacznikami — dzięki temu po ponownym otwarciu
+              // rozmowy odnośniki do źródeł nadal się renderują (znacznik zbiorczy
+              // i ogon z końca usuwamy, bo są maszynowe).
+              assistant_message: stripEndMarker(assistantText),
               sources: finalSources,
             }),
           });
@@ -549,15 +603,32 @@ export default function ChatPage() {
                           h2: ({ children }) => <p className="font-bold mb-2">{children}</p>,
                           h3: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
                           code: ({ children }) => <code className="bg-gray-200 rounded px-1 text-xs">{children}</code>,
-                          a: ({ href, children }) => (
-                            <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{children}</a>
-                          ),
+                          a: ({ href, children }) => {
+                            // Odnośnik do cytowanego źródła („[1]" w treści) — otwiera dokument
+                            const srcMatch = /^#src-(\d+)$/.exec(href || '');
+                            if (srcMatch) {
+                              const idx = Number(srcMatch[1]) - 1;
+                              const src = m.sources?.[idx];
+                              return (
+                                <button
+                                  onClick={() => src && openSource(src)}
+                                  title={src ? renderSourceLabel(src, idx) : undefined}
+                                  className="align-super text-[10px] leading-none px-1 py-0.5 mx-0.5 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium"
+                                >
+                                  {children}
+                                </button>
+                              );
+                            }
+                            return (
+                              <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{children}</a>
+                            );
+                          },
                           table: ({ children }) => <table className="border-collapse text-xs my-2">{children}</table>,
                           th: ({ children }) => <th className="border border-gray-300 px-2 py-1 bg-gray-200">{children}</th>,
                           td: ({ children }) => <td className="border border-gray-300 px-2 py-1">{children}</td>,
                         }}
                       >
-                        {normalizeAnswer(m.content)}
+                        {renderAnswer(m.content, m.sources)}
                       </ReactMarkdown>
                     </div>
                   ) : (
@@ -583,6 +654,7 @@ export default function ChatPage() {
                         const clickable = !!sourceHref(s);
                         return (
                           <li key={i} className="text-xs">
+                            <span className="text-gray-400 mr-1">{i + 1}.</span>
                             {clickable ? (
                               <button onClick={() => openSource(s)} className="text-blue-600 hover:underline text-left">
                                 📄 {renderSourceLabel(s, i)}{s.page ? ` (str. ${s.page})` : ''}
