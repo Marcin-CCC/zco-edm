@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "0.5.11",
+      "date": "2026-07-27",
+      "title": "Czytelniejszy filtr w wyszukiwarce",
+      "changes": [
+        "Rozpoznane zapytanie nie pokazuje już powtórzonych warunków na tym samym polu — lista kryteriów w panelu jest krótsza i czytelniejsza. Wyniki wyszukiwania pozostają bez zmian."
+      ]
+    },
+    {
       "version": "0.5.10",
       "date": "2026-07-27",
       "title": "Wyszukiwanie bez wskazania typu dokumentu",

@@ -316,6 +316,7 @@ async def nl_search(
             allowed_fields |= {f.get("name") for f in (s.get("fields") or [])}
 
     filters: list[FieldFilter] = []
+    seen: set[tuple[str, str, str]] = set()
     for f in (parsed.get("filters") or []):
         field = (f.get("field") or "").strip()
         value = (f.get("value") or "").strip()
@@ -326,6 +327,12 @@ async def nl_search(
             op = "contains"
         if allowed_fields and field not in allowed_fields:
             continue
+        # Model bywa gadatliwy i powtarza ten sam warunek — pokazujemy go raz
+        # (samo wyszukiwanie i tak scala duplikaty, ale w formularzu tylko mylą).
+        key = (field, op, value)
+        if key in seen:
+            continue
+        seen.add(key)
         filters.append(FieldFilter(field=field, op=op, value=value))
 
     hits = _run_search(db, current_user, doc_type, filters, payload.limit)
