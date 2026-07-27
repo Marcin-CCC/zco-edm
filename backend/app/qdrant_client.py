@@ -146,6 +146,41 @@ def set_doc_type(file_id: int, doc_type: str | None) -> dict:
     return {"ok": False, "status": resp.status_code}
 
 
+def set_folder_id(file_id: int, folder_id: int | None) -> dict:
+    """Zaktualizuj `metadata.folder_id` we wszystkich chunkach pliku.
+
+    KRYTYCZNE dla kontroli dostępu: czat filtruje wyszukiwanie po
+    `metadata.folder_id` (filtr RBAC roli). Po przeniesieniu pliku do innego
+    folderu chunki muszą nieść nowy folder, inaczej dokument nadal „należałby"
+    do starego folderu w wyszukiwaniu treści.
+
+    Używa parametru `key` (Qdrant ≥1.8) — ustawia pole WEWNĄTRZ `metadata`,
+    nie nadpisując pozostałych metadanych (file_id, filename, page…).
+    """
+    base = settings.QDRANT_URL.rstrip("/")
+    collection = settings.QDRANT_COLLECTION
+    url = f"{base}/collections/{collection}/points/payload?wait=true"
+    body = {
+        "payload": {"folder_id": folder_id},
+        "key": "metadata",
+        "filter": {"must": [{"key": "metadata.file_id", "match": {"value": file_id}}]},
+    }
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            resp = client.post(url, json=body)
+    except Exception as e:
+        logger.warning(f"[QDRANT] Zapis folder_id dla pliku {file_id} nieudany: {e}")
+        return {"ok": False, "error": str(e)}
+
+    if resp.status_code == 200:
+        logger.info(f"[QDRANT] Plik {file_id}: folder_id={folder_id} zapisany w chunkach")
+        return {"ok": True}
+    logger.warning(
+        f"[QDRANT] Zapis folder_id pliku {file_id}: HTTP {resp.status_code}: {resp.text[:200]}"
+    )
+    return {"ok": False, "status": resp.status_code}
+
+
 def get_text_by_file_id(file_id: int, max_chars: int = 6000) -> str:
     """Odtwórz tekst JEDNEGO dokumentu z chunków w Qdrancie (dla klasyfikacji #7B-2).
 

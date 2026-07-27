@@ -1,6 +1,8 @@
+import logging
 import os
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 
@@ -12,6 +14,7 @@ from app.auth.auth import get_current_user
 from app.rbac import visible_folder_ids, writable_folder_ids, effective_permissions, access_overview
 
 router = APIRouter(prefix="/folders", tags=["Folders"])
+logger = logging.getLogger(__name__)
 
 
 def build_folder_tree(
@@ -158,6 +161,83 @@ def get_folder(
     visible = visible_folder_ids(current_user, db)
     if visible is not None and folder_id not in visible:
         raise HTTPException(status_code=403, detail="Brak dostępu do tego folderu.")
+    return folder
+
+
+class FolderRename(BaseModel):
+    name: str
+
+
+@router.patch("/{folder_id}", response_model=FolderResponse)
+def rename_folder(
+    folder_id: int,
+    payload: FolderRename,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Zmień nazwę folderu (tylko admin) wraz ze ścieżkami całego poddrzewa.
+
+    `Folder.path` jest wyliczoną ścieżką („/Rodzic/Dziecko"), a uprawnienia dziedziczą
+    się po PREFIKSIE ścieżki (rbac._is_under). Dlatego zmiana nazwy musi przebudować
+    ścieżki folderu ORAZ wszystkich podfolderów w JEDNEJ transakcji — niekompletna
+    aktualizacja po cichu zepsułaby dostęp do dokumentów.
+
+    Nie rusza dysku: przynależność pliku do folderu jest informacją w bazie
+    (`files.folder_id`), a fizyczna ścieżka pliku jest od niej niezależna.
+    """
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Tylko administrator może zmieniać nazwę folderu.")
+
+    folder = db.query(Folder).filter(Folder.id == folder_id).first()
+    if not folder:
+        raise HTTPException(status_code=404, detail="Folder nie istnieje.")
+
+    new_name = (payload.name or "").strip()
+    if not new_name:
+        raise HTTPException(status_code=400, detail="Nazwa nie może być pusta.")
+    if "/" in new_name:
+        raise HTTPException(status_code=400, detail="Nazwa nie może zawierać ukośnika.")
+    if new_name == folder.name:
+        return folder
+
+    # Nowa ścieżka = ścieżka rodzica + nowa nazwa
+    parent_path = ""
+    if folder.parent_id:
+        parent = db.query(Folder).filter(Folder.id == folder.parent_id).first()
+        parent_path = parent.path if parent else ""
+    new_path = f"{parent_path}/{new_name}"
+
+    # Kolizja z rodzeństwem (ta sama zasada co przy tworzeniu folderu)
+    collision = (
+        db.query(Folder)
+        .filter(Folder.path == new_path, Folder.id != folder.id)
+        .first()
+    )
+    if collision:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Folder o nazwie {new_name} już istnieje w tym miejscu.",
+        )
+
+    old_path = folder.path
+    # Poddrzewo: sam folder + wszystko, co leży pod jego ścieżką
+    descendants = (
+        db.query(Folder)
+        .filter(Folder.path.like(f"{old_path}/%"))
+        .all()
+    )
+
+    folder.name = new_name
+    folder.path = new_path
+    for d in descendants:
+        d.path = new_path + d.path[len(old_path):]
+    db.commit()
+    db.refresh(folder)
+
+    logger.info(
+        f"[FOLDER-RENAME] {old_path!r} → {new_path!r} "
+        f"(podfolderów: {len(descendants)}) przez {current_user.username}"
+    )
     return folder
 
 

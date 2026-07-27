@@ -147,6 +147,15 @@ function FilesPageInner() {
     { role: string; access_level: string }[]
   >([]);
   const [permLoading, setPermLoading] = useState(false);
+  // Zmiana nazwy folderu (admin)
+  const [renameFolder, setRenameFolder] = useState<Folder | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renaming, setRenaming] = useState(false);
+  // Zaznaczanie i przenoszenie plików
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [moveTarget, setMoveTarget] = useState<number[] | null>(null);  // pliki do przeniesienia
+  const [moveFolderId, setMoveFolderId] = useState<string>('');
+  const [moving, setMoving] = useState(false);
   const [newPermRole, setNewPermRole] = useState('doctor');
   const [newPermAccess, setNewPermAccess] = useState('read');
 
@@ -326,6 +335,57 @@ function FilesPageInner() {
     } catch (err) {
       console.error('Delete folder failed:', err);
       alert('Usunięcie folderu nie powiodło się.');
+    }
+  };
+
+  // ---- Zmiana nazwy folderu (admin) ----
+  const openRename = (folder: Folder) => {
+    setRenameFolder(folder);
+    setRenameValue(folder.name);
+  };
+
+  const submitRename = async () => {
+    if (!renameFolder || !renameValue.trim() || renameValue.trim() === renameFolder.name) return;
+    setRenaming(true);
+    try {
+      await foldersApi.rename(renameFolder.id, renameValue.trim());
+      setRenameFolder(null);
+      loadFolders();
+      // ścieżki w okruszkach mogły się zmienić
+      setBreadcrumbs((prev) =>
+        prev.map((b) => (b.id === renameFolder.id ? { ...b, name: renameValue.trim() } : b))
+      );
+    } catch (err: any) {
+      alert(err?.message || 'Zmiana nazwy nie powiodła się.');
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+  // ---- Przenoszenie plików ----
+  const toggleSelect = (id: number) =>
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  const submitMove = async () => {
+    if (!moveTarget || moveTarget.length === 0) return;
+    const target = moveFolderId === '' ? null : Number(moveFolderId);
+    setMoving(true);
+    try {
+      const res = await filesApi.move(moveTarget, target);
+      if (res.skipped?.length) {
+        alert(
+          `Przeniesiono: ${res.moved.length}. Pominięto ${res.skipped.length}:\n` +
+          res.skipped.map((s) => `• plik ${s.file_id}: ${s.powod}`).join('\n')
+        );
+      }
+      setMoveTarget(null);
+      setSelectedIds([]);
+      loadFolders();
+      loadFiles(currentFolderId);
+    } catch (err: any) {
+      alert(err?.message || 'Przeniesienie nie powiodło się.');
+    } finally {
+      setMoving(false);
     }
   };
 
@@ -596,6 +656,13 @@ function FilesPageInner() {
                     {isAdmin && (
                       <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
+                          onClick={(e) => { e.stopPropagation(); openRename(folder); }}
+                          className="text-gray-400 hover:text-blue-600 p-1"
+                          title="Zmień nazwę folderu"
+                        >
+                          ✏️
+                        </button>
+                        <button
                           onClick={(e) => { e.stopPropagation(); openPermissions(folder); }}
                           className="text-gray-400 hover:text-blue-600 p-1"
                           title="Uprawnienia folderu"
@@ -621,7 +688,26 @@ function FilesPageInner() {
         {/* Files section */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-700">📄 Pliki</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-semibold text-gray-700">📄 Pliki</h2>
+              {selectedIds.length > 0 && (
+                <>
+                  <span className="text-sm text-gray-500">zaznaczono: {selectedIds.length}</span>
+                  <button
+                    onClick={() => { setMoveTarget(selectedIds); setMoveFolderId(''); }}
+                    className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                  >
+                    📂 Przenieś zaznaczone
+                  </button>
+                  <button
+                    onClick={() => setSelectedIds([])}
+                    className="text-sm text-gray-400 hover:text-gray-600"
+                  >
+                    wyczyść
+                  </button>
+                </>
+              )}
+            </div>
             <div className="flex items-center space-x-2">
               {/* Search */}
               <input
@@ -655,6 +741,17 @@ function FilesPageInner() {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
+                    {(isAdmin || canWriteHere) && (
+                      <th className="px-4 py-3 w-10">
+                        <input
+                          type="checkbox"
+                          checked={files.length > 0 && selectedIds.length === files.length}
+                          onChange={(e) => setSelectedIds(e.target.checked ? files.map((f) => f.id) : [])}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          title="Zaznacz wszystkie"
+                        />
+                      </th>
+                    )}
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ikona</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nazwa</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rozmiar</th>
@@ -670,6 +767,16 @@ function FilesPageInner() {
                       className="hover:bg-gray-50 cursor-pointer"
                       onClick={() => setSelectedFile(file)}
                     >
+                      {(isAdmin || canWriteHere) && (
+                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(file.id)}
+                            onChange={() => toggleSelect(file.id)}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         <span className="text-2xl">{getFileIcon(file.filename)}</span>
                       </td>
@@ -707,12 +814,20 @@ function FilesPageInner() {
                             ⬇️ Pobierz
                           </button>
                           {(isAdmin || canWriteHere) && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleDelete(file.id); }}
-                              className="text-red-600 hover:text-red-800 text-sm"
-                            >
-                              🗑️ Usuń
-                            </button>
+                            <>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setMoveTarget([file.id]); setMoveFolderId(''); }}
+                                className="text-blue-600 hover:text-blue-800 text-sm whitespace-nowrap"
+                              >
+                                📂 Przenieś
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDelete(file.id); }}
+                                className="text-red-600 hover:text-red-800 text-sm"
+                              >
+                                🗑️ Usuń
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -720,7 +835,7 @@ function FilesPageInner() {
                   ))}
                   {files.length === 0 && !loading && (
                     <tr>
-                      <td className="px-4 py-8 text-center text-gray-500" colSpan={6}>
+                      <td className="px-4 py-8 text-center text-gray-500" colSpan={(isAdmin || canWriteHere) ? 7 : 6}>
                         Brak plików w tym folderze
                       </td>
                     </tr>
@@ -1144,6 +1259,89 @@ function FilesPageInner() {
                   🗑️ Usuń
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Zmiana nazwy folderu (admin) */}
+      {renameFolder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Zmień nazwę folderu</h2>
+            <input
+              type="text"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') submitRename(); }}
+              autoFocus
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            {(() => {
+              const subs = folders.filter((f) => f.path.startsWith(renameFolder.path + '/')).length;
+              return (
+                <p className="text-xs text-gray-500 mt-2">
+                  Zmiana obejmie ścieżkę tego folderu
+                  {subs > 0 ? ` oraz ${subs} podfolder(ów)` : ''}. Pliki i uprawnienia pozostają
+                  przypisane bez zmian.
+                </p>
+              );
+            })()}
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                onClick={() => setRenameFolder(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              >
+                Anuluj
+              </button>
+              <button
+                onClick={submitRename}
+                disabled={renaming || !renameValue.trim() || renameValue.trim() === renameFolder.name}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed"
+              >
+                {renaming ? 'Zapisywanie…' : 'Zapisz'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Przeniesienie plików do innego folderu */}
+      {moveTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-lg font-semibold text-gray-800 mb-1">
+              Przenieś {moveTarget.length === 1 ? 'plik' : `pliki (${moveTarget.length})`}
+            </h2>
+            <p className="text-xs text-gray-500 mb-4">
+              Wybierz folder docelowy. Widoczne są tylko foldery z prawem zapisu.
+            </p>
+            <select
+              value={moveFolderId}
+              onChange={(e) => setMoveFolderId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">{isAdmin ? '— katalog główny —' : '— wybierz folder —'}</option>
+              {folders
+                .filter((f) => (isAdmin || f.can_write) && f.id !== currentFolderId)
+                .map((f) => (
+                  <option key={f.id} value={String(f.id)}>{f.path}</option>
+                ))}
+            </select>
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                onClick={() => setMoveTarget(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              >
+                Anuluj
+              </button>
+              <button
+                onClick={submitMove}
+                disabled={moving || (!isAdmin && moveFolderId === '')}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed"
+              >
+                {moving ? 'Przenoszenie…' : 'Przenieś'}
+              </button>
             </div>
           </div>
         </div>

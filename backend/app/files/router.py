@@ -371,6 +371,76 @@ def list_file_queue(
     return result
 
 
+class MoveFilesRequest(BaseModel):
+    file_ids: list[int]
+    folder_id: Optional[int] = None   # None = katalog główny (tylko admin)
+
+
+@router.post("/move")
+def move_files(
+    payload: MoveFilesRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Przenieś pliki do innego folderu (pojedynczo lub wiele naraz).
+
+    Przenoszenie jest LOGICZNE — zmienia się `files.folder_id`, plik zostaje na dysku
+    tam, gdzie był (ścieżka fizyczna pozostaje ważna). Dodatkowo aktualizujemy
+    `metadata.folder_id` w chunkach Qdranta, bo po tym polu czat filtruje dostęp wg
+    roli — bez tego przeniesiony dokument nadal odpowiadałby staremu folderowi.
+
+    Uprawnienia: potrzebne prawo Zapis w folderze ŹRÓDŁOWYM i DOCELOWYM
+    (katalog główny = tylko admin). Pliki w trakcie przetwarzania są pomijane —
+    parsowanie właśnie z nich korzysta.
+    """
+    from app.qdrant_client import set_folder_id
+
+    if not payload.file_ids:
+        raise HTTPException(status_code=400, detail="Nie wskazano plików do przeniesienia.")
+
+    writable = writable_folder_ids(current_user, db)   # None = admin (wszędzie)
+
+    # Folder docelowy
+    target_id = payload.folder_id
+    if target_id is not None:
+        target = db.query(Folder).filter(Folder.id == target_id).first()
+        if not target:
+            raise HTTPException(status_code=404, detail="Folder docelowy nie istnieje.")
+        if writable is not None and target_id not in writable:
+            raise HTTPException(status_code=403, detail="Brak prawa zapisu w folderze docelowym.")
+    elif writable is not None:
+        raise HTTPException(status_code=403, detail="Tylko administrator może przenosić do katalogu głównego.")
+
+    przeniesione, pominiete = [], []
+    for fid in payload.file_ids:
+        f = db.query(FileModel).filter(FileModel.id == fid).first()
+        if not f:
+            pominiete.append({"file_id": fid, "powod": "plik nie istnieje"})
+            continue
+        if writable is not None and (f.folder_id is None or f.folder_id not in writable):
+            pominiete.append({"file_id": fid, "powod": "brak prawa zapisu w folderze źródłowym"})
+            continue
+        if f.status in (DocumentStatus.PENDING, DocumentStatus.PROCESSING):
+            pominiete.append({"file_id": fid, "powod": "plik jest w trakcie przetwarzania"})
+            continue
+        if f.folder_id == target_id:
+            continue  # już jest na miejscu
+        f.folder_id = target_id
+        przeniesione.append(fid)
+
+    db.commit()
+
+    # Qdrant dopiero po zatwierdzeniu zmian w bazie (best-effort)
+    for fid in przeniesione:
+        set_folder_id(fid, target_id)
+
+    logger.info(
+        f"[MOVE] {current_user.username}: przeniesiono {len(przeniesione)} plik(ów) "
+        f"do folderu {target_id}; pominięto {len(pominiete)}"
+    )
+    return {"moved": przeniesione, "skipped": pominiete}
+
+
 class DocTypeOverride(BaseModel):
     doc_type: str  # slug typu z rejestru albo "inny"
 
@@ -614,6 +684,14 @@ def update_file(
         raise HTTPException(status_code=404, detail="Plik nie istnieje.")
 
     update_data = file_update.model_dump(exclude_unset=True)
+    # Zmiana folderu TYLKO przez POST /api/files/move — tam aktualizowany jest też
+    # `metadata.folder_id` w Qdrancie, po którym czat filtruje dostęp wg roli.
+    # Ustawienie folderu tutaj rozjechałoby bazę z bazą wektorową (luka w dostępie).
+    if "folder_id" in update_data:
+        raise HTTPException(
+            status_code=400,
+            detail="Zmiana folderu przez ten endpoint jest niedozwolona — użyj /api/files/move.",
+        )
     for field, value in update_data.items():
         setattr(file_obj, field, value)
 

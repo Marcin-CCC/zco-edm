@@ -185,6 +185,13 @@ export const filesApi = {
     apiRequest<any[]>('/api/files/categories', { method: 'GET', token: getAuthToken() }),
   folderFiles: (folderId: number) =>
     apiRequest<any[]>(`/api/files/folder/${folderId}/files`, { method: 'GET', token: getAuthToken() }),
+  // Przeniesienie plików (jeden lub wiele) do innego folderu.
+  // Backend aktualizuje też metadata.folder_id w bazie wektorowej.
+  move: (fileIds: number[], folderId: number | null) =>
+    apiRequest<{ moved: number[]; skipped: { file_id: number; powod: string }[] }>(
+      '/api/files/move',
+      { method: 'POST', body: { file_ids: fileIds, folder_id: folderId }, token: getAuthToken() }
+    ),
 };
 
 // Folder management endpoints
@@ -199,6 +206,13 @@ export const foldersApi = {
     apiRequest<any>('/api/folders/', {
       method: 'POST',
       body: data,
+      token: getAuthToken(),
+    }),
+  // Zmiana nazwy (admin) — backend przebudowuje ścieżki całego poddrzewa
+  rename: (folderId: number, name: string) =>
+    apiRequest<any>(`/api/folders/${folderId}`, {
+      method: 'PATCH',
+      body: { name },
       token: getAuthToken(),
     }),
   delete: (folderId: number) =>

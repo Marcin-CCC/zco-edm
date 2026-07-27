@@ -1,6 +1,18 @@
 {
   "entries": [
     {
+      "version": "0.7.0",
+      "date": "2026-07-27",
+      "title": "Zmiana nazwy folderu i przenoszenie plików",
+      "changes": [
+        "Zmiana nazwy folderu (administrator) — ikona ołówka na kafelce folderu. Nazwy podfolderów i przypisanie plików pozostają nienaruszone.",
+        "Przenoszenie plików między folderami: pojedynczo przyciskiem przy pliku lub wiele naraz po zaznaczeniu.",
+        "Wybór folderu docelowego ogranicza się do folderów, w których masz prawo zapisu.",
+        "Pliki w trakcie przetwarzania są pomijane przy przenoszeniu — z czytelną informacją, których dotyczy.",
+        "Przeniesiony dokument od razu odpowiada uprawnieniom nowego folderu również w wyszukiwaniu treści w czacie."
+      ]
+    },
+    {
       "version": "0.6.3",
       "date": "2026-07-27",
       "title": "Usuwanie pliku sprząta również dysk",
