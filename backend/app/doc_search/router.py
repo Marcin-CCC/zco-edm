@@ -329,15 +329,15 @@ async def nl_search(
 
     # Pola dozwolone (odsiej wymyślone przez model): dla wybranego typu — jego pola,
     # dla typu nieokreślonego — suma pól ze WSZYSTKICH aktywnych schematów.
-    allowed_fields = set()
-    if doc_type:
-        for s in schemas:
-            if s["slug"] == doc_type:
-                allowed_fields = {f.get("name") for f in (s.get("fields") or [])}
-                break
-    else:
-        for s in schemas:
-            allowed_fields |= {f.get("name") for f in (s.get("fields") or [])}
+    # Dopasowujemy w postaci kanonicznej, bo model zapisuje nazwy po swojemu
+    # („kod procedury" → „kod_procedury", „opracował" → „opracowal”), a filtr musi
+    # trafić w nazwę Z REJESTRU — inaczej warunek przepadłby po cichu.
+    from app.doc_extract import _norm_key
+    zrodla = [s for s in schemas if not doc_type or s["slug"] == doc_type]
+    allowed_by_norm = {
+        _norm_key(f.get("name")): f.get("name")
+        for s in zrodla for f in (s.get("fields") or []) if f.get("name")
+    }
 
     filters: list[FieldFilter] = []
     seen: set[tuple[str, str, str]] = set()
@@ -349,8 +349,11 @@ async def nl_search(
             continue
         if op not in _ALLOWED_OPS:
             op = "contains"
-        if allowed_fields and field not in allowed_fields:
+        canon = allowed_by_norm.get(_norm_key(field))
+        if allowed_by_norm and not canon:
+            logger.info(f"[DOC-SEARCH-NL] Pominięto pole spoza rejestru: {field!r}")
             continue
+        field = canon or field
         # Model bywa gadatliwy i powtarza ten sam warunek — pokazujemy go raz
         # (samo wyszukiwanie i tak scala duplikaty, ale w formularzu tylko mylą).
         key = (field, op, value)

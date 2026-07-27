@@ -18,6 +18,7 @@ i wołamy dyspozytora.
 """
 import logging
 import re
+import unicodedata
 
 import httpx
 
@@ -27,6 +28,37 @@ from app.activity import extraction_finished
 logger = logging.getLogger(__name__)
 
 _TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0)
+
+# ==================== Dopasowanie nazw pól ====================
+# Model zwraca nazwy pól „po swojemu": bez polskich znaków i ze spacjami zamienionymi
+# na podkreślniki (schemat „kod procedury" → odpowiedź „kod_procedury", „opracował" →
+# „opracowal"). Dosłowne porównanie odrzucało takie pola po cichu, więc dopasowujemy
+# je w postaci kanonicznej i zapisujemy pod nazwą Z REJESTRU.
+def _norm_key(name: str) -> str:
+    s = (name or "").strip().lower().replace("ł", "l")
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return re.sub(r"[\s_\-]+", "", s)
+
+
+def _canonical_fields(items: list, schema: dict) -> dict:
+    """Zamień listę {name,value} od modelu na słownik z nazwami pól z rejestru."""
+    by_norm = {
+        _norm_key(f.get("name")): f.get("name")
+        for f in (schema.get("fields") or []) if f.get("name")
+    }
+    out = {}
+    for item in items or []:
+        name, value = item.get("name"), item.get("value")
+        if not name or not value:
+            continue
+        canon = by_norm.get(_norm_key(name))
+        if by_norm and not canon:
+            logger.info(f"[EXTRACT] Pominięto pole spoza schematu: {name!r}")
+            continue
+        out[canon or name] = value
+    return out
+
 
 # ==================== Normalizacja dat ====================
 # Wartości pól typu `date` zapisujemy ZAWSZE jako YYYY-MM-DD. Bez tego filtrowanie
@@ -177,19 +209,9 @@ async def _classify(schemas: list[dict], text: str, filename: str = "") -> dict 
     parsed = json.loads(raw)
 
     doc_type = (parsed.get("doc_type") or "").strip()
-    # Zostaw tylko pola zadeklarowane w wybranym typie (odsiej szum modelu)
-    allowed = set()
-    chosen: dict = {}
-    for s in schemas:
-        if s["slug"] == doc_type:
-            chosen = s
-            allowed = {f.get("name") for f in (s.get("fields") or [])}
-            break
-    doc_fields = {}
-    for item in parsed.get("fields") or []:
-        name, value = item.get("name"), item.get("value")
-        if name and value and (not allowed or name in allowed):
-            doc_fields[name] = value
+    chosen: dict = next((s for s in schemas if s["slug"] == doc_type), {})
+    # Dopasuj nazwy pól do rejestru (odporne na odmiany zapisu) i odsiej szum modelu
+    doc_fields = _canonical_fields(parsed.get("fields") or [], chosen)
     if chosen:
         doc_fields = _normalize_fields(doc_fields, chosen)  # daty → YYYY-MM-DD
     return {"doc_type": doc_type, "doc_fields": doc_fields}
@@ -256,12 +278,7 @@ async def extract_fields(schema: dict, text: str, filename: str = "") -> dict:
         resp = await client.post(url, json=body)
     resp.raise_for_status()
     parsed = json.loads(resp.json()["choices"][0]["message"]["content"])
-    allowed = {f.get("name") for f in (schema.get("fields") or [])}
-    out = {}
-    for item in parsed.get("fields") or []:
-        n, v = item.get("name"), item.get("value")
-        if n and v and (not allowed or n in allowed):
-            out[n] = v
+    out = _canonical_fields(parsed.get("fields") or [], schema)
     return _normalize_fields(out, schema)  # daty → YYYY-MM-DD
 
 

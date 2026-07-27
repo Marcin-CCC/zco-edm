@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.7.1",
+      "date": "2026-07-27",
+      "title": "Poprawne rozpoznawanie pól z polskimi znakami",
+      "changes": [
+        "Pola, których nazwy zawierają polskie znaki lub spacje (np. opracował, kod procedury), są teraz poprawnie wypełniane — wcześniej wartości dla takich pól były pomijane, mimo że system odczytał je z dokumentu.",
+        "Dotyczy to również warunków wyszukiwania po takich polach."
+      ]
+    },
+    {
       "version": "0.7.0",
       "date": "2026-07-27",
       "title": "Zmiana nazwy folderu i przenoszenie plików",
