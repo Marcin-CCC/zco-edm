@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "0.5.12",
+      "date": "2026-07-27",
+      "title": "Pytanie o nieznany rodzaj dokumentu",
+      "changes": [
+        "Pytanie o rodzaj dokumentu, którego nie ma w rejestrze (np. ile jest umów?), nie zwraca już wszystkich dokumentów — system informuje wprost, że takiego rodzaju nie rozpoznaje, i wymienia rodzaje, które zna."
+      ]
+    },
+    {
       "version": "0.5.11",
       "date": "2026-07-27",
       "title": "Czytelniejszy filtr w wyszukiwarce",

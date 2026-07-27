@@ -206,6 +206,11 @@ def _nl_response_format(schemas: list[dict]) -> dict:
                 "additionalProperties": False,
                 "properties": {
                     "doc_type": {"type": "string", "enum": slugs},
+                    # Typ nazwany w pytaniu — także wtedy, gdy nie ma go w katalogu.
+                    # Dzięki temu odróżniamy „wypisz dokumenty" (brak typu) od „ile jest
+                    # umów?" (typ podany, ale nieznany) — w drugim przypadku nie wolno
+                    # zwrócić wszystkiego.
+                    "typ_z_pytania": {"type": "string"},
                     "filters": {
                         "type": "array",
                         "items": {
@@ -223,7 +228,7 @@ def _nl_response_format(schemas: list[dict]) -> dict:
                         },
                     },
                 },
-                "required": ["doc_type", "filters"],
+                "required": ["doc_type", "typ_z_pytania", "filters"],
             },
         },
     }
@@ -238,8 +243,13 @@ async def _nl_to_filter(query: str, schemas: list[dict]) -> dict:
     catalog = "\n".join(lines)
     system = (
         "Zamieniasz pytanie użytkownika na filtr wyszukiwania dokumentów. Masz katalog "
-        "typów i ich pól. Ustaw doc_type (slug) TYLKO jeśli pytanie wyraźnie wskazuje typ; "
-        "w przeciwnym razie doc_type=\"\". Dodaj warunki na polach (nazwa pola DOKŁADNIE z "
+        "typów i ich pól. Ustaw doc_type (slug) TYLKO jeśli pytanie wyraźnie wskazuje typ "
+        "OBECNY w katalogu; w przeciwnym razie doc_type=\"\".\n"
+        "typ_z_pytania: nazwa rodzaju dokumentu, o który pyta użytkownik, w mianowniku "
+        "liczby pojedynczej (np. umowa, faktura, zarządzenie) — wypełnij TAKŻE wtedy, gdy "
+        "tego rodzaju NIE MA w katalogu. Zostaw pusty string, gdy pytanie nie wskazuje "
+        "rodzaju albo używa ogólnych słów (dokumenty, pliki, akta).\n"
+        "Dodaj warunki na polach (nazwa pola DOKŁADNIE z "
         "katalogu wybranego typu, operator, wartość).\n"
         "OPERATORY — rozróżniaj włączające od wyłączających:\n"
         "  eq       = równe dokładnie\n"
@@ -302,6 +312,20 @@ async def nl_search(
     doc_type = (parsed.get("doc_type") or "").strip() or None
     if doc_type and doc_type not in valid_slugs:
         doc_type = None
+
+    # Pytanie wskazuje rodzaj dokumentu, którego NIE MA w rejestrze (np. „ile jest umów?")
+    # → nie wolno zwrócić wszystkiego. Mówimy wprost, że takiego typu nie znamy.
+    asked_type = (parsed.get("typ_z_pytania") or "").strip()
+    if asked_type and not doc_type:
+        known = {s["slug"] for s in schemas} | {(s.get("name") or "").lower() for s in schemas}
+        if asked_type.lower() not in known:
+            logger.info(f"[DOC-SEARCH-NL] Nieznany typ w pytaniu: {asked_type!r}")
+            return {
+                "filter": {"doc_type": None, "filters": []},
+                "hits": [],
+                "unknown_type": asked_type,
+                "known_types": sorted(s.get("name") or s["slug"] for s in schemas),
+            }
 
     # Pola dozwolone (odsiej wymyślone przez model): dla wybranego typu — jego pola,
     # dla typu nieokreślonego — suma pól ze WSZYSTKICH aktywnych schematów.

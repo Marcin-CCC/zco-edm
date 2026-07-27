@@ -351,9 +351,12 @@ export default function ChatPage() {
           // niżej, wyraźnie oznaczoną — inaczej użytkownik dostaje pewną siebie,
           // ale nietrafioną odpowiedź (np. o rozporządzeniu zamiast zarządzeniu).
           const desc = describeFilter(listRes.filter, typeNames);
-          const notice =
-            `_Nie znalazłem dokumentów spełniających kryteria${desc ? ` (${desc})` : ''}. ` +
-            `Poniżej odpowiedź na podstawie treści dokumentów:_\n\n`;
+          const notice = listRes.unknown_type
+            ? `_W systemie nie ma rodzaju dokumentów „${listRes.unknown_type}". ` +
+              `Rozpoznawane rodzaje: ${(listRes.known_types || []).join(', ')}. ` +
+              `Poniżej odpowiedź na podstawie treści dokumentów:_\n\n`
+            : `_Nie znalazłem dokumentów spełniających kryteria${desc ? ` (${desc})` : ''}. ` +
+              `Poniżej odpowiedź na podstawie treści dokumentów:_\n\n`;
           assistantText = notice;
           setMessages((prev) => {
             const next = [...prev];

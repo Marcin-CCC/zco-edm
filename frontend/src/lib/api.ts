@@ -333,9 +333,15 @@ export const docSearchApi = {
       body,
       token: getAuthToken(),
     }),
-  // Pytanie po polsku → LLM zamienia na filtr → wyniki (+ rozpoznany filtr)
+  // Pytanie po polsku → LLM zamienia na filtr → wyniki (+ rozpoznany filtr).
+  // `unknown_type` = pytanie wskazało rodzaj dokumentu, którego nie ma w rejestrze.
   nl: (query: string) =>
-    apiRequest<{ filter: DocSearchFilter; hits: DocSearchHit[] }>('/api/doc-search/nl', {
+    apiRequest<{
+      filter: DocSearchFilter;
+      hits: DocSearchHit[];
+      unknown_type?: string;
+      known_types?: string[];
+    }>('/api/doc-search/nl', {
       method: 'POST',
       body: { query },
       token: getAuthToken(),

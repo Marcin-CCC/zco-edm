@@ -71,6 +71,12 @@ export function DocSearchPanel() {
       setDocType(res.filter.doc_type || '');
       setFilters((res.filter.filters || []).map((f) => ({ field: f.field, op: f.op, value: f.value })));
       setHits(res.hits);
+      if (res.unknown_type) {
+        setError(
+          `W systemie nie ma rodzaju dokumentów „${res.unknown_type}". ` +
+          `Rozpoznawane rodzaje: ${(res.known_types || []).join(', ')}.`
+        );
+      }
     } catch (e: any) {
       setError(e.message || 'Nie udało się zrozumieć zapytania');
     } finally {
