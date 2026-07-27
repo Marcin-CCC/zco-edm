@@ -518,32 +518,13 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-100px)]">
       {/* Nagłówek strony (wzorzec jak Dashboard) */}
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-gray-800">Chat — baza wiedzy</h1>
-        <button
-          onClick={() => setShowSearch((v) => !v)}
-          className={`hidden lg:inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
-            showSearch
-              ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
-              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-          }`}
-          title="Wyszukiwanie dokumentów po polach"
-        >
-          🔎 Wyszukiwarka pól
-        </button>
-      </div>
+      <h1 className="text-2xl font-bold text-gray-800 mb-4">Baza wiedzy</h1>
 
       <div className="flex gap-4 flex-1 min-h-0">
       {/* Sidebar z listą rozmów */}
       <aside className="hidden md:flex w-80 flex-col bg-white rounded-lg shadow border border-gray-200">
-        <div className="p-3 border-b border-gray-200">
-          <button
-            onClick={newConversation}
-            disabled={streaming}
-            className="w-full px-3 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-          >
-            + Nowa rozmowa
-          </button>
+        <div className="px-4 py-3 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-800">Historia chatów</h2>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {conversations.length === 0 && (
@@ -574,13 +555,14 @@ export default function ChatPage() {
       {/* Panel czatu */}
       <div className="w-full lg:w-[480px] xl:w-[560px] flex flex-col bg-white rounded-lg shadow border border-gray-200">
         <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-          <p className="text-xs text-gray-500">Odpowiedzi na podstawie przetworzonych dokumentów</p>
+          <h2 className="text-lg font-semibold text-gray-800">Chat z bazy wiedzy</h2>
           <button
             onClick={newConversation}
-            className="md:hidden text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-100"
-            title="Rozpocznij nową rozmowę"
+            disabled={streaming}
+            className="text-sm font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
+            title="Rozpocznij nowy chat"
           >
-            Nowa rozmowa
+            + Nowy chat
           </button>
         </div>
 
@@ -725,7 +707,20 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {showSearch && <DocSearchPanel />}
+      {showSearch ? (
+        <DocSearchPanel onClose={() => setShowSearch(false)} />
+      ) : (
+        // Zwinięta wyszukiwarka — kafelka z samą lupą, na wysokości nagłówków paneli
+        <div className="hidden lg:block self-start">
+          <button
+            onClick={() => setShowSearch(true)}
+            title="Wyszukiwarka po polach"
+            className="w-14 h-14 flex items-center justify-center bg-white rounded-lg shadow border border-gray-200 text-xl hover:bg-gray-50 transition-colors"
+          >
+            🔎
+          </button>
+        </div>
+      )}
       </div>
     </div>
   );

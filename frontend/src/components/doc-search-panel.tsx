@@ -23,7 +23,7 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export function DocSearchPanel() {
+export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
   const [schemas, setSchemas] = useState<DocTypeSchema[]>([]);
   const [docType, setDocType] = useState('');
   const [filters, setFilters] = useState<FilterRow[]>([]);
@@ -101,9 +101,17 @@ export function DocSearchPanel() {
 
   return (
     <div className="hidden lg:flex flex-1 min-w-[320px] flex-col bg-white rounded-lg shadow border border-gray-200">
-      <div className="px-4 py-3 border-b border-gray-200">
-        <h2 className="text-sm font-semibold text-gray-800">Wyszukiwarka po polach</h2>
-        <p className="text-xs text-gray-500">Filtruj dokumenty po typie i wartościach pól</p>
+      <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-gray-800">Wyszukiwarka po polach</h2>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-700 text-lg leading-none px-1"
+            title="Zwiń wyszukiwarkę"
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       {/* Formularz */}

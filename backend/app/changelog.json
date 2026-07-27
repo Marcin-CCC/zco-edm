@@ -1,6 +1,18 @@
 {
   "entries": [
     {
+      "version": "0.6.0",
+      "date": "2026-07-27",
+      "title": "Uporządkowany widok Bazy wiedzy",
+      "changes": [
+        "Strona Chat nazywa się teraz Baza wiedzy; panele mają czytelne tytuły: Historia chatów, Chat z bazy wiedzy oraz Wyszukiwarka po polach.",
+        "Na szerokich monitorach cały interfejs (razem z górnym paskiem i menu) ma maksymalnie 1920 pikseli i jest wyśrodkowany — panele nie rozciągają się już na całą szerokość ekranu.",
+        "Nowy chat rozpoczyna się linkiem w nagłówku panelu rozmowy.",
+        "Wyszukiwarka po polach jest domyślnie zwinięta do ikony lupy; rozwinięty panel zamyka się znakiem X w jego nagłówku.",
+        "Usunięto podtytuły paneli, żeby ograniczyć liczbę informacji pokazywanych jednocześnie."
+      ]
+    },
+    {
       "version": "0.5.12",
       "date": "2026-07-27",
       "title": "Pytanie o nieznany rodzaj dokumentu",

@@ -89,7 +89,14 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    // --shell-x = margines po bokach, gdy okno jest szersze niż 1920 px. Sidebar i górny
+    // pasek są `fixed` (względem okna, nie kontenera), więc zamiast owijać je w kontener
+    // przesuwamy ich krawędzie o tę zmienną — dzięki temu CAŁY interfejs (z paskiem)
+    // ma najwyżej 1920 px i jest wyśrodkowany.
+    <div
+      className="min-h-screen bg-gray-100"
+      style={{ ['--shell-x' as string]: 'max(0px, (100vw - 1920px) / 2)' } as React.CSSProperties}
+    >
       {/* Hamburger button for mobile */}
       <button
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -103,7 +110,7 @@ export default function DashboardLayout({
       <Sidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
 
       {/* Top bar */}
-      <header className={`fixed top-0 left-0 right-0 z-30 bg-white shadow-sm ${showTabs ? 'lg:left-[256px]' : 'lg:left-64'}`}>
+      <header className="fixed top-0 left-[var(--shell-x)] right-[var(--shell-x)] z-30 bg-white shadow-sm lg:left-[calc(var(--shell-x)+256px)]">
         {/* User info row */}
         <div className={`flex items-center justify-end px-4 gap-4 ${showTabs ? 'h-10' : 'h-12'}`}>
           <span className="text-sm text-gray-600">
@@ -141,7 +148,7 @@ export default function DashboardLayout({
       </header>
 
       {/* Main content - adjust padding based on whether tabs are shown */}
-      <main className={`pt-[56px] ${showTabs ? 'lg:pt-[96px]' : 'lg:pt-[72px]'} ${showTabs ? 'lg:ml-[256px]' : 'lg:ml-64'}`}>
+      <main className={`pt-[56px] ${showTabs ? 'lg:pt-[96px]' : 'lg:pt-[72px]'} ml-[var(--shell-x)] mr-[var(--shell-x)] lg:ml-[calc(var(--shell-x)+256px)]`}>
         {/* Górny padding zredukowany (lg:pt-1) — mniejszy odstęp nad nagłówkiem,
             jednolity na wszystkich stronach; jednocześnie zgadza się z wysokością
             h-[calc(100vh-100px)] strony Chat (72+4+24=100), więc Chat się nie przewija. */}
