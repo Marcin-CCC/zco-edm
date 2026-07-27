@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "0.5.6",
+      "date": "2026-07-27",
+      "title": "Pytania nawiązujące do rozmowy",
+      "changes": [
+        "Pytania w rodzaju kto go podpisał? albo a od kiedy obowiązuje? są przed wyszukiwaniem uzupełniane o temat z poprzedniej wypowiedzi, dzięki czemu system znajduje właściwe dokumenty zamiast odpowiadać, że nie ma informacji."
+      ]
+    },
+    {
       "version": "0.5.5",
       "date": "2026-07-27",
       "title": "Wyszukiwanie po nazwiskach i nazwach",

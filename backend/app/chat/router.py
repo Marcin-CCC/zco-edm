@@ -202,10 +202,17 @@ async def chat(
     # Historia rozmowy budowana po naszej stronie (bez odmów) — zastępuje Simple Memory
     history = build_history(db, current_user, payload.session_id)
 
+    # Zapytanie DO WYSZUKIWANIA: pytanie kontekstowe („kto go podpisał?") rozwinięte
+    # na podstawie historii. Model odpowiadający dostaje nadal oryginalne pytanie.
+    search_query = await condense_question(payload.message, history)
+    if search_query != payload.message:
+        logger.info(f"[CHAT-CONDENSE] {payload.message!r} → {search_query!r}")
+
     n8n_body = {
         "action": "sendMessage",
         "sessionId": f"{current_user.id}:{payload.session_id}",
         "chatInput": payload.message,
+        "searchQuery": search_query,
         "history": history,
         "requestId": request_id,
         "sources_update_url": f"{BACKEND_CALLBACK_URL}/api/chat/sources",
@@ -301,6 +308,74 @@ async def get_sources(
     _purge_expired_sources()
     entry = _sources_store.get(request_id)
     return {"request_id": request_id, "sources": entry["sources"] if entry else []}
+
+
+# ==================== Przepisanie pytania na samodzielne (dla wyszukiwania) ====================
+# Wyszukiwanie wektorowe dostaje TYLKO bieżące pytanie, więc "kto go podpisal?" szuka
+# dosłownie tej frazy — zaimek nic nie znaczy dla wyszukiwarki. Tutaj rozwijamy pytanie
+# na podstawie historii; model odpowiadający dostaje nadal ORYGINALNE pytanie.
+_CONDENSE_SYSTEM = (
+    "Przepisujesz pytanie uzytkownika na samodzielne zapytanie do wyszukiwarki dokumentow.\n"
+    "Jesli pytanie odwoluje sie do wczesniejszej rozmowy (zaimki: go, jej, ich, ten, tego, "
+    "tam; skroty myslowe; domyslny podmiot), rozwin je tak, aby bylo zrozumiale BEZ kontekstu "
+    "- podstaw konkretna nazwe dokumentu lub tematu z rozmowy.\n"
+    "Jesli pytanie jest juz samodzielne, zwroc je BEZ ZMIAN.\n"
+    "Nie odpowiadaj na pytanie i nie dodawaj wyjasnien. Zwroc wylacznie JSON zgodny ze schematem."
+)
+
+_CONDENSE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "zapytanie_wyszukiwania",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {"zapytanie": {"type": "string"}},
+            "required": ["zapytanie"],
+        },
+    },
+}
+
+
+async def condense_question(message: str, history: str) -> str:
+    """Rozwiń pytanie kontekstowe do samodzielnego (tylko na potrzeby wyszukiwania).
+
+    Zwraca oryginalne pytanie przy braku historii lub jakimkolwiek problemie —
+    wyszukiwanie nigdy nie traci na tej funkcji, może tylko zyskać.
+    """
+    import json as _json
+
+    if not history.strip() or not message.strip():
+        return message
+
+    body = {
+        "model": settings.VLLM_MODEL,
+        "temperature": 0,
+        "max_tokens": 120,
+        "messages": [
+            {"role": "system", "content": _CONDENSE_SYSTEM},
+            {"role": "user", "content": f"DOTYCHCZASOWA ROZMOWA:\n{history}\n\nPYTANIE: {message}"},
+        ],
+        "response_format": _CONDENSE_FORMAT,
+    }
+    url = f"{settings.VLLM_URL.rstrip('/')}/v1/chat/completions"
+    try:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5.0, read=25.0, write=10.0, pool=5.0)
+        ) as client:
+            resp = await client.post(url, json=body)
+        resp.raise_for_status()
+        out = _json.loads(resp.json()["choices"][0]["message"]["content"]).get("zapytanie")
+    except Exception as e:
+        logger.warning(f"[CHAT-CONDENSE] Przepisanie pytania nieudane: {e}")
+        return message
+
+    out = (out or "").strip()
+    # Zabezpieczenie: model bywa gadatliwy — odrzuć podejrzanie długie przeróbki
+    if not out or len(out) > 300:
+        return message
+    return out
 
 
 class RouteRequest(BaseModel):
