@@ -120,6 +120,50 @@ def transfer_to_spark(local_path: str, relative_path: str) -> str:
     return remote_path
 
 
+def delete_from_spark(remote_path: str) -> dict:
+    """Usuń plik ze Sparka (wolumen shared_docs) — odwrotność transfer_to_spark.
+
+    Wołane TYLKO w trybie deweloperskim (gdy `spark_transfer_enabled()`), bo tylko
+    wtedy istnieje druga kopia pliku. W docelowym wdrożeniu aplikacja działa NA
+    Sparku, plik jest lokalny i kasuje go zwykłe `os.remove` — tu nic się nie
+    uruchamia. Bez tego usunięty w aplikacji plik zostawał na dysku Sparka
+    (stąd osierocone pliki).
+
+    Usuwa też katalog pliku, jeśli został pusty (schemat <uuid>/<nazwa>).
+    Best-effort: awaria nie może przerwać usuwania pliku — zwraca diagnostykę.
+    """
+    if not remote_path or not remote_path.startswith(SPARK_SHARED_DIR + "/"):
+        return {"ok": False, "reason": "ścieżka spoza shared_docs — pomijam"}
+
+    # `rm -f` + próba usunięcia osieroconego katalogu (rmdir usuwa tylko pusty)
+    inner = (
+        f"rm -f {shlex.quote(remote_path)} && "
+        f"rmdir {shlex.quote(os.path.dirname(remote_path))} 2>/dev/null || true"
+    )
+    docker_cmd = f"docker exec {shlex.quote(SPARK_DOCKER_CONTAINER)} sh -c " + shlex.quote(inner)
+    ssh_cmd = [
+        "ssh",
+        "-o", "BatchMode=yes",
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "ConnectTimeout=10",
+        "-i", _get_secure_key(),
+        f"{SPARK_SSH_USER}@{SPARK_SSH_HOST}",
+        docker_cmd,
+    ]
+    try:
+        result = subprocess.run(ssh_cmd, capture_output=True, timeout=60)
+    except Exception as e:
+        logger.warning(f"[SPARK-DELETE] {remote_path}: {e}")
+        return {"ok": False, "error": str(e)}
+
+    if result.returncode == 0:
+        logger.info(f"[SPARK-DELETE] Usunięto {SPARK_SSH_HOST}:{remote_path}")
+        return {"ok": True}
+    err = result.stderr.decode(errors="replace")[:200]
+    logger.warning(f"[SPARK-DELETE] {remote_path}: rc={result.returncode} {err}")
+    return {"ok": False, "status": result.returncode, "detail": err}
+
+
 def fetch_from_spark(remote_path: str, local_path: str) -> None:
     """Pobierz plik ze Sparka (wolumen shared_docs) na lokalny dysk.
 

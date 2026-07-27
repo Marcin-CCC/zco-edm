@@ -574,16 +574,28 @@ def delete_file(file_id: int, db: Session = Depends(get_db), current_user: User 
     from app.qdrant_client import delete_vectors_by_file_id
     qdrant_result = delete_vectors_by_file_id(file_obj.id)
 
-    # Delete physical file (lokalna kopia; plik na Sparku zostaje — dev mode)
+    # Usuń plik z dysku. Lokalnie zawsze; dodatkowo kopię na Sparku, ale TYLKO w
+    # trybie deweloperskim — tam istnieje druga kopia (most SSH). W docelowym
+    # wdrożeniu aplikacja działa na Sparku, `file_path` jest ścieżką lokalną i
+    # wystarczy os.remove poniżej.
     local_path = _resolve_local_path(file_obj.file_path)
     if os.path.exists(local_path):
         os.remove(local_path)
+        # katalog pliku (schemat <uuid>/<nazwa>) usuwamy, gdy został pusty
+        parent = os.path.dirname(local_path)
+        if parent and parent != STORAGE_DIR and os.path.isdir(parent) and not os.listdir(parent):
+            os.rmdir(parent)
+
+    spark_result = None
+    if spark_transfer_enabled():
+        from app.spark_transfer import delete_from_spark
+        spark_result = delete_from_spark(file_obj.file_path)
 
     # Delete DB record
     db.delete(file_obj)
     db.commit()
 
-    return {"message": "Plik został usunięty.", "qdrant": qdrant_result}
+    return {"message": "Plik został usunięty.", "qdrant": qdrant_result, "spark": spark_result}
 
 
 @router.put("/{file_id}", response_model=FileResponseSchema)

@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.6.3",
+      "date": "2026-07-27",
+      "title": "Usuwanie pliku sprząta również dysk",
+      "changes": [
+        "Usunięcie pliku w aplikacji kasuje teraz także jego kopię roboczą, więc na dysku nie zostają osierocone pliki po dokumentach usuniętych z systemu.",
+        "Puste katalogi po usuniętych plikach są sprzątane automatycznie."
+      ]
+    },
+    {
       "version": "0.6.2",
       "date": "2026-07-27",
       "title": "Bezpieczne zapisywanie plików o tej samej nazwie",
