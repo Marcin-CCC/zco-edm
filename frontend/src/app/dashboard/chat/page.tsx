@@ -772,9 +772,12 @@ export default function ChatPage() {
                         // Fragmenty bez znacznika w treści były w kontekście modelu, ale
                         // nie zostały przez niego przywołane — oznaczamy je wyraźnie,
                         // żeby dało się sprawdzić, skąd naprawdę pochodzi odpowiedź.
+                        // Statusu NIE kodujemy przygaszeniem: opacity na całym wierszu
+                        // zbijało kontrast linku do 2,88:1, a nazwy pliku do 1,75:1
+                        // (próg czytelności to 4,5:1). Rozróżnienie niesie dopisek.
                         const przywolane = s.cited !== false;
                         return (
-                          <li key={i} className={`text-xs${przywolane ? '' : ' opacity-70'}`}>
+                          <li key={i} className="text-xs">
                             <span className="text-gray-400 mr-1">{i + 1}.</span>
                             {clickable ? (
                               <button onClick={() => openSource(s)} className="text-blue-600 hover:underline text-left">
@@ -784,10 +787,10 @@ export default function ChatPage() {
                               <span className="text-gray-600">📄 {renderSourceLabel(s, i)}{s.page ? ` (str. ${s.page})` : ''}</span>
                             )}
                             {!przywolane && (
-                              <span className="text-gray-400 ml-1">— sprawdzony, nieprzywołany w odpowiedzi</span>
+                              <span className="text-gray-600 ml-1">— sprawdzony, nieprzywołany w odpowiedzi</span>
                             )}
                             {s.doc_type_name && s.filename && (
-                              <div className="text-gray-400 pl-4 break-all">{s.filename}</div>
+                              <div className="text-gray-600 pl-4 break-all">{s.filename}</div>
                             )}
                           </li>
                         );

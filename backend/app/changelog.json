@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.9.8",
+      "date": "2026-07-28",
+      "title": "Czytelniejsza lista dokumentów pod odpowiedzią",
+      "changes": [
+        "Wszystkie odnośniki do dokumentów pod odpowiedzią mają jednakowy, wyraźny kolor - wcześniej część była przygaszona i wyglądała na nieaktywną, mimo że działała.",
+        "Nazwy plików pod odnośnikami są ciemniejsze i wreszcie czytelne; poprzedni odcień nie spełniał wymogów czytelności.",
+        "To, że dokument został sprawdzony, ale nieprzywołany w odpowiedzi, wynika teraz z opisu przy pozycji, a nie z wyblakłego koloru."
+      ]
+    },
+    {
       "version": "0.9.7",
       "date": "2026-07-28",
       "title": "Trwałe rozwiązanie zacięć na zmniejszaniu obrazów",
