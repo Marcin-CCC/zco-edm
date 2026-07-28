@@ -191,6 +191,10 @@ class ChatSourceItem(BaseModel):
     # Faza B (#7): typ dokumentu i kluczowe pole — czytelniejsza etykieta źródła
     doc_type: Optional[str] = None
     doc_type_name: Optional[str] = None
+    # Czy model przywołał ten fragment znacznikiem [Źródło N] w treści odpowiedzi.
+    # n8n przysyła teraz WSZYSTKIE fragmenty podane modelowi, także nieprzywołane —
+    # bez nich nie da się prześledzić, na czym oparta jest odpowiedź.
+    cited: Optional[bool] = None
     doc_key: Optional[str] = None
 
 

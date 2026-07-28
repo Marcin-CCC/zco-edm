@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.8.8",
+      "date": "2026-07-28",
+      "title": "Pełna lista dokumentów pod odpowiedzią czatu",
+      "changes": [
+        "Pod odpowiedzią widać teraz wszystkie dokumenty, które aplikacja wzięła pod uwagę, a nie tylko te przywołane numerkiem w treści; nieprzywołane są wyraźnie oznaczone.",
+        "Odnośniki przy zdaniach działają również wtedy, gdy odpowiedź powołuje się tylko na część dokumentów - wcześniej w takiej sytuacji znikały wszystkie."
+      ]
+    },
+    {
       "version": "0.8.7",
       "date": "2026-07-28",
       "title": "Dashboard w zakresie uprawnień użytkownika",

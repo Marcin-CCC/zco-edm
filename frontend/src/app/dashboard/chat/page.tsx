@@ -43,6 +43,9 @@ interface ChatSource {
   doc_type?: string;
   doc_type_name?: string;
   doc_key?: string;
+  // Czy model przywołał ten fragment znacznikiem w treści. Fragmenty bez znacznika
+  // też pokazujemy — bez nich nie da się sprawdzić, na czym oparta jest odpowiedź.
+  cited?: boolean;
 }
 
 interface ChatMessage {
@@ -103,10 +106,21 @@ function linkifyMarkers(text: string, sourcesCount: number): string | null {
     }
   }
   if (order.length === 0) return null;
-  // Rozjazd = nie mamy pewności, który znacznik odpowiada której pozycji → nie linkujemy
-  if (order.length !== sourcesCount) return null;
 
-  const display = new Map(order.map((num, i) => [num, i + 1]));
+  // Wariant podstawowy: lista źródeł jest kompletna i uporządkowana tak, jak numery
+  // znaczników ([Źródło 3] = trzecia pozycja listy), więc numer mapujemy wprost.
+  const wSkali = order.every((num) => {
+    const n = Number(num);
+    return Number.isInteger(n) && n >= 1 && n <= sourcesCount;
+  });
+  // Wariant zgodności ze starszym przepływem, gdzie przychodziły wyłącznie źródła
+  // zacytowane: numery mogą być dowolne, ale musi ich być dokładnie tyle co pozycji.
+  const display = wSkali
+    ? new Map(order.map((num) => [num, Number(num)]))
+    : order.length === sourcesCount
+      ? new Map(order.map((num, i) => [num, i + 1]))
+      : null;
+  if (!display) return null;  // rozjazd → nie zgadujemy, znaczniki usuwamy
 
   // 2) podmiana na odnośniki markdown (obsługiwane przez własny renderer `a`)
   return text.replace(INLINE_MARKER_RE, (_full, nums: string) =>
@@ -643,12 +657,18 @@ export default function ChatPage() {
 
                 {m.role === 'assistant' && m.sources && m.sources.length > 0 && (
                   <div className="mt-3 pt-2 border-t border-gray-300">
-                    <p className="text-xs font-medium text-gray-500 mb-1">Źródła:</p>
+                    <p className="text-xs font-medium text-gray-500 mb-1">
+                      Dokumenty wzięte pod uwagę:
+                    </p>
                     <ul className="space-y-1">
                       {m.sources.map((s, i) => {
                         const clickable = !!sourceHref(s);
+                        // Fragmenty bez znacznika w treści były w kontekście modelu, ale
+                        // nie zostały przez niego przywołane — oznaczamy je wyraźnie,
+                        // żeby dało się sprawdzić, skąd naprawdę pochodzi odpowiedź.
+                        const przywolane = s.cited !== false;
                         return (
-                          <li key={i} className="text-xs">
+                          <li key={i} className={`text-xs${przywolane ? '' : ' opacity-70'}`}>
                             <span className="text-gray-400 mr-1">{i + 1}.</span>
                             {clickable ? (
                               <button onClick={() => openSource(s)} className="text-blue-600 hover:underline text-left">
@@ -656,6 +676,9 @@ export default function ChatPage() {
                               </button>
                             ) : (
                               <span className="text-gray-600">📄 {renderSourceLabel(s, i)}{s.page ? ` (str. ${s.page})` : ''}</span>
+                            )}
+                            {!przywolane && (
+                              <span className="text-gray-400 ml-1">— sprawdzony, nieprzywołany w odpowiedzi</span>
                             )}
                             {s.doc_type_name && s.filename && (
                               <div className="text-gray-400 pl-4 break-all">{s.filename}</div>
