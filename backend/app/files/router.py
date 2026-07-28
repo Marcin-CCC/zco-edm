@@ -56,6 +56,7 @@ def get_mime_type(filename: str) -> str:
     mime_map = {
         "pdf": "application/pdf",
         "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "odt": "application/vnd.oasis.opendocument.text",
         "doc": "application/msword",
         "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "xls": "application/vnd.ms-excel",
@@ -72,6 +73,7 @@ def get_file_icon(filename: str) -> str:
         "pdf": "pdf",
         "docx": "docx",
         "doc": "docx",
+        "odt": "docx",
         "xlsx": "xlsx",
         "xls": "xlsx",
         "pptx": "pptx",
@@ -648,18 +650,28 @@ def delete_file(file_id: int, db: Session = Depends(get_db), current_user: User 
     # trybie deweloperskim — tam istnieje druga kopia (most SSH). W docelowym
     # wdrożeniu aplikacja działa na Sparku, `file_path` jest ścieżką lokalną i
     # wystarczy os.remove poniżej.
+    # Pliki pochodne: dla formatów wymagających konwersji (np. .odt) parsowanie
+    # zostawia obok źródła PDF o tej samej nazwie — usuwamy go razem z oryginałem.
+    def _derived_pdf(path: str) -> str | None:
+        stem, ext = os.path.splitext(path)
+        return f"{stem}.pdf" if ext.lower() not in ("", ".pdf") else None
+
     local_path = _resolve_local_path(file_obj.file_path)
-    if os.path.exists(local_path):
-        os.remove(local_path)
-        # katalog pliku (schemat <uuid>/<nazwa>) usuwamy, gdy został pusty
-        parent = os.path.dirname(local_path)
-        if parent and parent != STORAGE_DIR and os.path.isdir(parent) and not os.listdir(parent):
-            os.rmdir(parent)
+    for p in filter(None, [local_path, _derived_pdf(local_path)]):
+        if os.path.exists(p):
+            os.remove(p)
+    # katalog pliku (schemat <uuid>/<nazwa>) usuwamy, gdy został pusty
+    parent = os.path.dirname(local_path)
+    if parent and parent != STORAGE_DIR and os.path.isdir(parent) and not os.listdir(parent):
+        os.rmdir(parent)
 
     spark_result = None
     if spark_transfer_enabled():
         from app.spark_transfer import delete_from_spark
         spark_result = delete_from_spark(file_obj.file_path)
+        derived = _derived_pdf(file_obj.file_path)
+        if derived:
+            delete_from_spark(derived)
 
     # Delete DB record
     db.delete(file_obj)

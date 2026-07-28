@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.8.3",
+      "date": "2026-07-28",
+      "title": "Przygotowanie pod dokumenty ODT",
+      "changes": [
+        "System rozpoznaje pliki OpenDocument (.odt) i przypisuje im właściwą ikonę oraz typ.",
+        "Usunięcie dokumentu sprząta również plik pomocniczy powstający przy konwersji formatów wymagających przetworzenia."
+      ]
+    },
+    {
       "version": "0.8.2",
       "date": "2026-07-28",
       "title": "Nowa nazwa aplikacji: ZCO DM",
