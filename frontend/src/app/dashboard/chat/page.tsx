@@ -17,9 +17,6 @@ function pluralDocs(n: number): string {
 // Pole najlepiej identyfikujące dokument na liście (pierwsze pasujące)
 const KEY_FIELDS = ['numer_dokumentu', 'numer', 'numer_aneksu', 'numer_zalacznika', 'data'];
 
-// Odmowa, którą zwraca ścieżka treści, gdy w kontekście nie ma odpowiedzi (tekst
-// ustalony w promptcie n8n). Rozpoznajemy ją, żeby dać jeszcze szansę rejestrowi pól.
-const ODMOWA_RE = /nie znaleziono w dokumentach informacji na ten temat/i;
 
 const OP_LABELS: Record<string, string> = {
   eq: '=', contains: 'zawiera', gte: 'od', lte: 'do', gt: 'po', lt: 'przed',
@@ -180,6 +177,9 @@ export default function ChatPage() {
   // Router typu pytania: komunikat pokazujemy dopiero po progu, żeby nie migał (~0,4 s)
   const [routingHint, setRoutingHint] = useState(false);
   const [typeNames, setTypeNames] = useState<Record<string, string>>({});
+  // Dokumenty wskazane w ostatniej odpowiedzi. Do nich odnoszą się pytania
+  // typu „co jest w tym dokumencie" — bez tego zbioru nie ma do czego.
+  const [zbiorRoboczy, setZbiorRoboczy] = useState<ChatSource[]>([]);
 
   // Nazwy typów dokumentów (slug → nazwa) do etykiet na liście wyników
   useEffect(() => {
@@ -221,13 +221,17 @@ export default function ChatPage() {
       const res = await fetch(`/api/chat/conversations/${id}`, { headers: authHeaders() });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      setMessages(
-        (data.messages || []).map((m: any) => ({
-          role: m.role,
-          content: m.content,
-          sources: m.sources || undefined,
-        }))
-      );
+      const wiadomosci = (data.messages || []).map((m: any) => ({
+        role: m.role,
+        content: m.content,
+        sources: m.sources || undefined,
+      }));
+      setMessages(wiadomosci);
+      // Odtwórz zbiór roboczy z ostatniej odpowiedzi — po powrocie do rozmowy
+      // pytanie „a co jest w tym dokumencie" ma nadal do czego się odnosić.
+      const ostatniaOdpowiedz = [...wiadomosci].reverse()
+        .find((m: ChatMessage) => m.role === 'assistant' && (m.sources?.length || 0) > 0);
+      setZbiorRoboczy(ostatniaOdpowiedz?.sources || []);
       setCurrentConvId(id);
     } catch {
       alert('Nie udało się wczytać rozmowy.');
@@ -238,6 +242,7 @@ export default function ChatPage() {
     if (streaming) return;
     setCurrentConvId(null);
     setMessages([]);
+    setZbiorRoboczy([]);
   };
 
   const deleteConversation = async (id: number, e: React.MouseEvent) => {
@@ -274,6 +279,8 @@ export default function ChatPage() {
       listRes,
       docs,
       typeName,
+      // Pytanie nie niosło żadnego kryterium — rejestr nie ma czego szukać
+      noCriteria: !!listRes.no_criteria,
       summary: `Znalazłem ${hits.length} ${pluralDocs(hits.length)}` +
         (typeName ? ` (typ: ${typeName})` : '') + '.',
     };
@@ -336,68 +343,112 @@ export default function ChatPage() {
         }
       }
 
-      // ===== ROUTER TYPU PYTANIA =====
-      // LISTA → wypisz dokumenty (filtr po metadanych), TRESC → odpowiedź z treści (RAG).
-      // Błąd/brak schematów → TRESC, czyli dotychczasowe zachowanie.
+      // ===== USTALENIE ZAKRESU I FORMY ODPOWIEDZI =====
+      // Każde pytanie rozstrzygamy w dwóch niezależnych wymiarach:
+      //   1. O JAKIE DOKUMENTY chodzi — z kryteriów w pytaniu (rejestr pól), z odniesienia
+      //      do poprzedniej odpowiedzi („w tym dokumencie") albo o żadne konkretne.
+      //   2. CZEGO OCZEKUJE użytkownik — listy dokumentów (LISTA) czy odpowiedzi z ich
+      //      treści (TRESC).
+      // Rozpoznanie typu i wyszukanie w rejestrze są niezależne, więc lecą równolegle —
+      // rejestr nie wydłuża odpowiedzi.
       const routeTimer = setTimeout(() => setRoutingHint(true), 600);
-      let mode = 'TRESC';
-      try {
-        const rr = await fetch('/api/chat/route', {
+      const [route, rejestr] = await Promise.all([
+        fetch('/api/chat/route', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify({ message: text }),
-        });
-        if (rr.ok) {
-          const d = await rr.json();
-          if (d?.mode) mode = d.mode;
-        }
-      } catch { /* zostaje TRESC */ }
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
+        szukajWRejestrze(text).catch(() => null),
+      ]);
       clearTimeout(routeTimer);
       setRoutingHint(false);
 
+      const mode = route?.mode === 'LISTA' ? 'LISTA' : 'TRESC';  // awaria → TRESC
+      const doPoprzednich = !!route?.refers_to_previous;
+
+      // Zakres: odniesienie do poprzedniej odpowiedzi ma pierwszeństwo przed kryteriami,
+      // bo „co jest w tym dokumencie" nie niesie żadnych własnych kryteriów.
+      let zakres: ChatSource[] | null = null;
+      if (doPoprzednich && zbiorRoboczy.length > 0) {
+        zakres = zbiorRoboczy;
+      } else if (rejestr && rejestr.docs.length > 0) {
+        zakres = rejestr.docs;
+      }
+
       if (mode === 'LISTA') {
-        try {
-          const { listRes, docs, summary } = await szukajWRejestrze(text);
-          if (docs.length > 0) {
-            setMessages((prev) => {
-              const next = [...prev];
-              next[next.length - 1] = { ...next[next.length - 1], content: summary, sources: docs };
-              return next;
-            });
-            if (convId != null) {
-              try {
-                await fetch(`/api/chat/conversations/${convId}/turn`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', ...authHeaders() },
-                  body: JSON.stringify({ user_message: text, assistant_message: summary, sources: docs }),
-                });
-                loadConversations();
-              } catch { /* zapis historii nie jest krytyczny */ }
-            }
-            return;  // obsłużone — finally posprząta stan
-          }
-          // 0 wyników: NIE udajemy, że nic się nie stało. Mówimy wprost, że żaden
-          // dokument nie spełnia kryteriów, a odpowiedź z treści (RAG) doklejamy
-          // niżej, wyraźnie oznaczoną — inaczej użytkownik dostaje pewną siebie,
-          // ale nietrafioną odpowiedź (np. o rozporządzeniu zamiast zarządzeniu).
-          const desc = describeFilter(listRes.filter, typeNames);
-          const notice = listRes.unknown_type
-            ? `_W systemie nie ma rodzaju dokumentów „${listRes.unknown_type}". ` +
-              `Rozpoznawane rodzaje: ${(listRes.known_types || []).join(', ')}. ` +
-              `Poniżej odpowiedź na podstawie treści dokumentów:_\n\n`
-            : `_Nie znalazłem dokumentów spełniających kryteria${desc ? ` (${desc})` : ''}. ` +
-              `Poniżej odpowiedź na podstawie treści dokumentów:_\n\n`;
-          assistantText = notice;
+        if (zakres) {
+          const summary = doPoprzednich && !rejestr?.docs.length
+            ? `Dokumenty z poprzedniej odpowiedzi (${zakres.length}):`
+            : (rejestr?.summary ?? `Znalazłem ${zakres.length} ${pluralDocs(zakres.length)}.`);
           setMessages((prev) => {
             const next = [...prev];
-            next[next.length - 1] = { ...next[next.length - 1], content: notice };
+            next[next.length - 1] = { ...next[next.length - 1], content: summary, sources: zakres! };
             return next;
           });
-        } catch {
-          // awaria wyszukiwania → przechodzimy do RAG bez komunikatu
+          setZbiorRoboczy(zakres);
+          if (convId != null) {
+            try {
+              await fetch(`/api/chat/conversations/${convId}/turn`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                body: JSON.stringify({ user_message: text, assistant_message: summary, sources: zakres }),
+              });
+              loadConversations();
+            } catch { /* zapis historii nie jest krytyczny */ }
+          }
+          return;  // obsłużone — finally posprząta stan
         }
+
+        // Pytanie o listę, ale nie wiadomo o jaką. Nie wypisujemy całej bazy —
+        // to udawanie odpowiedzi. Prosimy o doprecyzowanie.
+        if (!rejestr || rejestr.noCriteria) {
+          const prosba =
+            'Nie wiem, o które dokumenty chodzi. Doprecyzuj — możesz podać rodzaj ' +
+            '(np. zarządzenia, instrukcje), osobę (np. zatwierdzone przez Kowalską), ' +
+            'numer albo rok.';
+          assistantText = prosba;
+          setMessages((prev) => {
+            const next = [...prev];
+            next[next.length - 1] = { ...next[next.length - 1], content: prosba };
+            return next;
+          });
+          if (convId != null) {
+            try {
+              await fetch(`/api/chat/conversations/${convId}/turn`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                body: JSON.stringify({ user_message: text, assistant_message: prosba, sources: [] }),
+              });
+              loadConversations();
+            } catch { /* zapis historii nie jest krytyczny */ }
+          }
+          return;
+        }
+
+        // Kryteria były, ale nic im nie odpowiada. Mówimy to wprost, a odpowiedź
+        // z treści doklejamy niżej — router bywa omylny i pytanie mogło dotyczyć treści.
+        const desc = describeFilter(rejestr.listRes.filter, typeNames);
+        const notice = rejestr.listRes.unknown_type
+          ? `_W systemie nie ma rodzaju dokumentów „${rejestr.listRes.unknown_type}". ` +
+            `Rozpoznawane rodzaje: ${(rejestr.listRes.known_types || []).join(', ')}. ` +
+            `Poniżej odpowiedź na podstawie treści dokumentów:_\n\n`
+          : `_Nie znalazłem dokumentów spełniających kryteria${desc ? ` (${desc})` : ''}. ` +
+            `Poniżej odpowiedź na podstawie treści dokumentów:_\n\n`;
+        assistantText = notice;
+        setMessages((prev) => {
+          const next = [...prev];
+          next[next.length - 1] = { ...next[next.length - 1], content: notice };
+          return next;
+        });
       }
-      // ===== KONIEC ROUTERA =====
+      // ===== KONIEC USTALANIA ZAKRESU =====
+
+      // Treść przeszukujemy w obrębie ustalonego zakresu — dzięki temu „co jest
+      // w instrukcji zatwierdzonej przez Dynarską" pyta o treść TEGO dokumentu,
+      // zamiast przeczesywać całą bazę.
+      const zakresIds = (zakres || []).map((d) => d.file_id).filter((v): v is number => !!v);
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -408,6 +459,7 @@ export default function ChatPage() {
           message: text,
           session_id: String(convId ?? requestId),
           request_id: requestId,
+          file_ids: zakresIds.length > 0 ? zakresIds : undefined,
         }),
         signal: controller.signal,
       });
@@ -454,30 +506,9 @@ export default function ChatPage() {
         else throw streamErr;
       }
 
-      // Odpowiedź z treści bywa pusta przy pytaniach o pola opisowe („czy X zatwierdziła
-      // jakieś instrukcje"). Nazwisko w tabelce nagłówkowej wypada słabo w wyszukiwaniu
-      // semantycznym — mierzone 0,386 przy progu 0,50 — więc zanim zostawimy użytkownika
-      // z „nie znaleziono", pytamy jeszcze rejestr pól. Kosztuje jedno wywołanie i tylko
-      // przy nieudanej odpowiedzi.
-      if (!aborted && ODMOWA_RE.test(assistantText)) {
-        try {
-          const { docs, summary } = await szukajWRejestrze(text);
-          if (docs.length > 0) {
-            assistantText =
-              `${assistantText.trim()}\n\nW rejestrze pól opisowych dokumenty jednak są. ${summary}`;
-            finalSources = docs;
-            setMessages((prev) => {
-              const next = [...prev];
-              next[next.length - 1] = { ...next[next.length - 1], content: assistantText, sources: docs };
-              return next;
-            });
-          }
-        } catch { /* rejestr to tylko dodatkowa szansa, brak wyniku nic nie psuje */ }
-      }
-
       // Źródła odpowiedzi (zapisane przez n8n po zakończeniu strumienia).
       // Przy przerwaniu pomijamy — odpowiedź jest częściowa.
-      if (!aborted && finalSources.length === 0) try {
+      if (!aborted) try {
         const srcRes = await fetch(`/api/chat/sources/${requestId}`, { headers: authHeaders() });
         if (srcRes.ok) {
           const data = await srcRes.json();
@@ -486,6 +517,11 @@ export default function ChatPage() {
           }
         }
       } catch { /* brak źródeł nie jest błędem krytycznym */ }
+
+      // Zbiór roboczy na kolejne pytanie: dokumenty użyte w tej odpowiedzi. Gdy pytanie
+      // było już zawężone, zostaje zawężenie — inaczej biorą się z odpowiedzi RAG.
+      const noweZrodla = zakres ?? finalSources.filter((s) => !!s.file_id);
+      if (noweZrodla.length > 0) setZbiorRoboczy(noweZrodla);
 
       // Zapisz turę w historii (pytanie + odpowiedź + źródła)
       if (convId != null && assistantText.trim()) {

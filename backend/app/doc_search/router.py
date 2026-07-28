@@ -362,6 +362,17 @@ async def nl_search(
         seen.add(key)
         filters.append(FieldFilter(field=field, op=op, value=value))
 
+    # Brak jakiegokolwiek kryterium (ani typu, ani warunku) = nie wiadomo, o które
+    # dokumenty chodzi. Wyszukiwanie bez warunków zwróciłoby CAŁĄ bazę i udawało
+    # odpowiedź — tak samo mylące jak nieznany typ dokumentu, który odsiewamy wyżej.
+    if not doc_type and not filters:
+        logger.info(f"[DOC-SEARCH-NL] Brak kryteriów w pytaniu: {payload.query[:70]!r}")
+        return {
+            "filter": {"doc_type": None, "filters": []},
+            "hits": [],
+            "no_criteria": True,
+        }
+
     hits = _run_search(db, current_user, doc_type, filters, payload.limit)
     return {
         "filter": {"doc_type": doc_type, "filters": [f.model_dump() for f in filters]},

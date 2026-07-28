@@ -364,6 +364,9 @@ export const docSearchApi = {
       hits: DocSearchHit[];
       unknown_type?: string;
       known_types?: string[];
+      // Pytanie bez jakiegokolwiek kryterium — rejestr nie zwraca wtedy nic,
+      // bo wyszukiwanie bez warunków oddałoby całą bazę i udawało odpowiedź.
+      no_criteria?: boolean;
     }>('/api/doc-search/nl', {
       method: 'POST',
       body: { query },

@@ -180,6 +180,10 @@ class ChatRequest(BaseModel):
     message: str
     session_id: str
     request_id: Optional[str] = None  # identyfikator pojedynczego pytania (dla źródeł)
+    # Zawężenie wyszukiwania treści do wskazanych dokumentów — gdy pytanie dotyczy
+    # dokumentów ustalonych wcześniej (rejestr pól albo poprzednia odpowiedź).
+    # Uprawnienia do folderów obowiązują niezależnie: oba warunki łączymy w `must`.
+    file_ids: Optional[list[int]] = None
 
 
 class ChatSourceItem(BaseModel):

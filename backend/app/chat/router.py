@@ -202,13 +202,17 @@ async def chat(
     # admin → None (brak filtra, widzi wszystko, w tym pliki z roota bez folder_id).
     # nie-admin → dopuszczaj tylko chunki z dozwolonych folderów (match.any).
     # Pusta lista → match.any:[] → nic nie pasuje (brak uprawnień = brak wyników).
-    qdrant_filter = None
+    warunki: list[dict] = []
     if folder_filter_enabled:
-        qdrant_filter = {
-            "must": [
-                {"key": "metadata.folder_id", "match": {"any": allowed_folder_ids}}
-            ]
-        }
+        warunki.append({"key": "metadata.folder_id", "match": {"any": allowed_folder_ids}})
+
+    # Zawężenie do konkretnych dokumentów (pytanie o treść wskazanych wcześniej plików).
+    # Dokłada się do warunku uprawnień, więc nie da się nim obejść RBAC — najwyżej
+    # zawęzić do części tego, co i tak wolno czytać.
+    if payload.file_ids:
+        warunki.append({"key": "metadata.file_id", "match": {"any": sorted(set(payload.file_ids))}})
+
+    qdrant_filter = {"must": warunki} if warunki else None
 
     # Historia rozmowy budowana po naszej stronie (bez odmów) — zastępuje Simple Memory
     history = build_history(db, current_user, payload.session_id)
@@ -230,11 +234,16 @@ async def chat(
         "folderFilterEnabled": folder_filter_enabled,
         "allowedFolderIds": allowed_folder_ids,
         "qdrantFilter": qdrant_filter,
+        # Pytanie zawężone do wskazanych dokumentów. Próg trafności w n8n chroni przed
+        # odpowiadaniem z przypadkowych dokumentów — przy zawężeniu tego ryzyka nie ma,
+        # więc tam próg jest niższy (inaczej odcinalibyśmy treść wskazanego dokumentu).
+        "scopedToFiles": bool(payload.file_ids),
     }
     logger.info(
         f"[CHAT] user={current_user.username} role={current_user.role.value} "
         f"session={payload.session_id} req={request_id} "
-        f"folderFilter={folder_filter_enabled} allowed={allowed_folder_ids} -> {chat_url}"
+        f"folderFilter={folder_filter_enabled} allowed={allowed_folder_ids} "
+        f"fileIds={payload.file_ids or '-'} -> {chat_url}"
     )
 
     client = httpx.AsyncClient(timeout=_TIMEOUT)
@@ -416,6 +425,12 @@ _ROUTE_SYSTEM = (
     "Dopiero pytanie o ZBIOR dokumentow danej osoby to LISTA.\n"
     "W razie watpliwosci: jesli wypowiedz to polecenie lub sama nazwa dokumentu -> LISTA; "
     "jesli to pytanie o wiedze -> TRESC.\n"
+    "Osobno oceniasz pole 'poprzednie': ustaw true, gdy wypowiedz odnosi sie do dokumentow "
+    "wskazanych we WCZESNIEJSZEJ odpowiedzi, zamiast opisywac je od nowa. Sygnalem sa "
+    "zaimki i odwolania bez wlasnej tresci: 'co jest w tym dokumencie', 'w nim', "
+    "'w tych dokumentach', 'w pierwszym z nich', 'wypisz je', 'je wszystkie', "
+    "'ktory z nich', 'ile ich jest', 'a co dalej'. "
+    "Gdy wypowiedz sama okresla, o jakie dokumenty chodzi, ustaw false.\n"
     "Zwroc wylacznie JSON zgodny ze schematem."
 )
 
@@ -427,8 +442,11 @@ _ROUTE_FORMAT = {
         "schema": {
             "type": "object",
             "additionalProperties": False,
-            "properties": {"typ": {"type": "string", "enum": ["LISTA", "TRESC"]}},
-            "required": ["typ"],
+            "properties": {
+                "typ": {"type": "string", "enum": ["LISTA", "TRESC"]},
+                "poprzednie": {"type": "boolean"},
+            },
+            "required": ["typ", "poprzednie"],
         },
     },
 }
@@ -461,7 +479,7 @@ async def route_question(
     body = {
         "model": settings.VLLM_MODEL,
         "temperature": 0,
-        "max_tokens": 10,
+        "max_tokens": 24,  # dwa pola JSON (typ + poprzednie)
         "messages": [
             {"role": "system", "content": _ROUTE_SYSTEM},
             {"role": "user", "content": text},
@@ -473,15 +491,20 @@ async def route_question(
         async with httpx.AsyncClient(timeout=httpx.Timeout(connect=5.0, read=20.0, write=10.0, pool=5.0)) as client:
             resp = await client.post(url, json=body)
         resp.raise_for_status()
-        mode = _json.loads(resp.json()["choices"][0]["message"]["content"]).get("typ")
+        parsed = _json.loads(resp.json()["choices"][0]["message"]["content"])
+        mode = parsed.get("typ")
+        refers_back = bool(parsed.get("poprzednie"))
     except Exception as e:
         logger.warning(f"[CHAT-ROUTE] Rozpoznanie typu pytania nieudane: {e}")
-        return {"mode": "TRESC", "reason": "błąd rozpoznania"}
+        return {"mode": "TRESC", "refers_to_previous": False, "reason": "błąd rozpoznania"}
 
     if mode not in ("LISTA", "TRESC"):
         mode = "TRESC"
-    logger.info(f"[CHAT-ROUTE] user={current_user.username} → {mode}: {text[:60]}")
-    return {"mode": mode}
+    logger.info(
+        f"[CHAT-ROUTE] user={current_user.username} → {mode}"
+        f"{' (do poprzednich)' if refers_back else ''}: {text[:60]}"
+    )
+    return {"mode": mode, "refers_to_previous": refers_back}
 
 
 @router.get("/parse-active")
