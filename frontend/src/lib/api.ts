@@ -296,9 +296,9 @@ export const settingsApi = {
       body: data,
       token: getAuthToken(),
     }),
-  // Lekki endpoint dla wszystkich zalogowanych: parametry sesji (auto-wylogowanie)
+  // Lekki endpoint dla wszystkich zalogowanych: auto-wylogowanie + dozwolone rozszerzenia
   session: () =>
-    apiRequest<{ idle_timeout_minutes: number }>('/api/settings/session', {
+    apiRequest<{ idle_timeout_minutes: number; allowed_extensions: string[] }>('/api/settings/session', {
       method: 'GET',
       token: getAuthToken(),
     }),

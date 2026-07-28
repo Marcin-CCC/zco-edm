@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { filesApi, foldersApi } from '@/lib/api';
+import { filesApi, foldersApi, settingsApi } from '@/lib/api';
 import { useAuth } from '@/lib/store';
 
 interface File {
@@ -155,6 +155,9 @@ function FilesPageInner() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [moveTarget, setMoveTarget] = useState<number[] | null>(null);  // pliki do przeniesienia
   const [moveFolderId, setMoveFolderId] = useState<string>('');
+  // Rozszerzenia z ustawień administratora — okno wysyłki musi pokazywać to samo,
+  // co realnie przepuszcza backend. Wartość startowa służy tylko do czasu odpowiedzi.
+  const [allowedExts, setAllowedExts] = useState<string[]>(['pdf', 'docx', 'xlsx']);
   const [moving, setMoving] = useState(false);
   const [newPermRole, setNewPermRole] = useState('doctor');
   const [newPermAccess, setNewPermAccess] = useState('read');
@@ -514,6 +517,18 @@ function FilesPageInner() {
     loadFolders();
     loadFiles();
   }, [loadFolders, loadFiles]);
+
+  // Dozwolone rozszerzenia — przy błędzie zostaje wartość startowa, żeby okno
+  // wysyłki dało się otworzyć mimo niedostępnych ustawień.
+  useEffect(() => {
+    settingsApi.session()
+      .then((s) => {
+        if (Array.isArray(s?.allowed_extensions) && s.allowed_extensions.length > 0) {
+          setAllowedExts(s.allowed_extensions);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Deep-link z Listy dostępów: /dashboard/files?folder=<id> — wejdź do folderu.
   // Stosujemy raz, po załadowaniu drzewa folderów (potrzebne do breadcrumbów).
@@ -1114,8 +1129,8 @@ function FilesPageInner() {
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-lg font-bold text-gray-800 mb-2">Prześlij pliki</h2>
             <p className="text-sm text-gray-600 mb-1">
-              Dozwolone typy: PDF, DOCX, XLSX (max 100MB). Możesz wybrać wiele
-              plików naraz.
+              Dozwolone typy: {allowedExts.map((e) => e.toUpperCase()).join(', ')} (max
+              100MB). Możesz wybrać wiele plików naraz.
             </p>
             <p className="text-sm text-gray-600 mb-4">
               Docelowy folder: <strong>
@@ -1125,7 +1140,7 @@ function FilesPageInner() {
             <input
               type="file"
               multiple
-              accept=".pdf,.docx,.xlsx"
+              accept={allowedExts.map((e) => `.${e}`).join(',')}
               onChange={handleUpload}
               className="w-full border border-gray-300 rounded-md p-2"
               disabled={uploading}

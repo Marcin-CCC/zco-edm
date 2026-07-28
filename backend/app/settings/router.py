@@ -114,15 +114,20 @@ def get_session_settings(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Lekki endpoint dla wszystkich zalogowanych: parametry sesji (idle-timeout).
+    """Lekki endpoint dla wszystkich zalogowanych: parametry sesji i wgrywania.
 
     MUSI być przed '/{key}' (PUT) — tu tylko GET, więc kolizji nie ma, ale trzymamy
-    blisko GET '/'. Zwraca tylko niewrażliwą wartość auto-wylogowania.
+    blisko GET '/'. Zwraca wyłącznie wartości niewrażliwe: auto-wylogowanie oraz
+    listę dozwolonych rozszerzeń, której okno wysyłki potrzebuje, żeby filtr plików
+    i opis zgadzały się z ustawieniem administratora.
     """
     global _cache_loaded
     if not _cache_loaded:
         _load_cache_from_db(db)
-    return {"idle_timeout_minutes": get_idle_timeout()}
+    return {
+        "idle_timeout_minutes": get_idle_timeout(),
+        "allowed_extensions": sorted(get_allowed_extensions()),
+    }
 
 
 @router.put("/{key}")

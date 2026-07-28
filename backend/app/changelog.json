@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.8.6",
+      "date": "2026-07-28",
+      "title": "Okno wysyłki zgodne z ustawieniami",
+      "changes": [
+        "Okno przesyłania plików pokazuje dozwolone typy z ustawień aplikacji zamiast stałej listy - po dodaniu formatu (na przykład ODT) widać go od razu w opisie.",
+        "Filtr w systemowym oknie wyboru pliku również bierze listę z ustawień, więc nowe formaty nie są w nim wyszarzane."
+      ]
+    },
+    {
       "version": "0.8.5",
       "date": "2026-07-28",
       "title": "Rzetelniejsze pola dokumentów",
