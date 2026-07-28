@@ -17,6 +17,10 @@ function pluralDocs(n: number): string {
 // Pole najlepiej identyfikujące dokument na liście (pierwsze pasujące)
 const KEY_FIELDS = ['numer_dokumentu', 'numer', 'numer_aneksu', 'numer_zalacznika', 'data'];
 
+// Odmowa, którą zwraca ścieżka treści, gdy w kontekście nie ma odpowiedzi (tekst
+// ustalony w promptcie n8n). Rozpoznajemy ją, żeby dać jeszcze szansę rejestrowi pól.
+const ODMOWA_RE = /nie znaleziono w dokumentach informacji na ten temat/i;
+
 const OP_LABELS: Record<string, string> = {
   eq: '=', contains: 'zawiera', gte: 'od', lte: 'do', gt: 'po', lt: 'przed',
 };
@@ -246,6 +250,35 @@ export default function ChatPage() {
     } catch { /* ignore */ }
   };
 
+  /**
+   * Wyszukanie dokumentów w rejestrze pól opisowych (ta sama ścieżka, co tryb LISTA).
+   * Zwraca gotowe podsumowanie i listę dokumentów albo null, gdy nic nie pasuje.
+   */
+  const szukajWRejestrze = async (pytanie: string) => {
+    const listRes = await docSearchApi.nl(pytanie);
+    const hits = listRes.hits || [];
+    const docs: ChatSource[] = hits.map((h) => {
+      const f = h.fields || {};
+      const key = KEY_FIELDS.map((k) => f[k]).find((v) => !!v);
+      return {
+        filename: h.filename,
+        file_id: h.id,
+        doc_type: h.doc_type || undefined,
+        doc_type_name: h.doc_type ? (typeNames[h.doc_type] || h.doc_type) : undefined,
+        doc_key: key || undefined,
+      };
+    });
+    const slug = listRes.filter?.doc_type;
+    const typeName = slug ? (typeNames[slug] || slug) : null;
+    return {
+      listRes,
+      docs,
+      typeName,
+      summary: `Znalazłem ${hits.length} ${pluralDocs(hits.length)}` +
+        (typeName ? ` (typ: ${typeName})` : '') + '.',
+    };
+  };
+
   const sendMessage = async () => {
     const text = input.trim();
     if (!text || streaming) return;
@@ -324,25 +357,8 @@ export default function ChatPage() {
 
       if (mode === 'LISTA') {
         try {
-          const listRes = await docSearchApi.nl(text);
-          const listHits = listRes.hits || [];
-          if (listHits.length > 0) {
-            const docs: ChatSource[] = listHits.map((h) => {
-              const f = h.fields || {};
-              const key = KEY_FIELDS.map((k) => f[k]).find((v) => !!v);
-              return {
-                filename: h.filename,
-                file_id: h.id,
-                doc_type: h.doc_type || undefined,
-                doc_type_name: h.doc_type ? (typeNames[h.doc_type] || h.doc_type) : undefined,
-                doc_key: key || undefined,
-              };
-            });
-            const slug = listRes.filter?.doc_type;
-            const typeName = slug ? (typeNames[slug] || slug) : null;
-            const summary =
-              `Znalazłem ${listHits.length} ${pluralDocs(listHits.length)}` +
-              (typeName ? ` (typ: ${typeName})` : '') + '.';
+          const { listRes, docs, summary } = await szukajWRejestrze(text);
+          if (docs.length > 0) {
             setMessages((prev) => {
               const next = [...prev];
               next[next.length - 1] = { ...next[next.length - 1], content: summary, sources: docs };
@@ -438,9 +454,30 @@ export default function ChatPage() {
         else throw streamErr;
       }
 
+      // Odpowiedź z treści bywa pusta przy pytaniach o pola opisowe („czy X zatwierdziła
+      // jakieś instrukcje"). Nazwisko w tabelce nagłówkowej wypada słabo w wyszukiwaniu
+      // semantycznym — mierzone 0,386 przy progu 0,50 — więc zanim zostawimy użytkownika
+      // z „nie znaleziono", pytamy jeszcze rejestr pól. Kosztuje jedno wywołanie i tylko
+      // przy nieudanej odpowiedzi.
+      if (!aborted && ODMOWA_RE.test(assistantText)) {
+        try {
+          const { docs, summary } = await szukajWRejestrze(text);
+          if (docs.length > 0) {
+            assistantText =
+              `${assistantText.trim()}\n\nW rejestrze pól opisowych dokumenty jednak są. ${summary}`;
+            finalSources = docs;
+            setMessages((prev) => {
+              const next = [...prev];
+              next[next.length - 1] = { ...next[next.length - 1], content: assistantText, sources: docs };
+              return next;
+            });
+          }
+        } catch { /* rejestr to tylko dodatkowa szansa, brak wyniku nic nie psuje */ }
+      }
+
       // Źródła odpowiedzi (zapisane przez n8n po zakończeniu strumienia).
       // Przy przerwaniu pomijamy — odpowiedź jest częściowa.
-      if (!aborted) try {
+      if (!aborted && finalSources.length === 0) try {
         const srcRes = await fetch(`/api/chat/sources/${requestId}`, { headers: authHeaders() });
         if (srcRes.ok) {
           const data = await srcRes.json();
