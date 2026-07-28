@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.9.9",
+      "date": "2026-07-28",
+      "title": "Krótsza lista dokumentów pod odpowiedzią",
+      "changes": [
+        "Pod odpowiedzią widać teraz tylko dokumenty faktycznie użyte, a poniżej informację ile dokumentów sprawdzono bez wykorzystania, z odnośnikiem Pokaż te dokumenty rozwijającym pełną listę.",
+        "Numer przy dokumencie ma postać takiej samej plakietki jak odsyłacz w treści odpowiedzi - niebieskiej dla dokumentów użytych, szarej dla pozostałych.",
+        "Dzięki temu odpowiedzi są krótsze, a wszystkie odnośniki mają jednakowy, czytelny kolor."
+      ]
+    },
+    {
       "version": "0.9.8",
       "date": "2026-07-28",
       "title": "Czytelniejsza lista dokumentów pod odpowiedzią",

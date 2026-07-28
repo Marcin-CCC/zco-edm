@@ -14,6 +14,12 @@ function pluralDocs(n: number): string {
   return 'dokumentów';
 }
 
+/** „Sprawdzono też N dokumentów, które nie zostały wykorzystane" z poprawną odmianą. */
+function sprawdzoneOpis(n: number): string {
+  if (n === 1) return 'Sprawdzono też 1 dokument, który nie został wykorzystany.';
+  return `Sprawdzono też ${n} ${pluralDocs(n)}, które nie zostały wykorzystane.`;
+}
+
 // Pole najlepiej identyfikujące dokument na liście (pierwsze pasujące)
 const KEY_FIELDS = ['numer_dokumentu', 'numer', 'numer_aneksu', 'numer_zalacznika', 'data'];
 
@@ -182,6 +188,9 @@ export default function ChatPage() {
   // Dokumenty wskazane w ostatniej odpowiedzi. Do nich odnoszą się pytania
   // typu „co jest w tym dokumencie" — bez tego zbioru nie ma do czego.
   const [zbiorRoboczy, setZbiorRoboczy] = useState<ChatSource[]>([]);
+  // Które odpowiedzi mają rozwiniętą listę dokumentów sprawdzonych, ale niewykorzystanych
+  // (klucz = pozycja wiadomości na liście)
+  const [pokazPozostale, setPokazPozostale] = useState<Record<number, boolean>>({});
 
   // Nazwy typów dokumentów (slug → nazwa) do etykiet na liście wyników
   useEffect(() => {
@@ -234,6 +243,7 @@ export default function ChatPage() {
       const ostatniaOdpowiedz = [...wiadomosci].reverse()
         .find((m: ChatMessage) => m.role === 'assistant' && (m.sources?.length || 0) > 0);
       setZbiorRoboczy(ostatniaOdpowiedz?.sources || []);
+      setPokazPozostale({});  // rozwinięcia dotyczą pozycji wiadomości — nowa rozmowa, nowy stan
       setCurrentConvId(id);
     } catch {
       alert('Nie udało się wczytać rozmowy.');
@@ -245,6 +255,7 @@ export default function ChatPage() {
     setCurrentConvId(null);
     setMessages([]);
     setZbiorRoboczy([]);
+    setPokazPozostale({});
   };
 
   const deleteConversation = async (id: number, e: React.MouseEvent) => {
@@ -761,43 +772,73 @@ export default function ChatPage() {
                   m.content || (streaming && idx === messages.length - 1 ? '…' : '')
                 )}
 
-                {m.role === 'assistant' && m.sources && m.sources.length > 0 && (
-                  <div className="mt-3 pt-2 border-t border-gray-300">
-                    <p className="text-xs font-medium text-gray-500 mb-1">
-                      Dokumenty wzięte pod uwagę:
-                    </p>
-                    <ul className="space-y-1">
-                      {m.sources.map((s, i) => {
-                        const clickable = !!sourceHref(s);
-                        // Fragmenty bez znacznika w treści były w kontekście modelu, ale
-                        // nie zostały przez niego przywołane — oznaczamy je wyraźnie,
-                        // żeby dało się sprawdzić, skąd naprawdę pochodzi odpowiedź.
-                        // Statusu NIE kodujemy przygaszeniem: opacity na całym wierszu
-                        // zbijało kontrast linku do 2,88:1, a nazwy pliku do 1,75:1
-                        // (próg czytelności to 4,5:1). Rozróżnienie niesie dopisek.
-                        const przywolane = s.cited !== false;
-                        return (
-                          <li key={i} className="text-xs">
-                            <span className="text-gray-400 mr-1">{i + 1}.</span>
-                            {clickable ? (
-                              <button onClick={() => openSource(s)} className="text-blue-600 hover:underline text-left">
-                                📄 {renderSourceLabel(s, i)}{s.page ? ` (str. ${s.page})` : ''}
-                              </button>
-                            ) : (
-                              <span className="text-gray-600">📄 {renderSourceLabel(s, i)}{s.page ? ` (str. ${s.page})` : ''}</span>
-                            )}
-                            {!przywolane && (
-                              <span className="text-gray-600 ml-1">— sprawdzony, nieprzywołany w odpowiedzi</span>
-                            )}
-                            {s.doc_type_name && s.filename && (
-                              <div className="text-gray-600 pl-4 break-all">{s.filename}</div>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                )}
+                {m.role === 'assistant' && m.sources && m.sources.length > 0 && (() => {
+                  // Domyślnie pokazujemy TYLKO dokumenty przywołane w treści — reszta
+                  // (fragmenty, które model dostał, ale z nich nie skorzystał) czeka pod
+                  // zwijką. Przy dużym dokumencie kontekst potrafi mieć kilkanaście
+                  // fragmentów z tego samego pliku i lista przytłaczała odpowiedź.
+                  const pozycje = m.sources!.map((s, i) => ({ s, numer: i + 1 }));
+                  const przywolane = pozycje.filter((p) => p.s.cited !== false);
+                  const pozostale = pozycje.filter((p) => p.s.cited === false);
+                  const otwarte = !!pokazPozostale[idx];
+
+                  // Numer musi odpowiadać znacznikowi w treści, więc po ukryciu części
+                  // pozycji w numeracji zostają dziury. Dlatego numer nosi tę samą
+                  // niebieską plakietkę co odsyłacz w tekście — czyta się ją jak
+                  // etykietę odsyłacza, a nie jak kolejność na liście.
+                  const wiersz = ({ s, numer }: { s: ChatSource; numer: number }, uzyty: boolean) => (
+                    <li key={numer} className="text-xs">
+                      <span
+                        className={`align-super text-[10px] leading-none px-1 py-0.5 mr-1 rounded font-medium ${
+                          uzyty ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-600'
+                        }`}
+                      >
+                        {numer}
+                      </span>
+                      {sourceHref(s) ? (
+                        <button onClick={() => openSource(s)} className="text-blue-600 hover:underline text-left">
+                          📄 {renderSourceLabel(s, numer - 1)}{s.page ? ` (str. ${s.page})` : ''}
+                        </button>
+                      ) : (
+                        <span className="text-gray-600">📄 {renderSourceLabel(s, numer - 1)}{s.page ? ` (str. ${s.page})` : ''}</span>
+                      )}
+                      {s.doc_type_name && s.filename && (
+                        <div className="text-gray-600 pl-5 break-all">{s.filename}</div>
+                      )}
+                    </li>
+                  );
+
+                  return (
+                    <div className="mt-3 pt-2 border-t border-gray-300">
+                      {przywolane.length > 0 && (
+                        <>
+                          <p className="text-xs font-medium text-gray-500 mb-1">
+                            {przywolane.length === 1 ? 'Dokument użyty w odpowiedzi:' : 'Dokumenty użyte w odpowiedzi:'}
+                          </p>
+                          <ul className="space-y-1">{przywolane.map((p) => wiersz(p, true))}</ul>
+                        </>
+                      )}
+
+                      {pozostale.length > 0 && (
+                        <div className={przywolane.length > 0 ? 'mt-2' : ''}>
+                          <p className="text-xs font-medium text-gray-500">
+                            {sprawdzoneOpis(pozostale.length)}{' '}
+                            <button
+                              onClick={() => setPokazPozostale((prev) => ({ ...prev, [idx]: !otwarte }))}
+                              className="text-blue-600 hover:underline font-medium"
+                              aria-expanded={otwarte}
+                            >
+                              {otwarte ? 'Ukryj te dokumenty' : 'Pokaż te dokumenty'}
+                            </button>
+                          </p>
+                          {otwarte && (
+                            <ul className="space-y-1 mt-1">{pozostale.map((p) => wiersz(p, false))}</ul>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           ))}
