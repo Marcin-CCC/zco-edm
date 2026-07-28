@@ -255,7 +255,8 @@ export const dashboardApi = {
       method: 'GET',
       token: getAuthToken(),
     }),
-  // Dzienne liczniki (ostatnie N dni). Admin → wszyscy, pozostali → własne dane.
+  // Dzienne liczniki (ostatnie N dni). Admin → całość; pozostali → pliki z dostępnych
+  // folderów oraz własne zapytania w czacie.
   activity: (days = 30) =>
     apiRequest<{
       days: string[];

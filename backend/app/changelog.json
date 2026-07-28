@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.8.7",
+      "date": "2026-07-28",
+      "title": "Dashboard w zakresie uprawnień użytkownika",
+      "changes": [
+        "Liczby i wykresy na Dashboardzie zwykłego użytkownika dotyczą wyłącznie folderów, do których ma dostęp - wcześniej pokazywały wartości dla całej aplikacji.",
+        "Wykres parsowania obejmuje dokumenty dostępne dla użytkownika (nie tylko wgrane przez niego), a wykres zapytań pozostaje osobisty; opisy nad wykresami mówią wprost, czego dotyczą.",
+        "Kafelek Użytkownicy widzi już tylko administrator."
+      ]
+    },
+    {
       "version": "0.8.6",
       "date": "2026-07-28",
       "title": "Okno wysyłki zgodne z ustawieniami",

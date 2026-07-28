@@ -13,7 +13,10 @@ const KOLOR_ZAPYTANIA = '#0f8a5f';   // zieleń
 export default function DashboardPage() {
   const { user } = useAuth();
 
-  const [stats, setStats] = useState({ users: 0, documents: 0, folders: 0, processed: 0 });
+  // users = null dla zwykłego użytkownika (backend nie zwraca liczby kont)
+  const [stats, setStats] = useState<{
+    users: number | null; documents: number; folders: number; processed: number;
+  }>({ users: null, documents: 0, folders: 0, processed: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<BarChartPoint[]>([]);
@@ -33,14 +36,17 @@ export default function DashboardPage() {
   }, []);
 
   const suma = (p: BarChartPoint[]) => p.reduce((a, b) => a + b.value, 0);
-  const opisZakresu = scope === 'all' ? 'wszyscy użytkownicy' : 'Twoje dane';
+  // Wykresy mają różny zakres dla zwykłego użytkownika: pliki widzi te, do których
+  // ma dostęp, a zapytania wyłącznie własne — stąd dwa osobne opisy.
+  const opisPlikow = scope === 'all' ? 'wszyscy użytkownicy' : 'dostępne dla Ciebie';
+  const opisZapytan = scope === 'all' ? 'wszyscy użytkownicy' : 'Twoje zapytania';
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         const data = await dashboardApi.stats();
         setStats({
-          users: data.users ?? 0,
+          users: data.users ?? null,
           documents: data.documents ?? 0,
           folders: data.folders ?? 0,
           processed: data.processed ?? 0,
@@ -55,7 +61,10 @@ export default function DashboardPage() {
   }, []);
 
   const statItems = [
-    { label: 'Użytkownicy', value: String(stats.users), href: '/dashboard/users' },
+    // kafelek Użytkownicy tylko dla admina — prowadzi do strony administracyjnej
+    ...(stats.users !== null
+      ? [{ label: 'Użytkownicy', value: String(stats.users), href: '/dashboard/users' }]
+      : []),
     { label: 'Dokumenty', value: String(stats.documents), href: '#' },
     { label: 'Foldery', value: String(stats.folders), href: '#' },
     { label: 'Przetworzone', value: String(stats.processed), href: '#' },
@@ -73,7 +82,10 @@ export default function DashboardPage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {/* liczba kolumn = liczba kafelków, żeby brak kafelka Użytkownicy nie zostawiał luki */}
+      <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 ${
+        statItems.length === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'
+      }`}>
         {statItems.map((stat) => (
           <a
             key={stat.label}
@@ -93,7 +105,7 @@ export default function DashboardPage() {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-baseline justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-800">Statystyki parsowania</h2>
-            <span className="text-xs text-gray-400">30 dni · {opisZakresu}</span>
+            <span className="text-xs text-gray-400">30 dni · {opisPlikow}</span>
           </div>
           {chartsLoading ? (
             <div className="h-56 flex items-center justify-center text-sm text-gray-400">Ładowanie…</div>
@@ -113,7 +125,7 @@ export default function DashboardPage() {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-baseline justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-800">Statystyki zapytań w chacie</h2>
-            <span className="text-xs text-gray-400">30 dni · {opisZakresu}</span>
+            <span className="text-xs text-gray-400">30 dni · {opisZapytan}</span>
           </div>
           {chartsLoading ? (
             <div className="h-56 flex items-center justify-center text-sm text-gray-400">Ładowanie…</div>

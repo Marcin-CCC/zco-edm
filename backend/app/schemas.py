@@ -153,7 +153,8 @@ class TokenData(BaseModel):
 
 # ==================== Dashboard ====================
 class DashboardStats(BaseModel):
-    users: int
+    # users tylko dla administratora — zwykły użytkownik nie dostaje liczby kont
+    users: Optional[int] = None
     documents: int
     folders: int
     processed: int
