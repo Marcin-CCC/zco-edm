@@ -3,6 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/store';
 import { dashboardApi } from '@/lib/api';
+import { BarChart, BarChartPoint } from '@/components/bar-chart';
+
+// Kolory serii sprawdzone pod kątem czytelności i rozróżnialności przy zaburzeniach
+// widzenia barw (osobna seria na wykres, więc bez legendy — tytuł karty ją nazywa).
+const KOLOR_PARSOWANIE = '#2563eb';  // niebieski aplikacji
+const KOLOR_ZAPYTANIA = '#0f8a5f';   // zieleń
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -10,6 +16,24 @@ export default function DashboardPage() {
   const [stats, setStats] = useState({ users: 0, documents: 0, folders: 0, processed: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [parsed, setParsed] = useState<BarChartPoint[]>([]);
+  const [queries, setQueries] = useState<BarChartPoint[]>([]);
+  const [scope, setScope] = useState<'all' | 'own'>('own');
+  const [chartsLoading, setChartsLoading] = useState(true);
+
+  useEffect(() => {
+    dashboardApi.activity(30)
+      .then((d) => {
+        setParsed(d.days.map((day, i) => ({ day, value: d.parsed[i] ?? 0 })));
+        setQueries(d.days.map((day, i) => ({ day, value: d.queries[i] ?? 0 })));
+        setScope(d.scope);
+      })
+      .catch(() => { /* wykresy nie są krytyczne dla reszty dashboardu */ })
+      .finally(() => setChartsLoading(false));
+  }, []);
+
+  const suma = (p: BarChartPoint[]) => p.reduce((a, b) => a + b.value, 0);
+  const opisZakresu = scope === 'all' ? 'wszyscy użytkownicy' : 'Twoje dane';
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -62,6 +86,49 @@ export default function DashboardPage() {
             </p>
           </a>
         ))}
+      </div>
+
+      {/* Wykresy aktywności — ostatnie 30 dni */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-800">Statystyki parsowania</h2>
+            <span className="text-xs text-gray-400">30 dni · {opisZakresu}</span>
+          </div>
+          {chartsLoading ? (
+            <div className="h-56 flex items-center justify-center text-sm text-gray-400">Ładowanie…</div>
+          ) : (
+            <>
+              <p className="text-2xl font-bold text-gray-800 mb-4">{suma(parsed)}</p>
+              <BarChart
+                data={parsed}
+                color={KOLOR_PARSOWANIE}
+                unitLabel="sparsowanych plików"
+                emptyText="Brak sparsowanych plików w ostatnich 30 dniach"
+              />
+            </>
+          )}
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-800">Statystyki zapytań w chacie</h2>
+            <span className="text-xs text-gray-400">30 dni · {opisZakresu}</span>
+          </div>
+          {chartsLoading ? (
+            <div className="h-56 flex items-center justify-center text-sm text-gray-400">Ładowanie…</div>
+          ) : (
+            <>
+              <p className="text-2xl font-bold text-gray-800 mb-4">{suma(queries)}</p>
+              <BarChart
+                data={queries}
+                color={KOLOR_ZAPYTANIA}
+                unitLabel="zapytań"
+                emptyText="Brak zapytań w ostatnich 30 dniach"
+              />
+            </>
+          )}
+        </div>
       </div>
 
       {/* User info */}

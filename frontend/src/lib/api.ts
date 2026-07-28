@@ -255,6 +255,14 @@ export const dashboardApi = {
       method: 'GET',
       token: getAuthToken(),
     }),
+  // Dzienne liczniki (ostatnie N dni). Admin → wszyscy, pozostali → własne dane.
+  activity: (days = 30) =>
+    apiRequest<{
+      days: string[];
+      parsed: number[];
+      queries: number[];
+      scope: 'all' | 'own';
+    }>(`/api/dashboard/activity?days=${days}`, { method: 'GET', token: getAuthToken() }),
 };
 
 // Settings endpoints

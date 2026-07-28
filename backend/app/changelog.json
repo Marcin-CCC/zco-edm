@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.8.0",
+      "date": "2026-07-28",
+      "title": "Wykresy aktywności na dashboardzie",
+      "changes": [
+        "Dashboard pokazuje dwa wykresy słupkowe z ostatnich 30 dni: liczbę sparsowanych plików oraz liczbę zapytań w chacie, dzień po dniu.",
+        "Nad każdym wykresem widoczna jest suma z całego okresu, a najechanie na słupek pokazuje dokładną wartość i datę.",
+        "Administrator widzi dane wszystkich użytkowników, pozostali użytkownicy wyłącznie własne."
+      ]
+    },
+    {
       "version": "0.7.2",
       "date": "2026-07-27",
       "title": "Spójny układ akcji na liście plików",
