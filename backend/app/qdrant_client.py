@@ -224,3 +224,36 @@ def get_text_by_file_id(file_id: int, max_chars: int = 6000) -> str:
     parts.sort(key=lambda p: (p[0], p[1]))
     text = "\n".join(p[2] for p in parts if p[2]).strip()
     return text[:max_chars]
+
+
+def count_chunks_with_text(term: str) -> int | None:
+    """Ile fragmentów zawiera dane słowo (indeks pełnotekstowy na `content`).
+
+    Służy do oceny, czy słowo jest na tyle rzadkie, by zawężać po nim wyszukiwanie
+    (nazwisko, numer, nazwa własna) — zob. app/chat/lexical.py. Zwraca None przy
+    awarii: nie znamy rzadkości, więc wołający pomija takie słowo.
+    """
+    base = settings.QDRANT_URL.rstrip("/")
+    url = f"{base}/collections/{settings.QDRANT_COLLECTION}/points/count"
+    body = {"filter": {"must": [{"key": "content", "match": {"text": term}}]}, "exact": True}
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.post(url, json=body)
+        resp.raise_for_status()
+        return int(resp.json()["result"]["count"])
+    except Exception as e:
+        logger.warning(f"[QDRANT] Zliczanie fragmentów dla {term!r} nieudane: {e}")
+        return None
+
+
+def count_points() -> int:
+    """Liczba fragmentów w kolekcji (do skalowania progu rzadkości)."""
+    base = settings.QDRANT_URL.rstrip("/")
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.get(f"{base}/collections/{settings.QDRANT_COLLECTION}")
+        resp.raise_for_status()
+        return int(resp.json()["result"].get("points_count") or 0)
+    except Exception as e:
+        logger.warning(f"[QDRANT] Odczyt rozmiaru kolekcji nieudany: {e}")
+        return 0

@@ -209,8 +209,24 @@ async def chat(
     # Zawężenie do konkretnych dokumentów (pytanie o treść wskazanych wcześniej plików).
     # Dokłada się do warunku uprawnień, więc nie da się nim obejść RBAC — najwyżej
     # zawęzić do części tego, co i tak wolno czytać.
+    terminy: list[str] = []
     if payload.file_ids:
         warunki.append({"key": "metadata.file_id", "match": {"any": sorted(set(payload.file_ids))}})
+    else:
+        # Zawężenie po nazwie własnej. Wyszukiwanie semantyczne nie znajduje nazwisk
+        # (mierzone: właściwe fragmenty 0,28–0,40, niżej niż przypadkowe), więc rzadkie
+        # słowo z pytania dokładamy jako warunek dosłowny. Warunki łączymy przez `should`
+        # — chunk ma zawierać KTÓREKOLWIEK z rzadkich słów, bo imię i nazwisko potrafią
+        # trafić do różnych fragmentów.
+        from app.chat.lexical import rdzenie_z_rejestru, terminy_selektywne
+        from app.qdrant_client import count_chunks_with_text, count_points
+        terminy = terminy_selektywne(
+            payload.message, count_chunks_with_text, count_points(), rdzenie_z_rejestru(db)
+        )
+        if terminy:
+            warunki.append({"should": [
+                {"key": "content", "match": {"text": t}} for t in terminy
+            ]})
 
     qdrant_filter = {"must": warunki} if warunki else None
 
@@ -234,16 +250,17 @@ async def chat(
         "folderFilterEnabled": folder_filter_enabled,
         "allowedFolderIds": allowed_folder_ids,
         "qdrantFilter": qdrant_filter,
-        # Pytanie zawężone do wskazanych dokumentów. Próg trafności w n8n chroni przed
-        # odpowiadaniem z przypadkowych dokumentów — przy zawężeniu tego ryzyka nie ma,
-        # więc tam próg jest niższy (inaczej odcinalibyśmy treść wskazanego dokumentu).
-        "scopedToFiles": bool(payload.file_ids),
+        # Pytanie zawężone — do wskazanych dokumentów albo do fragmentów zawierających
+        # rzadkie słowo z pytania. Próg trafności w n8n chroni przed odpowiadaniem
+        # z przypadkowych dokumentów; przy zawężeniu tego ryzyka nie ma, a trafności są
+        # z natury niższe, więc tam próg jest wtedy wyłączony.
+        "scopedToFiles": bool(payload.file_ids or terminy),
     }
     logger.info(
         f"[CHAT] user={current_user.username} role={current_user.role.value} "
         f"session={payload.session_id} req={request_id} "
         f"folderFilter={folder_filter_enabled} allowed={allowed_folder_ids} "
-        f"fileIds={payload.file_ids or '-'} -> {chat_url}"
+        f"fileIds={payload.file_ids or '-'} terminy={terminy or '-'} -> {chat_url}"
     )
 
     client = httpx.AsyncClient(timeout=_TIMEOUT)

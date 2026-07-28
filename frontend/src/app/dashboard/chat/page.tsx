@@ -69,7 +69,11 @@ interface ConvSummary {
  * streamowania (np. „[[ŹRÓDŁA: 1," bez domknięcia).
  */
 // Inline znacznik cytowania: „[Źródło 3]", „[[Źródło 3]]", lista „[Źródło 2, 5]"
-const INLINE_MARKER_RE = /\[{1,2}\s*Źród(?:ło|ła)\s*(\d+(?:\s*,\s*\d+)*)\s*\]{1,2}/gi;
+// Model zapisuje cytowania na kilka sposobów: [Źródło 1], [Źródło 1, 2], a przy
+// wyliczeniach powtarza słowo — [Źródło 1, Źródło 2]. Wzorzec obejmuje wszystkie,
+// bo nieobsłużony wariant zostaje w treści jako surowy tekst.
+const INLINE_MARKER_RE =
+  /\[{1,2}\s*Źród(?:ło|ła)\s*(\d+(?:\s*,\s*(?:Źród(?:ło|ła)\s*)?\d+)*)\s*\]{1,2}/gi;
 
 /** Usuń maszynowy znacznik zbiorczy z końca oraz niedomknięty ogon w trakcie streamowania. */
 function stripEndMarker(text: string): string {
@@ -102,8 +106,9 @@ function linkifyMarkers(text: string, sourcesCount: number): string | null {
   // 1) numery w kolejności pierwszego wystąpienia
   const order: string[] = [];
   for (const m of text.matchAll(INLINE_MARKER_RE)) {
-    for (const num of m[1].split(',').map((s) => s.trim())) {
-      if (num && !order.includes(num)) order.push(num);
+    // z „1, Źródło 2" bierzemy same liczby — słowo bywa powtórzone przy wyliczeniu
+    for (const num of m[1].match(/\d+/g) || []) {
+      if (!order.includes(num)) order.push(num);
     }
   }
   if (order.length === 0) return null;
@@ -125,10 +130,7 @@ function linkifyMarkers(text: string, sourcesCount: number): string | null {
 
   // 2) podmiana na odnośniki markdown (obsługiwane przez własny renderer `a`)
   return text.replace(INLINE_MARKER_RE, (_full, nums: string) =>
-    nums
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
+    (nums.match(/\d+/g) || [])
       .map((num) => {
         const d = display.get(num);
         return d ? `[${d}](#src-${d})` : '';

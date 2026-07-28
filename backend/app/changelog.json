@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.9.2",
+      "date": "2026-07-28",
+      "title": "Wyszukiwanie po nazwiskach i nazwach własnych",
+      "changes": [
+        "Pytania o osoby - kim jest dana osoba, jakie pełni stanowisko - znajdują odpowiedź w dokumentach; wcześniej kończyły się komunikatem o braku informacji, mimo że nazwisko widnieje w tabelkach dokumentów.",
+        "Aplikacja rozpoznaje nazwisko także zapisane z małej litery i w odmienionej formie.",
+        "Odnośniki do źródeł działają również w zapisie z powtórzonym słowem, na przykład przy dwóch dokumentach naraz."
+      ]
+    },
+    {
       "version": "0.9.1",
       "date": "2026-07-28",
       "title": "Uczciwa odpowiedź przy pytaniu o nieistniejące dokumenty",
