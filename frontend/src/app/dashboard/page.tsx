@@ -46,6 +46,13 @@ export default function DashboardPage() {
   }, []);
 
   const suma = (p: BarChartPoint[]) => p.reduce((a, b) => a + b.value, 0);
+
+  /** Dane jednego wykresu wg użytkowników: od największej wartości, licząc od góry. */
+  const wgWartosci = (wartosc: (u: { parsed: number; queries: number }) => number) =>
+    wgUzytkownikow
+      .map((u) => ({ label: u.name, value: wartosc(u) }))
+      // przy równych wartościach alfabetycznie — inaczej kolejność zmieniałaby się losowo
+      .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, 'pl'));
   // Wykresy mają różny zakres dla zwykłego użytkownika: pliki widzi te, do których
   // ma dostęp, a zapytania wyłącznie własne — stąd dwa osobne opisy.
   const opisPlikow = scope === 'all' ? 'wszyscy użytkownicy' : 'dostępne dla Ciebie';
@@ -162,7 +169,7 @@ export default function DashboardPage() {
               <span className="text-xs text-gray-400">ostatnie 30 dni</span>
             </div>
             <HBarChart
-              data={wgUzytkownikow.map((u) => ({ label: u.name, value: u.parsed }))}
+              data={wgWartosci((u) => u.parsed)}
               color={KOLOR_PARSOWANIE}
               unitLabel="sparsowanych plików"
               emptyText="Nikt nie wysłał plików w ostatnich 30 dniach"
@@ -175,7 +182,7 @@ export default function DashboardPage() {
               <span className="text-xs text-gray-400">ostatnie 30 dni</span>
             </div>
             <HBarChart
-              data={wgUzytkownikow.map((u) => ({ label: u.name, value: u.queries }))}
+              data={wgWartosci((u) => u.queries)}
               color={KOLOR_ZAPYTANIA}
               unitLabel="zapytań"
               emptyText="Nikt nie zadał pytania w ostatnich 30 dniach"

@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.9.4",
+      "date": "2026-07-28",
+      "title": "Wykresy aktywności uporządkowane malejąco",
+      "changes": [
+        "Na obu wykresach aktywności użytkowników pozycje są ułożone od największej wartości na górze; każdy wykres sortuje się według własnej wielkości.",
+        "Przy równych wartościach obowiązuje kolejność alfabetyczna, żeby układ nie zmieniał się między odświeżeniami."
+      ]
+    },
+    {
       "version": "0.9.3",
       "date": "2026-07-28",
       "title": "Aktywność użytkowników na Dashboardzie administratora",
