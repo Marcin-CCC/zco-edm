@@ -95,10 +95,12 @@ async def retry_processing(
     logger.info(f"[RETRY] Found file: {file.filename}, current status: {file.status}")
 
     # Wróć do kolejki i wyczyść stary powód błędu (żeby UI nie pokazywało nieświeżego)
+    # oraz licznik prób — ponowienie ręczne daje plikowi pełną pulę od nowa.
     file.status = DocumentStatus.PENDING
-    if isinstance(file.metadata_, dict) and "error" in file.metadata_:
+    if isinstance(file.metadata_, dict):
         cleaned = dict(file.metadata_)
         cleaned.pop("error", None)
+        cleaned.pop("parse_attempts", None)
         file.metadata_ = cleaned
     db.commit()
 

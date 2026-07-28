@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.9.6",
+      "date": "2026-07-28",
+      "title": "Kolejka nie zatrzymuje się na jednym pliku",
+      "changes": [
+        "Gdy przetwarzanie pliku przerwie się po stronie n8n i nie zgłosi wyniku, aplikacja ponawia ten plik automatycznie; dopiero druga nieudana próba kończy się błędem.",
+        "W Kolejce plików pojawił się przycisk Przerwij i ponów dla pliku zablokowanego w stanie Przetwarzanie - pozwala odblokować kolejkę od razu, bez czekania na automatyczne sprzątanie.",
+        "Udane przetworzenie kasuje licznik prób, więc ponowne parsowanie tego samego pliku zaczyna liczenie od nowa."
+      ]
+    },
+    {
       "version": "0.9.5",
       "date": "2026-07-28",
       "title": "Udział przetworzonych dokumentów w procentach",

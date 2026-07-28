@@ -40,6 +40,12 @@ logger = logging.getLogger(__name__)
 # Po ilu minutach plik wiszący w PROCESSING uznajemy za martwy (watchdog)
 PROCESSING_TIMEOUT_MINUTES = int(os.getenv("PROCESSING_TIMEOUT_MINUTES", "30"))
 
+# Ile razy wolno automatycznie ponowić plik, którego przebieg w n8n umarł bez
+# odpowiedzi. Awarie bywają przejściowe (zmierzone: ten sam obrazek, który wywalił
+# węzeł Edit Image, przy powtórce przechodzi bez problemu), więc pierwsza próba
+# powinna być ponowiona automatycznie, a nie spalona na ERROR.
+MAX_PARSE_ATTEMPTS = int(os.getenv("MAX_PARSE_ATTEMPTS", "2"))
+
 # Stały klucz blokady doradczej dyspozytora — TEN SAM we wszystkich instancjach
 # dzielących bazę, więc serializuje wysyłkę między nimi.
 _DISPATCH_LOCK_KEY = 776_2001
@@ -54,6 +60,9 @@ def mark_processing_started(file: FileModel) -> None:
     meta = dict(file.metadata_ or {})
     meta["processing_started_at"] = datetime.utcnow().isoformat()
     meta.pop("processing_seconds", None)
+    # Licznik prób tego pliku — watchdog na jego podstawie decyduje, czy ponowić
+    # jeszcze raz, czy uznać plik za nieprzetwarzalny.
+    meta["parse_attempts"] = int(meta.get("parse_attempts") or 0) + 1
     file.metadata_ = meta
 
 
@@ -85,7 +94,12 @@ def _build_payload(file: FileModel) -> dict:
 
 
 def _reap_stale_processing(db: Session) -> None:
-    """Watchdog: oznacz jako ERROR pliki wiszące w PROCESSING zbyt długo.
+    """Watchdog: posprzątaj pliki wiszące w PROCESSING zbyt długo.
+
+    Przebieg w n8n potrafi umrzeć w połowie (np. błąd węzła) i wtedy nikt nie
+    zawoła callbacka — plik wisi w PROCESSING, a dyspozytor nie wyśle kolejnego,
+    bo pilnuje zasady „1 plik naraz". Pierwszą taką sytuację traktujemy jako awarię
+    przejściową i ponawiamy plik; dopiero kolejna kończy się ERROR-em.
 
     Nie commituje — wołane w sekcji krytycznej dyspozytora, commit robi
     wołający (żeby reap i decyzja o zajęciu slotu były jedną transakcją).
@@ -98,12 +112,26 @@ def _reap_stale_processing(db: Session) -> None:
         .all()
     )
     for f in stale:
-        logger.warning(
-            f"[DISPATCH] Watchdog: plik {f.id} ({f.filename}) w PROCESSING "
-            f"od > {PROCESSING_TIMEOUT_MINUTES} min — oznaczam ERROR"
-        )
-        f.status = DocumentStatus.ERROR
-        mark_processing_finished(f)
+        proby = int((f.metadata_ or {}).get("parse_attempts") or 1)
+        if proby < MAX_PARSE_ATTEMPTS:
+            logger.warning(
+                f"[DISPATCH] Watchdog: plik {f.id} ({f.filename}) bez odpowiedzi "
+                f"> {PROCESSING_TIMEOUT_MINUTES} min (próba {proby}) — ponawiam"
+            )
+            f.status = DocumentStatus.PENDING
+        else:
+            logger.warning(
+                f"[DISPATCH] Watchdog: plik {f.id} ({f.filename}) bez odpowiedzi "
+                f"> {PROCESSING_TIMEOUT_MINUTES} min po {proby} próbach — oznaczam ERROR"
+            )
+            f.status = DocumentStatus.ERROR
+            meta = dict(f.metadata_ or {})
+            meta["error"] = (
+                f"Przetwarzanie w n8n nie odpowiedziało w ciągu "
+                f"{PROCESSING_TIMEOUT_MINUTES} min (prób: {proby})."
+            )
+            f.metadata_ = meta
+            mark_processing_finished(f)
 
 
 def _mark_error(db: Session, file_id: int, reason: str | None = None) -> None:

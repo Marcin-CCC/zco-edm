@@ -176,6 +176,37 @@ export default function FileQueuePage() {
     }
   };
 
+  /**
+   * Zwolnij plik zablokowany w „Przetwarzanie".
+   *
+   * Gdy przebieg w n8n umrze w połowie (błąd węzła), nikt nie zawoła callbacka —
+   * plik wisi, a dyspozytor nie wyśle następnego, bo pilnuje zasady „1 plik naraz".
+   * Watchdog posprząta to sam, ale dopiero po 30 minutach; ten przycisk robi to od ręki.
+   */
+  const unstickItem = async (itemId: number) => {
+    if (!confirm(
+      'Plik jest oznaczony jako przetwarzany i blokuje kolejkę.\n\n' +
+      'Przerwać go i wysłać do przetworzenia od nowa? Jeśli przetwarzanie faktycznie ' +
+      'jeszcze trwa w n8n, jego wynik zostanie pominięty.'
+    )) return;
+    try {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`/api/processing-queue/${itemId}/retry`, {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.error) {
+        alert(`Błąd: ${data?.message || data?.detail || res.statusText}`);
+      }
+    } catch {
+      alert('Nie udało się zwolnić pliku.');
+    } finally {
+      loadQueue();
+      loadStatusSummary();
+    }
+  };
+
   // NARZĘDZIE TESTOWE (strojenie klasyfikacji) — przetwórz od nowa z kasowaniem
   // wektorów. Docelowo do usunięcia razem z przyciskiem w kolumnie Akcje.
   const reparseItem = async (fileId: number) => {
@@ -367,6 +398,17 @@ export default function FileQueuePage() {
                             className="text-blue-600 hover:text-blue-800 text-sm"
                           >
                             🔄 Ponów
+                          </button>
+                        )}
+                        {/* Plik wiszący w „Przetwarzanie" (przebieg w n8n umarł bez odpowiedzi)
+                            blokuje całą kolejkę do czasu watchdoga. Ten przycisk zwalnia go od ręki. */}
+                        {item.status === 'Przetwarzanie' && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); unstickItem(item.id); }}
+                            className="text-amber-600 hover:text-amber-800 text-sm whitespace-nowrap"
+                            title="Zwolnij zablokowaną kolejkę i przetwórz plik od nowa"
+                          >
+                            ⏭ Przerwij i ponów
                           </button>
                         )}
                         {/* NARZĘDZIE TESTOWE — reparse z kasowaniem wektorów (do usunięcia po testach) */}

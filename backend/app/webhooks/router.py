@@ -174,11 +174,13 @@ async def update_file_status(file_id: int, payload: StatusUpdate, db: Session = 
         merged.update(payload.metadata)
         file_obj.metadata_ = merged
 
-    # Sukces parsowania kasuje ewentualny stary błąd (parsowanie się udało).
+    # Sukces parsowania kasuje ewentualny stary błąd i licznik prób (parsowanie
+    # się udało — kolejne przetwarzanie tego pliku zaczyna liczenie od zera).
     if new_status == DocumentStatus.READY and isinstance(file_obj.metadata_, dict):
-        if "error" in file_obj.metadata_:
+        if "error" in file_obj.metadata_ or "parse_attempts" in file_obj.metadata_:
             cleaned = dict(file_obj.metadata_)
             cleaned.pop("error", None)
+            cleaned.pop("parse_attempts", None)
             file_obj.metadata_ = cleaned
 
     # Czas parsowania: licz przy prawdziwym końcu. ERROR i READY-bez-klasyfikacji — teraz;
