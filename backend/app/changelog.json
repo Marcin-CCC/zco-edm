@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.8.5",
+      "date": "2026-07-28",
+      "title": "Rzetelniejsze pola dokumentów",
+      "changes": [
+        "Pole, którego w dokumencie nie ma, zostaje puste zamiast wypełniać się zastępczym napisem w rodzaju nieokreślony, brak czy myślnika - wyszukiwarka po polach nie traktuje już takich zapisów jak treści.",
+        "Z nazwy pliku brany jest tylko typ i kod dokumentu; numer w nazwie (na przykład Zał. nr 1) nie jest już mylony z numerem edycji.",
+        "Dokument bez tabelki nagłówkowej jest poprawnym przypadkiem - brak pól nie jest uzupełniany zgadywaniem."
+      ]
+    },
+    {
       "version": "0.8.4",
       "date": "2026-07-28",
       "title": "Obsługa dokumentów ODT",

@@ -109,12 +109,34 @@ def normalize_date(value: str) -> str:
     return v
 
 
+# Zaślepki, którymi model wypełnia pole zamiast je pominąć. W rejestrze taka
+# wartość udaje treść: filtr „opracował zawiera…" i sortowanie traktują ją jak
+# nazwisko. Lepiej nie mieć pola niż mieć w nim informację o jego braku.
+_PLACEHOLDERS = {
+    "nieokreślony", "nieokreslony", "nieokreślona", "nieokreslona",
+    "nieznany", "nieznana", "brak", "brak danych", "bez danych",
+    "nie dotyczy", "n/d", "nd", "b/d", "b.d", "null", "none",
+    "-", "--", "—", "–", "?",
+}
+
+
+def _is_placeholder(value) -> bool:
+    if not isinstance(value, str):
+        return False
+    v = value.strip()
+    # linia do wypełnienia z formularza (kropki, podkreślenia) to też brak wartości
+    if not v.strip(".…_ \t"):
+        return True
+    return v.strip(".").lower() in _PLACEHOLDERS
+
+
 def _normalize_fields(fields: dict, schema: dict) -> dict:
     """Znormalizuj pola typu `date` do YYYY-MM-DD; odrzuć wartości niebędące datą.
 
     Model potrafi wyciągnąć z formularza śmieć (np. linię kropek „…........"), a taka
     wartość przy porównaniu tekstowym wypada „po" każdej dacie i zaśmieca wyniki
     filtrowania po zakresach. Lepiej nie mieć pola niż mieć w nim nie-datę.
+    Tą samą zasadą usuwamy zaślepki w rodzaju „nieokreślony".
     """
     date_names = {
         f.get("name") for f in (schema.get("fields") or [])
@@ -122,6 +144,9 @@ def _normalize_fields(fields: dict, schema: dict) -> dict:
     }
     out = {}
     for k, v in fields.items():
+        if _is_placeholder(v):
+            logger.info(f"[EXTRACT] Pominięto zaślepkę w polu '{k}': {v!r}")
+            continue
         if k not in date_names:
             out[k] = v
             continue
@@ -151,8 +176,13 @@ def _build_messages(schemas: list[dict], text: str, filename: str = "") -> list[
         "'Zarządzenie Nr' na zarządzenie), ale gdy treść wyraźnie przeczy nazwie, "
         "rozstrzyga treść. Jeśli żaden typ nie "
         "pasuje, użyj doc_type='inny'. Następnie wyciągnij wartości pól WYŁĄCZNIE dla "
-        "wybranego typu (nazwy pól dokładnie jak w katalogu). Jeśli pola nie ma w "
-        "dokumencie — pomiń je. Daty zwracaj w formacie YYYY-MM-DD. "
+        "wybranego typu (nazwy pól dokładnie jak w katalogu). Z nazwy pliku wolno "
+        "wziąć tylko typ dokumentu oraz jego kod lub symbol; wartości pozostałych pól "
+        "muszą pochodzić z treści dokumentu. Numer w nazwie pliku nie jest numerem "
+        "edycji ani wersji. Pola, którego nie ma w dokumencie, NIE wypełniaj wartością "
+        "zastępczą w rodzaju 'nieokreślony', 'brak' czy myślnika — po prostu je pomiń. "
+        "Nie każdy dokument ma tabelkę nagłówkową i brak pól jest poprawnym wynikiem. "
+        "Daty zwracaj w formacie YYYY-MM-DD. "
         "Zwróć wyłącznie JSON zgodny ze schematem."
     )
     user = f"NAZWA PLIKU: {filename}\n\n{catalog}\n\nDOKUMENT (początek):\n{text}"
@@ -259,7 +289,10 @@ async def extract_fields(schema: dict, text: str, filename: str = "") -> dict:
     system = (
         "Wyciągasz wartości pól nagłówkowych z dokumentu o ZNANYM typie. Zwróć wyłącznie "
         "JSON zgodny ze schematem. Podawaj wartości tylko dla wymienionych pól; pomiń "
-        "pole, którego nie ma w dokumencie. Daty zwracaj w formacie YYYY-MM-DD."
+        "pole, którego nie ma w dokumencie — nie wypełniaj go wartością zastępczą w "
+        "rodzaju 'nieokreślony', 'brak' czy myślnika. Z nazwy pliku wolno wziąć tylko "
+        "kod lub symbol dokumentu; numer w nazwie pliku nie jest numerem edycji ani "
+        "wersji. Daty zwracaj w formacie YYYY-MM-DD."
     )
     user = (
         f"TYP DOKUMENTU: {schema.get('name', schema.get('slug'))}\n"
