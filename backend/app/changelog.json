@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.9.1",
+      "date": "2026-07-28",
+      "title": "Uczciwa odpowiedź przy pytaniu o nieistniejące dokumenty",
+      "changes": [
+        "Gdy pytanie wskazuje konkretne pole (osobę, numer, datę), a żaden dokument go nie spełnia, aplikacja mówi to wprost i podpowiada, jak zapytać o treść - zamiast dopasowywać odpowiedź do założenia pytania.",
+        "Przy zgrubnym kryterium (sam rodzaj dokumentu) odpowiedź z treści jest nadal doklejana, bo pytanie mogło dotyczyć treści."
+      ]
+    },
+    {
       "version": "0.9.0",
       "date": "2026-07-28",
       "title": "Czat pamięta znalezione dokumenty",

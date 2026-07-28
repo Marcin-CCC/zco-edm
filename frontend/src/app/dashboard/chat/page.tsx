@@ -427,9 +427,40 @@ export default function ChatPage() {
           return;
         }
 
-        // Kryteria były, ale nic im nie odpowiada. Mówimy to wprost, a odpowiedź
-        // z treści doklejamy niżej — router bywa omylny i pytanie mogło dotyczyć treści.
+        // Kryteria były, ale nic im nie odpowiada.
         const desc = describeFilter(rejestr.listRes.filter, typeNames);
+        const poPolu = (rejestr.listRes.filter?.filters?.length || 0) > 0;
+
+        // Warunek na konkretnym polu (osoba, numer, data) jest precyzyjny: skoro rejestr
+        // nic nie zwrócił, to takich dokumentów po prostu nie ma. Odpowiadamy wprost i
+        // NIE doklejamy odpowiedzi z treści — inaczej model dopasowuje się do fałszywego
+        // założenia pytania (nazywa „instrukcjami” zarządzenie, bo tak brzmiało pytanie).
+        if (poPolu) {
+          const odpowiedz =
+            `Nie znalazłem dokumentów spełniających kryteria${desc ? ` (${desc})` : ''}. ` +
+            'Jeśli chodziło Ci o treść dokumentów, a nie o ich zestawienie, zapytaj wprost ' +
+            'o zagadnienie — np. „co mówią przepisy o pracy zdalnej?".';
+          assistantText = odpowiedz;
+          setMessages((prev) => {
+            const next = [...prev];
+            next[next.length - 1] = { ...next[next.length - 1], content: odpowiedz };
+            return next;
+          });
+          if (convId != null) {
+            try {
+              await fetch(`/api/chat/conversations/${convId}/turn`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                body: JSON.stringify({ user_message: text, assistant_message: odpowiedz, sources: [] }),
+              });
+              loadConversations();
+            } catch { /* zapis historii nie jest krytyczny */ }
+          }
+          return;
+        }
+
+        // Kryterium było zgrubne (sam rodzaj dokumentu) — doklejamy odpowiedź z treści,
+        // bo router bywa omylny i pytanie mogło jednak dotyczyć treści.
         const notice = rejestr.listRes.unknown_type
           ? `_W systemie nie ma rodzaju dokumentów „${rejestr.listRes.unknown_type}". ` +
             `Rozpoznawane rodzaje: ${(rejestr.listRes.known_types || []).join(', ')}. ` +
