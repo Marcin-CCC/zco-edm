@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "0.9.5",
+      "date": "2026-07-28",
+      "title": "Udział przetworzonych dokumentów w procentach",
+      "changes": [
+        "Kafelek Przetworzone na Dashboardzie pokazuje obok liczby udział procentowy przetworzonych dokumentów względem wszystkich, z dokładnością do dwóch miejsc po przecinku."
+      ]
+    },
+    {
       "version": "0.9.4",
       "date": "2026-07-28",
       "title": "Wykresy aktywności uporządkowane malejąco",

@@ -84,7 +84,18 @@ export default function DashboardPage() {
       : []),
     { label: 'Dokumenty', value: String(stats.documents), href: '#' },
     { label: 'Foldery', value: String(stats.folders), href: '#' },
-    { label: 'Przetworzone', value: String(stats.processed), href: '#' },
+    {
+      label: 'Przetworzone',
+      value: String(stats.processed),
+      // Udział przetworzonych w całości. Bez dokumentów procent nie istnieje —
+      // pokazywanie „0,00%" sugerowałoby, że coś czeka na przetworzenie.
+      suffix: stats.documents > 0
+        ? `(${((stats.processed / stats.documents) * 100).toLocaleString('pl-PL', {
+            minimumFractionDigits: 2, maximumFractionDigits: 2,
+          })}%)`
+        : undefined,
+      href: '#',
+    },
   ];
 
   return (
@@ -112,6 +123,9 @@ export default function DashboardPage() {
             <p className="text-sm text-gray-500">{stat.label}</p>
             <p className="text-2xl font-bold text-gray-800">
               {loading ? '...' : stat.value}
+              {!loading && stat.suffix && (
+                <span className="ml-2 text-base font-medium text-gray-400">{stat.suffix}</span>
+              )}
             </p>
           </a>
         ))}
