@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.8.1",
+      "date": "2026-07-28",
+      "title": "Czytelniejszy status i płynniejsze wchodzenie do folderów",
+      "changes": [
+        "Status W kolejce (n8n) nazywa się teraz po prostu W kolejce.",
+        "Wejście do podfolderu czyści widok od razu — nie widać już przez moment listy plików z poprzedniego folderu; pojawia się informacja o ładowaniu, a po niej właściwa lista.",
+        "Zaznaczenie plików jest czyszczone przy zmianie folderu."
+      ]
+    },
+    {
       "version": "0.8.0",
       "date": "2026-07-28",
       "title": "Wykresy aktywności na dashboardzie",

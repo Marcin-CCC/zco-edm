@@ -24,7 +24,10 @@ class DocumentStatus(str, enum.Enum):
     - READY:      n8n zakończył przetwarzanie pomyślnie
     - ERROR:      n8n zgłosił błąd lub webhook nie zadziałał
     """
-    PENDING = "W kolejce (n8n)"
+    # UWAGA: w bazie przechowywana jest NAZWA elementu enuma (PENDING/READY/…),
+    # a poniższy tekst to wyłącznie etykieta pokazywana w interfejsie i API —
+    # jej zmiana nie wymaga migracji danych.
+    PENDING = "W kolejce"
     PROCESSING = "Przetwarzanie"
     READY = "Przetworzono"
     ERROR = "Błąd przetwarzania"

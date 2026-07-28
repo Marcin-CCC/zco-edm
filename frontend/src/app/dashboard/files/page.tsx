@@ -186,13 +186,22 @@ function FilesPageInner() {
     }
   }, [searchQuery, currentFolderId]);
 
+  // Wejście do innego folderu MUSI najpierw wyczyścić widok. Bez tego przez ułamek
+  // sekundy widać jeszcze listę plików z folderu, z którego wychodzimy — a użytkownik
+  // czeka już na zawartość nowego. Czyścimy też zaznaczenie, żeby nie przenieść
+  // przypadkiem plików, których nie widać.
+  const resetFileView = () => {
+    setFiles([]);
+    setSelectedIds([]);
+    setLoading(true);
+  };
+
   // Navigate to folder
   const navigateToFolder = async (folder: Folder) => {
     setCurrentFolderId(folder.id);
     setBreadcrumbs(prev => [...prev, { id: folder.id, name: folder.name }]);
+    resetFileView();
 
-    // Load files in this folder
-    setLoading(true);
     try {
       const res = await filesApi.list({ folder_id: folder.id });
       setFiles(res || []);
@@ -212,6 +221,7 @@ function FilesPageInner() {
       ? newBreadcrumbs[newBreadcrumbs.length - 1].id
       : null;
     setCurrentFolderId(folderId);
+    resetFileView();
 
     if (folderId) {
       try {
@@ -219,6 +229,8 @@ function FilesPageInner() {
         setFiles(res || []);
       } catch (err) {
         console.error('Failed to load files:', err);
+      } finally {
+        setLoading(false);
       }
     } else {
       loadFiles();
@@ -229,6 +241,7 @@ function FilesPageInner() {
   const navigateToRoot = async () => {
     setCurrentFolderId(null);
     setBreadcrumbs([]);
+    resetFileView();
     loadFiles();
   };
 

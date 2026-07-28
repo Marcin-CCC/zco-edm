@@ -43,6 +43,7 @@ def _resolve_status(value: str) -> DocumentStatus:
             return member
     # Legacy aliases used by n8n (old pipeline stage names map to PROCESSING)
     aliases = {
+        "W KOLEJCE (N8N)": DocumentStatus.PENDING,  # dawna etykieta — zgodność wstecz
         "PROCESSED": DocumentStatus.READY,
         "PRZETWARZANIE": DocumentStatus.PROCESSING,
         "PARSOWANIE (DOCLING)": DocumentStatus.PROCESSING,
