@@ -50,8 +50,10 @@ def get_chat_webhook_url() -> str | None:
 
 
 # Domyślne rozszerzenia = te, które realnie obsługuje workflow n8n
-# (Switch on file ext: pdf/docx/xlsx). pptx NIE ma gałęzi — celowo poza listą.
-_DEFAULT_ALLOWED_EXTENSIONS = "pdf,docx,xlsx"
+# (Switch on file ext: pdf/docx/xlsx/odt). pptx NIE ma gałęzi — celowo poza listą.
+# odt idzie gałęzią tekstową: konwersja do DOCX (usługa 8084 /convert-to-docx),
+# a dalej tym samym Doclingiem co docx — PDF jako półprodukt gubiłby tabele.
+_DEFAULT_ALLOWED_EXTENSIONS = "pdf,docx,xlsx,odt"
 
 
 def _parse_extensions(raw: str) -> list[str]:

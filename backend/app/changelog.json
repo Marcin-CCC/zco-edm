@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.8.4",
+      "date": "2026-07-28",
+      "title": "Obsługa dokumentów ODT",
+      "changes": [
+        "Dokumenty ODT są przetwarzane tą samą ścieżką tekstową co DOCX - treść i tabele odczytywane są wprost z dokumentu, bez zamiany na obraz.",
+        "Porównanie na dokumentach klienta: droga przez DOCX odczytuje 100% treści i zachowuje tabele, droga przez PDF gubiła ich strukturę.",
+        "Usunięcie dokumentu sprząta także plik pomocniczy powstały przy konwersji ODT."
+      ]
+    },
+    {
       "version": "0.8.3",
       "date": "2026-07-28",
       "title": "Przygotowanie pod dokumenty ODT",

@@ -650,14 +650,16 @@ def delete_file(file_id: int, db: Session = Depends(get_db), current_user: User 
     # trybie deweloperskim — tam istnieje druga kopia (most SSH). W docelowym
     # wdrożeniu aplikacja działa na Sparku, `file_path` jest ścieżką lokalną i
     # wystarczy os.remove poniżej.
-    # Pliki pochodne: dla formatów wymagających konwersji (np. .odt) parsowanie
-    # zostawia obok źródła PDF o tej samej nazwie — usuwamy go razem z oryginałem.
-    def _derived_pdf(path: str) -> str | None:
+    # Pliki pochodne: formaty wymagające konwersji zostawiają obok źródła plik
+    # o tej samej nazwie — PDF (ścieżka rasteryzacji) lub DOCX (ścieżka tekstowa
+    # dla .odt). Usuwamy je razem z oryginałem.
+    def _derived_files(path: str) -> list[str]:
         stem, ext = os.path.splitext(path)
-        return f"{stem}.pdf" if ext.lower() not in ("", ".pdf") else None
+        ext = ext.lower()
+        return [f"{stem}.{d}" for d in ("pdf", "docx") if ext not in ("", f".{d}")]
 
     local_path = _resolve_local_path(file_obj.file_path)
-    for p in filter(None, [local_path, _derived_pdf(local_path)]):
+    for p in [local_path, *_derived_files(local_path)]:
         if os.path.exists(p):
             os.remove(p)
     # katalog pliku (schemat <uuid>/<nazwa>) usuwamy, gdy został pusty
@@ -669,8 +671,7 @@ def delete_file(file_id: int, db: Session = Depends(get_db), current_user: User 
     if spark_transfer_enabled():
         from app.spark_transfer import delete_from_spark
         spark_result = delete_from_spark(file_obj.file_path)
-        derived = _derived_pdf(file_obj.file_path)
-        if derived:
+        for derived in _derived_files(file_obj.file_path):
             delete_from_spark(derived)
 
     # Delete DB record
