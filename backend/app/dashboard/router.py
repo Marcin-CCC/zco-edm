@@ -109,3 +109,75 @@ def get_activity(
         "queries": [queries[d] for d in dni],
         "scope": "all" if is_admin else "own",
     }
+
+@router.get("/dashboard/by-user")
+def get_activity_by_user(
+    days: int = Query(30, ge=1, le=180),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Aktywność w rozbiciu na użytkowników — wyłącznie dla administratora.
+
+    Zwraca dla każdego konta liczbę plików wysłanych do przetworzenia i liczbę pytań
+    zadanych bazie wiedzy w ostatnich N dniach. Konta bez aktywności też są na liście:
+    brak słupka jest tu informacją, a nie luką.
+    """
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Tylko administrator widzi podział na użytkowników.")
+
+    today = datetime.utcnow().date()
+    start_day = today - timedelta(days=days - 1)
+    od = datetime.combine(start_day, datetime.min.time())
+
+    # Sparsowane pliki: moment przetwarzania jak na wykresie dziennym
+    # (metadata.processing_started_at, a przy jego braku data dodania).
+    parsed: dict[int, int] = {}
+    for f in db.query(File).filter(File.status == DocumentStatus.READY).all():
+        meta = f.metadata_ if isinstance(f.metadata_, dict) else {}
+        moment = None
+        started = meta.get("processing_started_at")
+        if started:
+            try:
+                moment = datetime.fromisoformat(started).date()
+            except (ValueError, TypeError):
+                moment = None
+        if moment is None and f.created_at:
+            moment = f.created_at.date()
+        if moment and moment >= start_day and f.uploaded_by:
+            parsed[f.uploaded_by] = parsed.get(f.uploaded_by, 0) + 1
+
+    queries: dict[int, int] = {}
+    wiersze = (
+        db.query(Conversation.user_id, func.count(Message.id))
+        .join(Message, Message.conversation_id == Conversation.id)
+        .filter(Message.role == "user")
+        .filter(Message.created_at >= od)
+        .group_by(Conversation.user_id)
+        .all()
+    )
+    for user_id, ile in wiersze:
+        queries[user_id] = int(ile)
+
+    konta = db.query(User).all()
+    # Kilka kont potrafi mieć to samo imię i nazwisko. Na wykresie byłyby wtedy
+    # nierozróżnialne, więc powtórzone nazwy uzupełniamy o login.
+    ile_nazw: dict[str, int] = {}
+    for u in konta:
+        nazwa = (u.full_name or u.username or u.email or f"#{u.id}").strip()
+        ile_nazw[nazwa] = ile_nazw.get(nazwa, 0) + 1
+
+    osoby = []
+    for u in konta:
+        nazwa = (u.full_name or u.username or u.email or f"#{u.id}").strip()
+        if ile_nazw.get(nazwa, 0) > 1 and u.username:
+            nazwa = f"{nazwa} ({u.username})"
+        osoby.append({
+            "user_id": u.id,
+            "name": nazwa,
+            "parsed": parsed.get(u.id, 0),
+            "queries": queries.get(u.id, 0),
+        })
+    # Wspólna kolejność dla obu wykresów — łatwiej zestawić je wzrokiem niż przy
+    # dwóch różnych sortowaniach.
+    osoby.sort(key=lambda o: (-(o["parsed"] + o["queries"]), o["name"].lower()))
+    return {"days": days, "users": osoby}

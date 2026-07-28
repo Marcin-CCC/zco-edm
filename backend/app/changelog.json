@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.9.3",
+      "date": "2026-07-28",
+      "title": "Aktywność użytkowników na Dashboardzie administratora",
+      "changes": [
+        "Nowa sekcja z podziałem na użytkowników: dwa poziome wykresy pokazujące, ile plików każda osoba wysłała do przetworzenia i ile zadała pytań w ostatnich 30 dniach.",
+        "Konta bez aktywności również są na liście - brak słupka jest informacją, a nie luką; konta o tym samym imieniu i nazwisku rozróżnia login.",
+        "Sekcję widzi wyłącznie administrator."
+      ]
+    },
+    {
       "version": "0.9.2",
       "date": "2026-07-28",
       "title": "Wyszukiwanie po nazwiskach i nazwach własnych",

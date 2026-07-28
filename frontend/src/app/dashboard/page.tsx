@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/store';
 import { dashboardApi } from '@/lib/api';
 import { BarChart, BarChartPoint } from '@/components/bar-chart';
+import { HBarChart } from '@/components/bar-chart-h';
 
 // Kolory serii sprawdzone pod kątem czytelności i rozróżnialności przy zaburzeniach
 // widzenia barw (osobna seria na wykres, więc bez legendy — tytuł karty ją nazywa).
@@ -23,6 +24,11 @@ export default function DashboardPage() {
   const [queries, setQueries] = useState<BarChartPoint[]>([]);
   const [scope, setScope] = useState<'all' | 'own'>('own');
   const [chartsLoading, setChartsLoading] = useState(true);
+  // Rozbicie na użytkowników: endpoint odpowiada tylko administratorowi (403 dla reszty),
+  // więc pusta lista = sekcja nie jest w ogóle rysowana.
+  const [wgUzytkownikow, setWgUzytkownikow] = useState<
+    { user_id: number; name: string; parsed: number; queries: number }[]
+  >([]);
 
   useEffect(() => {
     dashboardApi.activity(30)
@@ -33,6 +39,10 @@ export default function DashboardPage() {
       })
       .catch(() => { /* wykresy nie są krytyczne dla reszty dashboardu */ })
       .finally(() => setChartsLoading(false));
+
+    dashboardApi.byUser(30)
+      .then((d) => setWgUzytkownikow(d?.users || []))
+      .catch(() => { /* 403 dla nie-admina — sekcja po prostu się nie pokazuje */ });
   }, []);
 
   const suma = (p: BarChartPoint[]) => p.reduce((a, b) => a + b.value, 0);
@@ -142,6 +152,37 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Rozbicie na użytkowników — tylko dla administratora */}
+      {wgUzytkownikow.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-baseline justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">Sparsowane pliki wg użytkowników</h2>
+              <span className="text-xs text-gray-400">ostatnie 30 dni</span>
+            </div>
+            <HBarChart
+              data={wgUzytkownikow.map((u) => ({ label: u.name, value: u.parsed }))}
+              color={KOLOR_PARSOWANIE}
+              unitLabel="sparsowanych plików"
+              emptyText="Nikt nie wysłał plików w ostatnich 30 dniach"
+            />
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-baseline justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">Zapytania wg użytkowników</h2>
+              <span className="text-xs text-gray-400">ostatnie 30 dni</span>
+            </div>
+            <HBarChart
+              data={wgUzytkownikow.map((u) => ({ label: u.name, value: u.queries }))}
+              color={KOLOR_ZAPYTANIA}
+              unitLabel="zapytań"
+              emptyText="Nikt nie zadał pytania w ostatnich 30 dniach"
+            />
+          </div>
+        </div>
+      )}
 
       {/* User info */}
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">

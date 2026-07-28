@@ -264,6 +264,12 @@ export const dashboardApi = {
       queries: number[];
       scope: 'all' | 'own';
     }>(`/api/dashboard/activity?days=${days}`, { method: 'GET', token: getAuthToken() }),
+  // Rozbicie aktywności na użytkowników — endpoint tylko dla administratora (403 dla reszty)
+  byUser: (days = 30) =>
+    apiRequest<{
+      days: number;
+      users: { user_id: number; name: string; parsed: number; queries: number }[];
+    }>(`/api/dashboard/by-user?days=${days}`, { method: 'GET', token: getAuthToken() }),
 };
 
 // Settings endpoints
