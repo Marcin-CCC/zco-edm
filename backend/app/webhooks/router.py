@@ -6,7 +6,9 @@ Endpointy:
 - PATCH /api/webhook/file/{file_id}/status — n8n aktualizuje status pliku
 """
 
+import logging
 import os
+
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -15,6 +17,8 @@ from app.database import get_db
 from app.models import File as FileModel, DocumentStatus, User, UserRole
 from app.files.router import get_mime_type
 from app.webhook_auth import verify_webhook_secret
+
+logger = logging.getLogger(__name__)
 
 # Cały router jest wywoływany przez n8n (nie przez przeglądarkę), więc zamiast
 # JWT chroni go wspólny sekret w nagłówku X-Webhook-Secret.
@@ -161,7 +165,20 @@ async def update_file_status(file_id: int, payload: StatusUpdate, db: Session = 
         active_schemas = get_active_schemas(db)
     will_classify = new_status == DocumentStatus.READY and bool(active_schemas)
 
-    file_obj.status = DocumentStatus.PROCESSING if will_classify else new_status
+    # Jawny błąd z n8n bywa przejściowy (zmierzone: gm pada w oknach presji pamięci
+    # hosta, a te same dane chwilę później przechodzą). Pierwszą nieudaną próbę
+    # ponawiamy od razu — plik wraca do kolejki; dopiero wyczerpanie puli prób
+    # kończy się statusem „Błąd przetwarzania". Ta sama pula co w watchdogu.
+    from app.dispatcher import MAX_PARSE_ATTEMPTS
+    proby = int((file_obj.metadata_ or {}).get("parse_attempts") or 1)
+    retry_after_error = new_status == DocumentStatus.ERROR and proby < MAX_PARSE_ATTEMPTS
+    if retry_after_error:
+        logger.warning(
+            f"[WEBHOOK] Plik {file_id} zgłosił błąd (próba {proby}/{MAX_PARSE_ATTEMPTS}) — ponawiam"
+        )
+        file_obj.status = DocumentStatus.PENDING
+    else:
+        file_obj.status = DocumentStatus.PROCESSING if will_classify else new_status
 
     # Aktualizuj OCR wynik
     if payload.ocr_result:
@@ -184,8 +201,11 @@ async def update_file_status(file_id: int, payload: StatusUpdate, db: Session = 
             file_obj.metadata_ = cleaned
 
     # Czas parsowania: licz przy prawdziwym końcu. ERROR i READY-bez-klasyfikacji — teraz;
-    # READY-z-klasyfikacją — dopiero po niej (w run_extraction).
-    if new_status == DocumentStatus.ERROR or (new_status == DocumentStatus.READY and not will_classify):
+    # READY-z-klasyfikacją — dopiero po niej (w run_extraction). Przy ponowieniu
+    # po błędzie czasu nie liczymy — przebieg się nie skończył, zaraz startuje kolejny.
+    if (new_status == DocumentStatus.ERROR and not retry_after_error) or (
+        new_status == DocumentStatus.READY and not will_classify
+    ):
         from app.dispatcher import mark_processing_finished
         mark_processing_finished(file_obj)
 

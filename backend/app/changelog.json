@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.9.7",
+      "date": "2026-07-28",
+      "title": "Trwałe rozwiązanie zacięć na zmniejszaniu obrazów",
+      "changes": [
+        "Zmniejszanie stron do 1600 px odbywa się teraz w usłudze rasteryzującej, a nie w kruchym kroku Edit Image w n8n, który potrafił się wywracać przy dużym obciążeniu serwera - ten krok można wyłączyć.",
+        "Plik, którego przetwarzanie zgłosi błąd, wraca automatycznie do kolejki na drugą próbę; dopiero jej niepowodzenie kończy się statusem Błąd przetwarzania.",
+        "Naprawiony błąd 500 przy zapisie statusu z n8n."
+      ]
+    },
+    {
       "version": "0.9.6",
       "date": "2026-07-28",
       "title": "Kolejka nie zatrzymuje się na jednym pliku",
