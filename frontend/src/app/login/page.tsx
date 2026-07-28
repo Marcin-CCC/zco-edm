@@ -51,7 +51,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">EDM ZCO</h1>
+          <h1 className="text-4xl font-bold text-white mb-2">ZCO DM</h1>
           <p className="text-slate-300">System zarządzania dokumentami</p>
         </div>
 
@@ -110,7 +110,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-center text-slate-400 text-sm mt-6">
-          EDM ZCO {version ? `v${version} ` : ''}&copy; 2026
+          ZCO DM {version ? `v${version} ` : ''}&copy; 2026
         </p>
       </div>
     </div>

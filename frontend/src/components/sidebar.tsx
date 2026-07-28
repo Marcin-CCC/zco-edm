@@ -67,7 +67,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         }`}
       >
         <div className="flex items-center justify-between px-4 py-5 border-b border-slate-700">
-          <h1 className="text-xl font-bold">EDM ZCO</h1>
+          <h1 className="text-xl font-bold">ZCO DM</h1>
           <button onClick={onClose} className="lg:hidden text-white text-xl">&times;</button>
         </div>
 
@@ -98,7 +98,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             className="text-xs text-slate-400 hover:text-white transition-colors"
             title="Historia zmian"
           >
-            EDM ZCO v{version} · Historia zmian
+            ZCO DM v{version} · Historia zmian
           </Link>
         </div>
       </aside>

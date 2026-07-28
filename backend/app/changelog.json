@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "0.8.2",
+      "date": "2026-07-28",
+      "title": "Nowa nazwa aplikacji: ZCO DM",
+      "changes": [
+        "Aplikacja nazywa się teraz ZCO DM — nazwa zmieniona w menu bocznym, na ekranie logowania oraz w tytule karty przeglądarki."
+      ]
+    },
+    {
       "version": "0.8.1",
       "date": "2026-07-28",
       "title": "Czytelniejszy status i płynniejsze wchodzenie do folderów",
