@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.9.16",
+      "date": "2026-07-29",
+      "title": "Pliki w folderach ułożone alfabetycznie",
+      "changes": [
+        "Lista plików w folderze jest posortowana alfabetycznie po nazwie zamiast po dacie dodania.",
+        "Folder pokazuje do 200 plików zamiast 50, więc przy większych folderach nic nie znika z listy.",
+        "Naprawione otwieranie folderu z odnośnika (na przykład z Listy dostępów) - pokazywało zawartość katalogu głównego zamiast wskazanego folderu."
+      ]
+    },
+    {
       "version": "0.9.15",
       "date": "2026-07-29",
       "title": "Foldery ułożone alfabetycznie",

@@ -270,7 +270,10 @@ def list_files(
             FileModel.filename.ilike(f"%{search}%"),
         ))
 
-    files = query.order_by(FileModel.created_at.desc()).offset(skip).limit(limit).all()
+    # Kolejność alfabetyczna po nazwie. Sortujemy w bazie, a nie po pobraniu:
+    # zapytanie ma limit, więc sortowanie dopiero w przeglądarce układałoby
+    # alfabetycznie wyłącznie pobraną porcję i ukrywało resztę plików.
+    files = query.order_by(FileModel.filename.asc()).offset(skip).limit(limit).all()
 
     result = []
     for f in files:
@@ -326,7 +329,10 @@ def list_file_queue(
     if status:
         query = query.filter(FileModel.status == status)
 
-    files = query.order_by(FileModel.created_at.desc()).offset(skip).limit(limit).all()
+    # Kolejność alfabetyczna po nazwie. Sortujemy w bazie, a nie po pobraniu:
+    # zapytanie ma limit, więc sortowanie dopiero w przeglądarce układałoby
+    # alfabetycznie wyłącznie pobraną porcję i ukrywało resztę plików.
+    files = query.order_by(FileModel.filename.asc()).offset(skip).limit(limit).all()
     
     result = []
     for f in files:

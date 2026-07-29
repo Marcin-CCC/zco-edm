@@ -179,7 +179,10 @@ function FilesPageInner() {
   const loadFiles = useCallback(async (folderId: number | null = currentFolderId) => {
     setLoading(true);
     try {
-      const params: { folder_id?: number; search?: string } = {};
+      // limit: backend domyślnie oddaje 50 pozycji, a lista plików nie ma
+      // stronicowania — bierzemy maksymalną dozwoloną porcję, żeby przy większym
+      // folderze nie chować plików bez śladu
+      const params: { folder_id?: number; search?: string; limit?: number } = { limit: 200 };
       if (folderId !== null) params.folder_id = folderId;
       if (searchQuery) params.search = searchQuery;
 
@@ -202,20 +205,13 @@ function FilesPageInner() {
     setLoading(true);
   };
 
-  // Navigate to folder
-  const navigateToFolder = async (folder: Folder) => {
+  // Nawigacja ustawia tylko stan — pliki pobiera efekt reagujący na zmianę
+  // folderu. Jedno źródło ładowania oznacza brak wyścigu między ładowaniem
+  // z kliknięcia a ładowaniem startowym (to on podmieniał listę na katalog główny).
+  const navigateToFolder = (folder: Folder) => {
     setCurrentFolderId(folder.id);
     setBreadcrumbs(prev => [...prev, { id: folder.id, name: folder.name }]);
     resetFileView();
-
-    try {
-      const res = await filesApi.list({ folder_id: folder.id });
-      setFiles(res || []);
-    } catch (err) {
-      console.error('Failed to load files:', err);
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Skok do folderu ze ścieżki nawigacji.
@@ -224,35 +220,19 @@ function FilesPageInner() {
   // (slice(0, index + 1)). Wcześniej było slice(0, index), czyli kliknięty folder
   // wypadał z wyniku i nawigacja cofała o jeden poziom za daleko — z drugiego
   // poziomu zagnieżdżenia klik w folder nadrzędny lądował w katalogu głównym.
-  const navigateToBreadcrumb = async (index: number) => {
+  const navigateToBreadcrumb = (index: number) => {
     const newBreadcrumbs = breadcrumbs.slice(0, index + 1);
     const folderId = newBreadcrumbs[newBreadcrumbs.length - 1]?.id ?? null;
     setBreadcrumbs(newBreadcrumbs);
     setCurrentFolderId(folderId);
     resetFileView();
-
-    if (folderId) {
-      try {
-        const res = await filesApi.list({ folder_id: folderId });
-        setFiles(res || []);
-      } catch (err) {
-        console.error('Failed to load files:', err);
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      // jawne null: setCurrentFolderId(null) z tego samego renderu nie jest jeszcze
-      // widoczne w domknięciu, więc domyślna wartość wskazywałaby stary folder
-      loadFiles(null);
-    }
   };
 
   // Navigate to root
-  const navigateToRoot = async () => {
+  const navigateToRoot = () => {
     setCurrentFolderId(null);
     setBreadcrumbs([]);
     resetFileView();
-    loadFiles(null);
   };
 
   // Handle file upload — obsługa wielu plików naraz.
@@ -511,19 +491,21 @@ function FilesPageInner() {
     }
   };
 
-  // Wyszukiwarka: opóźnienie, żeby nie odpytywać serwera przy każdej literze.
-  // Ten efekt ładuje też listę początkową (przy montowaniu searchQuery jest puste).
-  // `currentFolderId` i `loadFiles` celowo NIE są zależnościami: zmianę folderu
-  // obsługują handlery nawigacji, a dopisanie ich tutaj powodowało powtórne
-  // uruchomienie efektu przy każdym wejściu do folderu — i to właśnie ono
-  // ładowało katalog główny, który migał przez ułamek sekundy.
+  // JEDYNE miejsce, które pobiera listę plików: reaguje na zmianę folderu i na
+  // wyszukiwarkę (oraz na montowanie strony). Opóźnienie stosujemy wyłącznie przy
+  // pisaniu w wyszukiwarce — zmiana folderu ma być natychmiastowa.
+  //
+  // `loadFiles` celowo NIE jest zależnością: useCallback odtwarza tę funkcję przy
+  // każdej zmianie folderu, więc efekt uruchamiałby się po raz drugi i ładował
+  // katalog główny (stąd dawne miganie listy roota).
+  const poprzednieSzukanie = useRef(searchQuery);
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      loadFiles(currentFolderId);
-    }, 300);
+    const pisanie = poprzednieSzukanie.current !== searchQuery;
+    poprzednieSzukanie.current = searchQuery;
+    const timeout = setTimeout(() => loadFiles(currentFolderId), pisanie ? 300 : 0);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery]);
+  }, [searchQuery, currentFolderId]);
 
   // Drzewo folderów ładujemy raz — nie zależy od bieżącego folderu
   useEffect(() => {
@@ -562,7 +544,6 @@ function FilesPageInner() {
     }
     setCurrentFolderId(id);
     setBreadcrumbs(crumbs);
-    loadFiles(id);
   }, [searchParams, folders, loadFiles]);
 
   // Normalizuj wybór w formularzu uprawnień: rola z dziedziczonym/własnym Zapisem
