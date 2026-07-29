@@ -95,11 +95,20 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           <Link
             href="/dashboard/changelog"
             onClick={onClose}
-            className="text-xs text-slate-400 hover:text-white transition-colors"
+            className="block text-xs text-slate-400 hover:text-white transition-colors"
             title="Historia zmian"
           >
             ZCO DM v{version} · Historia zmian
           </Link>
+          <a
+            href="https://polmedi.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block mt-1 text-xs text-slate-400 hover:text-white transition-colors"
+            title="Polmedi Group sp. z o.o."
+          >
+            © Polmedi Group sp. z o.o.
+          </a>
         </div>
       </aside>
     </>

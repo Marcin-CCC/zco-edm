@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.9.24",
+      "date": "2026-07-30",
+      "title": "Informacja o producencie w menu bocznym",
+      "changes": [
+        "Pod numerem wersji w menu bocznym pojawiła się linijka „© Polmedi Group sp. z o.o.\" z odnośnikiem do polmedi.com, otwieranym w nowej karcie.",
+        "Styl tej linijki jest taki sam jak numeru wersji obok."
+      ]
+    },
+    {
       "version": "0.9.23",
       "date": "2026-07-30",
       "title": "Nazwy folderów wykorzystują pełną szerokość kafelka",
