@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.9.13",
+      "date": "2026-07-29",
+      "title": "Długie nazwy folderów mieszczą się na kafelkach",
+      "changes": [
+        "Nazwa i ścieżka folderu zawijają się do kolejnych linii zamiast wychodzić poza kafelek.",
+        "Kafelki w jednym rzędzie mają wspólną wysokość, więc lista folderów pozostaje równa niezależnie od długości nazw."
+      ]
+    },
+    {
       "version": "0.9.12",
       "date": "2026-07-29",
       "title": "Kafelki Dashboardu prowadzą do właściwych stron",

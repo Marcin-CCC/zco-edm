@@ -671,16 +671,20 @@ function FilesPageInner() {
               {(currentFolderId === null ? rootFolders : currentFolderChildren).map((folder) => (
                 <div
                   key={folder.id}
-                  className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow group"
+                  // h-full: kafelki w rzędzie mają wspólną wysokość, wyznaczoną przez
+                  // najdłuższą nazwę — inaczej po zawinięciu tekstu rząd robi się poszarpany
+                  className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow group h-full"
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-1 h-full">
                     <button
                       onClick={() => navigateToFolder(folder)}
-                      className="flex-1 text-left"
+                      // min-w-0 jest konieczne: element flex nie kurczy się poniżej swojej
+                      // treści, więc bez tego długa nazwa rozpycha kafelek zamiast się zawinąć
+                      className="flex-1 min-w-0 text-left"
                     >
                       <div className="text-3xl mb-2">📁</div>
-                      <div className="font-medium text-gray-800 truncate">{folder.name}</div>
-                      <div className="text-xs text-gray-500">{folder.path}</div>
+                      <div className="font-medium text-gray-800 break-words">{folder.name}</div>
+                      <div className="text-xs text-gray-500 break-words">{folder.path}</div>
                       <div className="text-xs text-gray-500">Liczba plików: {folder.file_count ?? 0}</div>
                     </button>
                     {isAdmin && (
