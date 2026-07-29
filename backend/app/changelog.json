@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.9.23",
+      "date": "2026-07-30",
+      "title": "Nazwy folderów wykorzystują pełną szerokość kafelka",
+      "changes": [
+        "Kafelki folderów rezerwowały z prawej strony miejsce na ikony akcji (zmiana nazwy, uprawnienia, usunięcie) nawet wtedy, gdy były niewidoczne. Nazwa dostawała przez to mniej niż połowę szerokości kafelka i łamała się na kilka wierszy mimo wolnego miejsca.",
+        "Przy oknie 1000 pikseli nazwa ma teraz 192 zamiast 98 pikseli: „Polityka antymobbingowa\" i „Regulamin wynagradzania\" mieszczą się w jednym wierszu zamiast w trzech, a cała sekcja folderów jest niższa o blisko jedną czwartą.",
+        "Ikony akcji pojawiają się jak dotąd po najechaniu na kafelek, w jego prawym górnym rogu, i nie zasłaniają nazwy."
+      ]
+    },
+    {
       "version": "0.9.22",
       "date": "2026-07-30",
       "title": "Odpowiedź z dokumentów bez żadnego wstępu",

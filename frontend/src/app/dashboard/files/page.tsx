@@ -669,47 +669,52 @@ function FilesPageInner() {
                 <div
                   key={folder.id}
                   // h-full: kafelki w rzędzie mają wspólną wysokość, wyznaczoną przez
-                  // najdłuższą nazwę — inaczej po zawinięciu tekstu rząd robi się poszarpany
-                  className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow group h-full"
+                  // najdłuższą nazwę — inaczej po zawinięciu tekstu rząd robi się poszarpany.
+                  // relative: ikony akcji leżą NAD kafelkiem (zob. niżej), nie obok treści.
+                  className="relative bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow group h-full"
                 >
-                  <div className="flex items-start justify-between gap-1 h-full">
-                    <button
-                      onClick={() => navigateToFolder(folder)}
-                      // min-w-0 jest konieczne: element flex nie kurczy się poniżej swojej
-                      // treści, więc bez tego długa nazwa rozpycha kafelek zamiast się zawinąć
-                      className="flex-1 min-w-0 text-left"
-                    >
-                      <div className="text-3xl mb-2">📁</div>
-                      <div className="font-medium text-gray-800 break-words">{folder.name}</div>
-                      <div className="text-xs text-gray-500 break-words">{folder.path}</div>
-                      <div className="text-xs text-gray-500">Liczba plików: {folder.file_count ?? 0}</div>
-                    </button>
-                    {isAdmin && (
-                      <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openRename(folder); }}
-                          className="text-gray-400 hover:text-blue-600 p-1"
-                          title="Zmień nazwę folderu"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openPermissions(folder); }}
-                          className="text-gray-400 hover:text-blue-600 p-1"
-                          title="Uprawnienia folderu"
-                        >
-                          🔒
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }}
-                          className="text-red-400 hover:text-red-600 p-1"
-                          title="Usuń folder"
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => navigateToFolder(folder)}
+                    className="w-full text-left"
+                  >
+                    {/* Rząd z ikoną folderu zostawia miejsce na ikony akcji (pr-20),
+                        żeby po najechaniu nic na siebie nie nachodziło. Nazwa i ścieżka
+                        poniżej korzystają z PEŁNEJ szerokości kafelka. */}
+                    <div className={`text-3xl mb-2 ${isAdmin ? 'pr-20' : ''}`}>📁</div>
+                    <div className="font-medium text-gray-800 break-words">{folder.name}</div>
+                    <div className="text-xs text-gray-500 break-words">{folder.path}</div>
+                    <div className="text-xs text-gray-500">Liczba plików: {folder.file_count ?? 0}</div>
+                  </button>
+                  {isAdmin && (
+                    // Ikony ukryte przez `opacity-0` NADAL zajmowały miejsce w układzie,
+                    // więc kolumna z nazwą była węższa o ich szerokość — nazwy łamały się
+                    // na kilka wierszy mimo wolnego miejsca po prawej. Wyjęcie ich z toku
+                    // dokumentu (absolute) oddaje tę szerokość tekstowi i nie powoduje
+                    // przeskoku układu przy najechaniu.
+                    <div className="absolute top-3 right-3 flex items-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openRename(folder); }}
+                        className="text-gray-400 hover:text-blue-600 p-1"
+                        title="Zmień nazwę folderu"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openPermissions(folder); }}
+                        className="text-gray-400 hover:text-blue-600 p-1"
+                        title="Uprawnienia folderu"
+                      >
+                        🔒
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }}
+                        className="text-red-400 hover:text-red-600 p-1"
+                        title="Usuń folder"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
