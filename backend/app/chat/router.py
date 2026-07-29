@@ -243,8 +243,12 @@ async def chat(
                 {"key": "content", "match": {"text": t}} for t in terminy
             ]})
 
-    # Historia rozmowy budowana po naszej stronie (bez odmów) — zastępuje Simple Memory
-    history = build_history(db, current_user, payload.session_id)
+    # Historia rozmowy budowana po naszej stronie (bez odmów) — zastępuje Simple Memory.
+    # `use_history=False` = pytanie zadane „na czysto", bez wątku. Frontend prosi o to
+    # przy ponowieniu po odmowie: po zmianie tematu historia poprzedniego tematu każe
+    # modelowi odmówić (zmierzone: „wniosek o urlop" po rozmowie o PPK → odmowa,
+    # to samo pytanie w świeżym wątku → pełna odpowiedź).
+    history = build_history(db, current_user, payload.session_id) if payload.use_history else ""
 
     # Zapytanie DO WYSZUKIWANIA: pytanie kontekstowe („kto go podpisał?") rozwinięte
     # na podstawie historii. Model odpowiadający dostaje nadal oryginalne pytanie.
@@ -297,7 +301,8 @@ async def chat(
         f"session={payload.session_id} req={request_id} "
         f"folderFilter={folder_filter_enabled} allowed={allowed_folder_ids} "
         f"fileIds={payload.file_ids or '-'} terminy={terminy or '-'} "
-        f"streszczenia={wskazane_streszczeniem or '-'} -> {chat_url}"
+        f"streszczenia={wskazane_streszczeniem or '-'} "
+        f"historia={'tak' if payload.use_history else 'ODCIETA'} -> {chat_url}"
     )
 
     client = httpx.AsyncClient(timeout=_TIMEOUT)

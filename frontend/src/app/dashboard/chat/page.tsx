@@ -184,6 +184,8 @@ export default function ChatPage() {
   const [parseWait, setParseWait] = useState(false);
   // Router typu pytania: komunikat pokazujemy dopiero po progu, żeby nie migał (~0,4 s)
   const [routingHint, setRoutingHint] = useState(false);
+  // Trwa ponowienie pytania bez kontekstu wątku (po zmianie tematu w rozmowie)
+  const [bezKontekstu, setBezKontekstu] = useState(false);
   const [typeNames, setTypeNames] = useState<Record<string, string>>({});
   // Dokumenty wskazane w ostatniej odpowiedzi. Do nich odnoszą się pytania
   // typu „co jest w tym dokumencie" — bez tego zbioru nie ma do czego.
@@ -299,6 +301,16 @@ export default function ChatPage() {
     };
   };
 
+  /**
+   * Czy CAŁA odpowiedź to odmowa („nie znaleziono informacji"). Liczy się tylko
+   * odmowa w czystej postaci — odpowiedź, która przy okazji zawiera to zdanie,
+   * nadal jest odpowiedzią.
+   */
+  const czystaOdmowa = (tekst: string) => {
+    const t = stripInlineMarkers(stripEndMarker(tekst)).replace(/\s+/g, ' ').trim().toLowerCase();
+    return t === 'niestety, nie znaleziono w dokumentach informacji na ten temat.';
+  };
+
   const sendMessage = async () => {
     const text = input.trim();
     if (!text || streaming) return;
@@ -318,6 +330,12 @@ export default function ChatPage() {
     let assistantText = '';
     let finalSources: ChatSource[] = [];
     let aborted = false;
+    // Czy backend ma z czego zbudować historię tej rozmowy. Odmowy do historii nie
+    // wchodzą, więc liczą się tylko tury z prawdziwą odpowiedzią — bez tego
+    // ponawianie „na czysto" byłoby powtarzaniem tego samego zapytania.
+    const mialHistorie = messages.some(
+      (m) => m.role === 'assistant' && !m.error && m.content.trim() && !czystaOdmowa(m.content),
+    );
 
     const appendText = (t: string) => {
       setParseWait(false); // pierwszy token → model już odpowiada, chowamy komunikat
@@ -384,8 +402,14 @@ export default function ChatPage() {
       // Zakres: odniesienie do poprzedniej odpowiedzi ma pierwszeństwo przed kryteriami,
       // bo „co jest w tym dokumencie" nie niesie żadnych własnych kryteriów.
       let zakres: ChatSource[] | null = null;
+      // Skąd wziął się zakres — przy ponowieniu „na czysto" zakres z POPRZEDNIEJ
+      // odpowiedzi trzeba odrzucić razem z historią (inaczej dalej pytamy o stary
+      // temat), a zakres z rejestru zostaje: wynika z TEGO pytania.
+      let zakresZPoprzednich = false;
+      let zakresOdcięty = false;   // ponowienie „na czysto" odrzuciło zakres z poprzedniej tury
       if (doPoprzednich && zbiorRoboczy.length > 0) {
         zakres = zbiorRoboczy;
+        zakresZPoprzednich = true;
       } else if (rejestr && rejestr.docs.length > 0) {
         zakres = rejestr.docs;
       }
@@ -505,77 +529,113 @@ export default function ChatPage() {
       // zamiast przeczesywać całą bazę.
       const zakresIds = (zakres || []).map((d) => d.file_id).filter((v): v is number => !!v);
 
-      const controller = new AbortController();
-      abortRef.current = controller;
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({
-          message: text,
-          session_id: String(convId ?? requestId),
-          request_id: requestId,
-          file_ids: zakresIds.length > 0 ? zakresIds : undefined,
-        }),
-        signal: controller.signal,
-      });
+      /** Jedno zapytanie do modelu ze strumieniowaniem odpowiedzi.
+       *  `useHistory=false` = pytanie „na czysto": bez historii wątku i bez zakresu
+       *  odziedziczonego po poprzedniej odpowiedzi. */
+      const zapytajModel = async (rid: string, useHistory: boolean) => {
+        const ids = !useHistory && zakresZPoprzednich ? [] : zakresIds;
+        const controller = new AbortController();
+        abortRef.current = controller;
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({
+            message: text,
+            session_id: String(convId ?? rid),
+            request_id: rid,
+            file_ids: ids.length > 0 ? ids : undefined,
+            use_history: useHistory,
+          }),
+          signal: controller.signal,
+        });
 
-      if (!res.ok || !res.body) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.detail || `Błąd czatu (${res.status})`);
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      const processLine = (line: string) => {
-        const trimmed = line.trim();
-        if (!trimmed) return;
-        const payload = trimmed.startsWith('data:') ? trimmed.slice(5).trim() : trimmed;
-        if (payload === '[DONE]') return;
-        try {
-          const obj = JSON.parse(payload);
-          if (obj && (obj.type === 'begin' || obj.type === 'end') && !obj.content) {
-            if (Array.isArray(obj.sources)) setSources(obj.sources);
-            return;
-          }
-          extractFromParsed(obj, appendText, setSources);
-        } catch {
-          appendText(payload);
+        if (!res.ok || !res.body) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.detail || `Błąd czatu (${res.status})`);
         }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        const processLine = (line: string) => {
+          const trimmed = line.trim();
+          if (!trimmed) return;
+          const payload = trimmed.startsWith('data:') ? trimmed.slice(5).trim() : trimmed;
+          if (payload === '[DONE]') return;
+          try {
+            const obj = JSON.parse(payload);
+            if (obj && (obj.type === 'begin' || obj.type === 'end') && !obj.content) {
+              if (Array.isArray(obj.sources)) setSources(obj.sources);
+              return;
+            }
+            extractFromParsed(obj, appendText, setSources);
+          } catch {
+            appendText(payload);
+          }
+        };
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            lines.forEach(processLine);
+          }
+          if (buffer.trim()) processLine(buffer);
+        } catch (streamErr: any) {
+          // Przerwanie przez użytkownika — zatrzymaj strumień, zachowaj to co jest
+          if (streamErr?.name === 'AbortError') aborted = true;
+          else throw streamErr;
+        }
+
+        // Źródła odpowiedzi (zapisane przez n8n po zakończeniu strumienia).
+        // Przy przerwaniu pomijamy — odpowiedź jest częściowa.
+        if (!aborted) try {
+          const srcRes = await fetch(`/api/chat/sources/${rid}`, { headers: authHeaders() });
+          if (srcRes.ok) {
+            const data = await srcRes.json();
+            if (Array.isArray(data.sources) && data.sources.length > 0) {
+              setSources(data.sources);
+            }
+          }
+        } catch { /* brak źródeł nie jest błędem krytycznym */ }
       };
 
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-          lines.forEach(processLine);
-        }
-        if (buffer.trim()) processLine(buffer);
-      } catch (streamErr: any) {
-        // Przerwanie przez użytkownika — zatrzymaj strumień, zachowaj to co jest
-        if (streamErr?.name === 'AbortError') aborted = true;
-        else throw streamErr;
-      }
+      await zapytajModel(requestId, true);
 
-      // Źródła odpowiedzi (zapisane przez n8n po zakończeniu strumienia).
-      // Przy przerwaniu pomijamy — odpowiedź jest częściowa.
-      if (!aborted) try {
-        const srcRes = await fetch(`/api/chat/sources/${requestId}`, { headers: authHeaders() });
-        if (srcRes.ok) {
-          const data = await srcRes.json();
-          if (Array.isArray(data.sources) && data.sources.length > 0) {
-            setSources(data.sources);
-          }
+      // ZMIANA TEMATU W WĄTKU: gdy cała odpowiedź to odmowa, a w rozmowie była już
+      // historia, pytamy JESZCZE RAZ „na czysto" — bez kontekstu wątku. Zmierzone:
+      // „wniosek o urlop" po rozmowie o PPK kończy się odmową, choć retrieval jest
+      // pełny (15/15 fragmentów nad progiem), a to samo pytanie w świeżym wątku daje
+      // pełną odpowiedź. Przewidywanie zmiany tematu z góry odpada — odległość
+      // tematyczna nie rozdziela kontynuacji od zmiany (0,38–0,59 wobec 0,27–0,51),
+      // więc reagujemy na WYNIK, a nie na przepowiednię. Jedno ponowienie, tylko po
+      // odmowie, więc nie może zepsuć odpowiedzi, która się udała.
+      if (!aborted && mialHistorie && czystaOdmowa(assistantText)) {
+        assistantText = '';
+        finalSources = [];
+        setMessages((prev) => {
+          const next = [...prev];
+          next[next.length - 1] = { ...next[next.length - 1], content: '', sources: undefined };
+          return next;
+        });
+        setBezKontekstu(true);
+        zakresOdcięty = zakresZPoprzednich;
+        try {
+          await zapytajModel(`${requestId}-r`, false);
+        } finally {
+          setBezKontekstu(false);
         }
-      } catch { /* brak źródeł nie jest błędem krytycznym */ }
+      }
 
       // Zbiór roboczy na kolejne pytanie: dokumenty użyte w tej odpowiedzi. Gdy pytanie
       // było już zawężone, zostaje zawężenie — inaczej biorą się z odpowiedzi RAG.
-      const noweZrodla = zakres ?? finalSources.filter((s) => !!s.file_id);
+      // Po ponowieniu „na czysto" zakres odziedziczony po poprzedniej odpowiedzi już
+      // nie obowiązuje: odpowiedź powstała z innych dokumentów i te mają iść dalej.
+      const noweZrodla = (zakresOdcięty ? null : zakres) ?? finalSources.filter((s) => !!s.file_id);
       if (noweZrodla.length > 0) setZbiorRoboczy(noweZrodla);
 
       // Zapisz turę w historii (pytanie + odpowiedź + źródła)
@@ -773,6 +833,10 @@ export default function ChatPage() {
                       parseWait ? (
                         <span className="text-gray-500 italic">
                           ⏳ Trwa przetwarzanie dokumentów — odpowiedź pojawi się za chwilę.
+                        </span>
+                      ) : bezKontekstu ? (
+                        <span className="text-gray-500 italic">
+                          Nowy temat w tej rozmowie — sprawdzam samo pytanie…
                         </span>
                       ) : routingHint ? (
                         <span className="text-gray-500 italic">Rozpoznaję rodzaj pytania…</span>

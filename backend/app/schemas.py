@@ -184,6 +184,11 @@ class ChatRequest(BaseModel):
     # dokumentów ustalonych wcześniej (rejestr pól albo poprzednia odpowiedź).
     # Uprawnienia do folderów obowiązują niezależnie: oba warunki łączymy w `must`.
     file_ids: Optional[list[int]] = None
+    # Czy wolno użyć historii rozmowy (do rozwinięcia pytania i jako kontekst dla
+    # modelu). Fałsz = pytanie zadajemy „na czysto". Frontend ustawia to przy jednym
+    # ponowieniu, gdy odpowiedź z historią była odmową: zmierzone, że po zmianie
+    # tematu w wątku model odmawia, choć to samo pytanie w świeżym wątku działa.
+    use_history: bool = True
 
 
 class ChatSourceItem(BaseModel):

@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "0.9.19",
+      "date": "2026-07-29",
+      "title": "Zmiana tematu w trwającej rozmowie nie gubi już odpowiedzi",
+      "changes": [
+        "Gdy w trakcie rozmowy przechodzisz do zupełnie innego tematu, a odpowiedź oparta na kontekście tej rozmowy nic nie znajduje, aplikacja sama zadaje pytanie ponownie - tak, jakby padło w nowym czacie - i pokazuje właściwą odpowiedź. Widać wtedy krótką informację „Nowy temat w tej rozmowie - sprawdzam samo pytanie…\".",
+        "Nie trzeba już zakładać nowego czatu tylko dlatego, że zmienił się temat.",
+        "Ponowienie odcina też zawężenie do dokumentów z poprzedniej odpowiedzi, więc nowy temat nie jest szukany w starych dokumentach.",
+        "Mechanizm uruchamia się wyłącznie po odpowiedzi „nie znaleziono informacji\", więc nie zmienia odpowiedzi, które i tak się udały. Pytania odnoszące się do wcześniejszej odpowiedzi (na przykład „kto go podpisał?\") nadal korzystają z kontekstu rozmowy."
+      ]
+    },
+    {
       "version": "0.9.18",
       "date": "2026-07-29",
       "title": "Wpisanie samej nazwy dokumentu daje odpowiedź, a nie pustą listę",
