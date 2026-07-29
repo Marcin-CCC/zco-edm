@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "0.9.18",
+      "date": "2026-07-29",
+      "title": "Wpisanie samej nazwy dokumentu daje odpowiedź, a nie pustą listę",
+      "changes": [
+        "Wpisanie samej nazwy dokumentu, bez pytania (na przykład „wniosek o urlop opiekuńczy\"), daje teraz krótką odpowiedź o tym dokumencie wraz z odnośnikiem do niego. Wcześniej aplikacja traktowała to jako prośbę o zestawienie i często kończyła komunikatem o braku wyników.",
+        "Wyszukiwanie dokumentów po nazwie nie potyka się już o odmianę wyrazów - „urlop opiekuńczy\" znajduje dokument zatytułowany „urlopu opiekuńczego\" - i bierze pod uwagę także nazwę pliku, nie tylko rozpoznane pola.",
+        "Gdy warunek opisowy nic nie znajdzie, aplikacja dodatkowo szuka odpowiedzi w treści dokumentów i wyraźnie to oznacza. Przy warunku na numerze, dacie lub osobie nadal mówi wprost, że takich dokumentów nie ma - bez domyślania się.",
+        "Etykieta cytowanego dokumentu nie pokazuje już technicznych wartości przepisanych z formularza."
+      ]
+    },
+    {
       "version": "0.9.17",
       "date": "2026-07-29",
       "title": "Czat rozumie pytania zadane potocznie",

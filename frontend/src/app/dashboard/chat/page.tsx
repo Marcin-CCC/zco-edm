@@ -415,8 +415,12 @@ export default function ChatPage() {
         }
 
         // Pytanie o listę, ale nie wiadomo o jaką. Nie wypisujemy całej bazy —
-        // to udawanie odpowiedzi. Prosimy o doprecyzowanie.
-        if (!rejestr || rejestr.noCriteria) {
+        // to udawanie odpowiedzi. Prosimy o doprecyzowanie, ale TYLKO gdy wypowiedź
+        // faktycznie jest ogólnikowa („pokaż wszystkie dokumenty"). Gdy nazywa coś
+        // konkretnego, a rejestr nie umiał zamienić tego na warunek (np. „polecenie
+        // wyjazdu służbowego"), przechodzimy do odpowiedzi z treści — tam odnośnik do
+        // dokumentu i tak się znajdzie, a odesłanie z niczym byłoby najgorszym wyjściem.
+        if (!rejestr || (rejestr.noCriteria && rejestr.listRes.generic_query !== false)) {
           const prosba =
             'Nie wiem, o które dokumenty chodzi. Doprecyzuj — możesz podać rodzaj ' +
             '(np. zarządzenia, instrukcje), osobę (np. zatwierdzone przez Kowalską), ' +
@@ -442,7 +446,11 @@ export default function ChatPage() {
 
         // Kryteria były, ale nic im nie odpowiada.
         const desc = describeFilter(rejestr.listRes.filter, typeNames);
-        const poPolu = (rejestr.listRes.filter?.filters?.length || 0) > 0;
+        // Twarde zatrzymanie tylko wtedy, gdy WSZYSTKIE warunki są wiarygodne
+        // (numer, data, osoba). Dopasowanie frazy opisowej potrafi nie trafić w
+        // sformułowanie użyte w dokumencie, więc wtedy pytamy jeszcze o treść.
+        const poPolu =
+          (rejestr.listRes.filter?.filters?.length || 0) > 0 && !rejestr.listRes.phrase_filter;
 
         // Warunek na konkretnym polu (osoba, numer, data) jest precyzyjny: skoro rejestr
         // nic nie zwrócił, to takich dokumentów po prostu nie ma. Odpowiadamy wprost i
@@ -478,8 +486,11 @@ export default function ChatPage() {
           ? `_W systemie nie ma rodzaju dokumentów „${rejestr.listRes.unknown_type}". ` +
             `Rozpoznawane rodzaje: ${(rejestr.listRes.known_types || []).join(', ')}. ` +
             `Poniżej odpowiedź na podstawie treści dokumentów:_\n\n`
-          : `_Nie znalazłem dokumentów spełniających kryteria${desc ? ` (${desc})` : ''}. ` +
-            `Poniżej odpowiedź na podstawie treści dokumentów:_\n\n`;
+          : rejestr.noCriteria
+            // Nie było żadnego kryterium do sprawdzenia — nie ma czego „nie znaleźć".
+            ? `_Poniżej odpowiedź na podstawie treści dokumentów:_\n\n`
+            : `_Nie znalazłem dokumentów spełniających kryteria${desc ? ` (${desc})` : ''}. ` +
+              `Poniżej odpowiedź na podstawie treści dokumentów:_\n\n`;
         assistantText = notice;
         setMessages((prev) => {
           const next = [...prev];

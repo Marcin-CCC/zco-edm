@@ -150,6 +150,19 @@ def _enrich_with_file_ids(sources: list[dict], db: Session) -> list[dict]:
     # Pola najlepiej identyfikujące dokument (pierwsze pasujące trafia do etykiety)
     _KEY_FIELDS = ("numer_dokumentu", "numer", "numer_aneksu", "numer_zalacznika", "data")
 
+    def wartosc_do_etykiety(v) -> str | None:
+        """Odsiej wartości, które nie są treścią, tylko szablonem z formularza.
+
+        Zdarza się, że model wyciągnie z dokumentu literał w rodzaju `${number:2}`
+        (jeden taki przypadek w bazie 157 dokumentów) i wtedy w cytowaniu widać
+        „Załącznik ${number:2}". Etykieta ma być czytelna, więc lepiej pokazać sam
+        typ dokumentu niż śmieć.
+        """
+        tekst = str(v).strip()
+        if not tekst or "${" in tekst or "{{" in tekst or tekst in ("-", "—", "…", "..."):
+            return None
+        return tekst
+
     for s in sources:
         entry = by_name.get(s.get("filename"))
         if not entry:
@@ -166,8 +179,10 @@ def _enrich_with_file_ids(sources: list[dict], db: Session) -> list[dict]:
             fields = meta.get("doc_fields") or {}
             for k in _KEY_FIELDS:
                 if fields.get(k):
-                    s["doc_key"] = str(fields[k])
-                    break
+                    etykieta = wartosc_do_etykiety(fields[k])
+                    if etykieta:
+                        s["doc_key"] = etykieta
+                        break
     return sources
 
 
@@ -447,14 +462,19 @@ _ROUTE_SYSTEM = (
     " - polecenia: pokaz, znajdz, wyszukaj, wylistuj, wypisz, podaj, otworz, daj "
     "(np. pokaz regulamin wynagradzania)\n"
     " - pytania o zbior dokumentow: wszystkie zarzadzenia; jakie umowy z 2023; ile jest wnioskow\n"
-    " - sama nazwa lub typ dokumentu bez pytania (np. regulamin; regulamin wynagradzania; "
-    "zarzadzenie 30/2024)\n"
+    " - sama nazwa RODZAJU dokumentow, zwlaszcza w liczbie mnogiej (np. regulaminy; "
+    "zarzadzenia; wnioski; instrukcje), albo rodzaj z warunkiem (zarzadzenia z 2024; "
+    "wnioski Kowalskiej)\n"
     " - pytania o dokumenty POWIAZANE Z OSOBA: kto co opracowal, sprawdzil, zatwierdzil, "
     "podpisal lub wydal, oraz czy dana osoba ma jakies dokumenty. Tu decyduje temat, "
     "nie forma pytania (np. czy Kowalska zatwierdzila jakies instrukcje; instrukcje "
     "zatwierdzone przez Kowalska; zarzadzenia podpisane przez dyrektora)\n"
     "TRESC = uzytkownik pyta o to, CO JEST W dokumentach: tresc, zasady, definicje, "
     "konkretne wartosci. Naleza tu:\n"
+    " - SAMA NAZWA JEDNEGO, KONKRETNEGO dokumentu, bez polecenia i bez slowa pytajacego "
+    "(np. wniosek o urlop opiekunczy; regulamin wynagradzania; polecenie wyjazdu sluzbowego; "
+    "zarzadzenie 30/2024). Uzytkownik chce wiedziec, czym ten dokument jest — odpowiedz z "
+    "tresci zawiera odnosnik do niego, wiec dostaje tez sam dokument.\n"
     " - pytania zaczynajace sie od: co, jak, kto, kiedy, ile wynosi, czy, dlaczego, gdzie znajde\n"
     " - przyklady: co jest w regulaminie wynagradzania; jak przejsc na prace zdalna; "
     "ile wynosi dodatek stazowy;\n"
@@ -462,8 +482,8 @@ _ROUTE_SYSTEM = (
     " - UWAGA: pytanie o pole opisowe KONKRETNEGO, nazwanego dokumentu to TRESC "
     "(np. kto zatwierdzil instrukcje opieki pielegniarskiej) — odpowiedz jest w jego naglowku. "
     "Dopiero pytanie o ZBIOR dokumentow danej osoby to LISTA.\n"
-    "W razie watpliwosci: jesli wypowiedz to polecenie lub sama nazwa dokumentu -> LISTA; "
-    "jesli to pytanie o wiedze -> TRESC.\n"
+    "W razie watpliwosci: jesli wypowiedz to POLECENIE albo nazwa RODZAJU dokumentow "
+    "(liczba mnoga) -> LISTA; jesli to nazwa JEDNEGO dokumentu albo pytanie o wiedze -> TRESC.\n"
     "Osobno oceniasz pole 'poprzednie': ustaw true, gdy wypowiedz odnosi sie do dokumentow "
     "wskazanych we WCZESNIEJSZEJ odpowiedzi, zamiast opisywac je od nowa. Sygnalem sa "
     "zaimki i odwolania bez wlasnej tresci: 'co jest w tym dokumencie', 'w nim', "

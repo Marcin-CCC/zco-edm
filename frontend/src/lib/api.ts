@@ -373,6 +373,14 @@ export const docSearchApi = {
       // Pytanie bez jakiegokolwiek kryterium — rejestr nie zwraca wtedy nic,
       // bo wyszukiwanie bez warunków oddałoby całą bazę i udawało odpowiedź.
       no_criteria?: boolean;
+      // Wśród warunków jest NIEPEWNE dopasowanie frazy (tytuł, temat) — przy zerze
+      // wyników warto jeszcze poszukać w treści. Przy numerze, dacie i osobie nie:
+      // tam zero wyników znaczy, że takich dokumentów nie ma.
+      phrase_filter?: boolean;
+      // Towarzyszy `no_criteria`: czy wypowiedź była ogólnikowa („pokaż wszystkie
+      // dokumenty") — wtedy prosimy o doprecyzowanie. Gdy nazywa coś konkretnego,
+      // szukamy w treści, zamiast odsyłać użytkownika z niczym.
+      generic_query?: boolean;
     }>('/api/doc-search/nl', {
       method: 'POST',
       body: { query },

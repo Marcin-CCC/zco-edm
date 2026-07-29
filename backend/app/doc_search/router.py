@@ -20,7 +20,7 @@ from typing import Optional
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -77,6 +77,48 @@ class FieldFilter(BaseModel):
     value: str
 
 
+# Pola identyfikujące osobę — warunek na nich jest WIARYGODNY: skoro nic nie pasuje,
+# takich dokumentów naprawdę nie ma. Doklejanie odpowiedzi z treści byłoby tu szkodliwe
+# (mierzone wcześniej: model dopasowywał listę do fałszywego założenia pytania).
+_POLA_OSOBOWE = ("nazwisko", "osoba", "opracowal", "sprawdzil", "zatwierdzil", "podpisal",
+                 "organwydajacy", "dyrektor", "kierownik", "autor", "wydal")
+
+
+_SLOWA_OGOLNE = {"dokument", "dokumenty", "dokumentow", "dokumentów", "plik", "pliki",
+                 "plikow", "plików", "akta", "wszystko", "wszystkie", "wszystkich",
+                 "lista", "liste", "listę", "spis", "zestawienie", "pokaz", "pokaż",
+                 "wypisz", "wylistuj", "znajdz", "znajdź", "podaj", "daj", "ile", "jest",
+                 "sa", "są", "jakie", "w", "z", "ze", "na", "do", "systemie", "bazie"}
+
+
+def zapytanie_ogolnikowe(query: str) -> bool:
+    """Czy wypowiedź nie nazywa NICZEGO konkretnego (same słowa ogólne i polecenia).
+
+    „pokaż wszystkie dokumenty" → True (prosimy o doprecyzowanie zamiast wypisywać bazę).
+    „polecenie wyjazdu służbowego" → False (nazwa konkretnego dokumentu).
+    """
+    slowa = [s.strip(".,;:!?\"'()") for s in (query or "").lower().split()]
+    return not any(s and s not in _SLOWA_OGOLNE for s in slowa)
+
+
+def warunek_frazowy(field: str, op: str, value: str) -> bool:
+    """Czy warunek jest NIEPEWNYM dopasowaniem frazy (a nie identyfikatorem/datą/osobą).
+
+    Rozstrzyga, co zrobić, gdy wyszukiwanie po polach nic nie znalazło. Warunek na
+    numerze, dacie albo osobie jest wiarygodny — zero wyników znaczy „nie ma takich
+    dokumentów" i mówimy to wprost. Warunek na frazie opisowej (tytuł, temat) jest
+    niepewny: nawet z dopasowaniem po rdzeniach potrafi nie trafić w sformułowanie
+    użyte w dokumencie, więc wtedy warto jeszcze poszukać w treści.
+    """
+    from app.doc_extract import _norm_key
+    if (op or "").lower() != "contains":
+        return False                                  # zakresy dat i eq = precyzyjne
+    if any(z.isdigit() for z in value or ""):
+        return False                                  # numer, rok, sygnatura
+    nazwa = _norm_key(field)
+    return not any(k in nazwa for k in _POLA_OSOBOWE)
+
+
 class SearchRequest(BaseModel):
     doc_type: Optional[str] = None
     filters: list[FieldFilter] = []
@@ -96,12 +138,57 @@ class SearchHit(BaseModel):
     fields: dict = {}
 
 
+DLUGOSC_RDZENIA = 4      # „urlop opiekuńczy" → urlo, opie (łapie „urlopu opiekuńczego")
+_STOPY = {"o", "w", "na", "do", "za", "z", "ze", "i", "oraz", "dla", "od", "po", "przez", "nr"}
+
+
+def rdzenie(fraza: str) -> list[str]:
+    """Rozłóż frazę na rdzenie wyrazów, po których wolno szukać.
+
+    Dopasowanie po całej frazie zawodzi na polskiej odmianie: warunek
+    `tytul zawiera "urlop opiekuńczy"` NIE trafia w „Wniosek o udzielenie urlopu
+    opiekuńczego", bo to porównanie dosłowne. Skracamy więc każde słowo do rdzenia
+    i wymagamy obecności wszystkich rdzeni (AND).
+
+    Zmierzone na haśle „karta odmowy przyjęcia": przy rdzeniu 5- i 6-znakowym wynik
+    to ZERO trafień („karta" nie zawiera się w „karty"), przy 4 — trzy właściwe
+    dokumenty. Wyrazy z cyframi („30/2024") zostawiamy nietknięte, żeby nie zlewać
+    numerów z różnych lat.
+    """
+    out: list[str] = []
+    for slowo in fraza.lower().replace(",", " ").replace(";", " ").split():
+        if slowo in _STOPY:
+            continue
+        if any(z.isdigit() for z in slowo):
+            out.append(slowo)                       # numery i daty bez skracania
+        elif len(slowo) > DLUGOSC_RDZENIA:
+            out.append(slowo[:DLUGOSC_RDZENIA])
+        elif len(slowo) >= 3:
+            out.append(slowo)
+    return out
+
+
+def _zawiera_rdzenie(col, val: str):
+    """Warunek: kolumna zawiera WSZYSTKIE rdzenie frazy (odporne na odmianę)."""
+    czesci = rdzenie(val)
+    if not czesci:
+        return col.ilike(f"%{val}%")
+    warunki = [col.ilike(f"%{r}%") for r in czesci]
+    return and_(*warunki) if len(warunki) > 1 else warunki[0]
+
+
 def _field_condition(field: str, op: str, val: str):
     """Warunek SQL na jednym polu z `metadata->doc_fields`."""
     col = FileModel.metadata_.op("->")("doc_fields").op("->>")(field)
     if op == "eq":
         return func.lower(col) == val.lower()
     if op == "contains":
+        # Rdzenie WYŁĄCZNIE dla fraz opisowych. Na nazwisku byłyby błędem: „Kowalska"
+        # skrócona do „kowa" łapie „Jan Kowalski" — zmierzone 10 fałszywych trafień
+        # na wzorach formularzy z przykładowym nazwiskiem. Osoby dopasowujemy dosłownie
+        # (mianownik zapewnia już warstwa NL→filtr).
+        if warunek_frazowy(field, op, val):
+            return _zawiera_rdzenie(col, val)
         return col.ilike(f"%{val}%")
     if op == "gte":
         return col >= _expand_date_bound(val, "gte")
@@ -153,6 +240,12 @@ def _run_search(
 
     for (op, val), fields in groups.items():
         conds = [c for c in (_field_condition(fl, op, val) for fl in fields) if c is not None]
+        # Nazwa pliku jako dodatkowy cel dopasowania fraz. Pole `tytul` ma wypełnione
+        # tylko 46 ze 157 dokumentów, a nazwa pliku bywa dokładnie tym, czego użytkownik
+        # szuka („wniosek o urlop opiekuńczy.docx"). Tylko dla fraz opisowych: nazwisko
+        # w nazwie pliku prawie nie występuje, a data i numer mają własne pola.
+        if any(warunek_frazowy(fl, op, val) for fl in fields):
+            conds.append(_zawiera_rdzenie(FileModel.filename, val))
         if not conds:
             continue
         q = q.filter(or_(*conds) if len(conds) > 1 else conds[0])
@@ -371,10 +464,18 @@ async def nl_search(
             "filter": {"doc_type": None, "filters": []},
             "hits": [],
             "no_criteria": True,
+            # Czy wypowiedź jest OGÓLNIKOWA („pokaż wszystkie dokumenty"), czy nazywa
+            # coś konkretnego („polecenie wyjazdu służbowego" — nazwa dokumentu, której
+            # rejestr nie umiał zamienić na warunek). W pierwszym przypadku prosimy o
+            # doprecyzowanie, w drugim lepiej poszukać w treści niż odsyłać z niczym.
+            "generic_query": zapytanie_ogolnikowe(payload.query),
         }
 
     hits = _run_search(db, current_user, doc_type, filters, payload.limit)
     return {
         "filter": {"doc_type": doc_type, "filters": [f.model_dump() for f in filters]},
         "hits": [h.model_dump() for h in hits],
+        # Czy wśród warunków jest niepewne dopasowanie frazy — frontend decyduje na tej
+        # podstawie, czy przy zerze wyników dokleić odpowiedź z treści dokumentów.
+        "phrase_filter": any(warunek_frazowy(f.field, f.op, f.value) for f in filters),
     }
