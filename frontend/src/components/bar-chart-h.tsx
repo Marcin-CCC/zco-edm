@@ -16,6 +16,13 @@ interface HBarChartProps {
   emptyText?: string;
 }
 
+// Szerokość kolumny z nazwami i odstęp do toru słupka. Trzymane jako stałe, bo
+// o tę samą wartość przesunięta jest oś X i siatka — inaczej rozjechałyby się
+// przy każdej zmianie szerokości etykiet.
+const KOLUMNA_ETYKIET = '8rem';
+const ODSTEP_KOLUMN = '0.75rem';
+const POCZATEK_TORU = `calc(${KOLUMNA_ETYKIET} + ${ODSTEP_KOLUMN})`;
+
 /**
  * Górna granica osi i podziałka złożona wyłącznie z liczb całkowitych — wykres
  * pokazuje sztuki (pliki, zapytania), więc „12.5 pliku" byłoby bez sensu.
@@ -39,6 +46,12 @@ function osX(max: number): { skala: number; podzialka: number[] } {
  *
  * Poziomy układ wybrany świadomie: nazwiska na osi pionowej czyta się wprost,
  * bez obracania etykiet, a lista pozycji może rosnąć bez ściskania słupków.
+ *
+ * Nazwa i słupek są JEDNYM wierszem, a nie dwiema równoległymi kolumnami:
+ * przy kolumnach ta z prawej niosła dodatkowo podpisy osi, przez co obie
+ * rozkładały elementy na różnych wysokościach i słupki rozjeżdżały się
+ * z nazwami. W jednym wierszu wyrównanie wynika z układu, nie z rachunku.
+ *
  * Reszta zasad jak na wykresie dziennym: jedna seria bez legendy, słupki
  * zaokrąglone od strony wartości i osadzone na wspólnej linii bazowej, recesywna
  * siatka, wartości w dymku po najechaniu — nie przy każdym słupku.
@@ -55,41 +68,38 @@ export function HBarChart({ data, color, unitLabel, emptyText = 'Brak danych z t
 
   return (
     <div className="relative">
-      <div className="flex gap-3">
-        {/* Oś Y: nazwy pozycji, tekstem drugorzędnym */}
-        <div className="w-32 shrink-0 flex flex-col justify-around gap-[3px] py-[1px]">
-          {data.map((d, i) => (
-            <div
-              key={d.label}
-              className="h-5 flex items-center justify-end text-[11px] leading-tight text-right truncate"
-              style={{ color: hover === i ? '#0f172a' : '#64748b' }}
-              title={d.label}
-            >
-              {d.label}
-            </div>
+      <div className="relative">
+        {/* Siatka pionowa — linie włosowe, oś zerowa mocniejsza. Zaczyna się tam,
+            gdzie tory słupków, więc nie przecina nazw. */}
+        <div
+          className="absolute inset-y-0 right-0 flex justify-between pointer-events-none"
+          style={{ left: POCZATEK_TORU }}
+        >
+          {podzialka.map((v, i) => (
+            <div key={v} className={i === 0 ? 'border-l border-gray-300' : 'border-l border-gray-200'} />
           ))}
         </div>
 
-        <div className="relative flex-1">
-          {/* Siatka pionowa — linie włosowe, oś zerowa mocniejsza */}
-          <div className="absolute inset-0 flex justify-between pointer-events-none">
-            {podzialka.map((v, i) => (
-              <div key={v} className={i === 0 ? 'border-l border-gray-300' : 'border-l border-gray-200'} />
-            ))}
-          </div>
-
-          {/* Słupki — wspólna linia bazowa po lewej, 3 px przerwy między sąsiadami */}
-          <div className="relative flex flex-col justify-around gap-[3px] py-[1px]">
-            {data.map((d, i) => {
-              const szerokosc = d.value > 0 ? Math.max((d.value / skala) * 100, 0.8) : 0;
-              return (
+        <div className="relative space-y-[3px]">
+          {data.map((d, i) => {
+            const szerokosc = d.value > 0 ? Math.max((d.value / skala) * 100, 0.8) : 0;
+            return (
+              <div
+                key={d.label}
+                className="flex items-center h-5 cursor-default"
+                style={{ gap: ODSTEP_KOLUMN }}
+                onMouseEnter={() => setHover(i)}
+                onMouseLeave={() => setHover(null)}
+                aria-label={`${d.label}: ${d.value} ${unitLabel}`}
+              >
                 <div
-                  key={d.label}
-                  className="h-5 flex items-center cursor-default"
-                  onMouseEnter={() => setHover(i)}
-                  onMouseLeave={() => setHover(null)}
-                  aria-label={`${d.label}: ${d.value} ${unitLabel}`}
+                  className="shrink-0 text-[11px] leading-tight text-right truncate"
+                  style={{ width: KOLUMNA_ETYKIET, color: hover === i ? '#0f172a' : '#64748b' }}
+                  title={d.label}
                 >
+                  {d.label}
+                </div>
+                <div className="flex-1 flex items-center">
                   <div
                     className="h-3 rounded-r-[4px] transition-opacity"
                     style={{
@@ -99,23 +109,23 @@ export function HBarChart({ data, color, unitLabel, emptyText = 'Brak danych z t
                     }}
                   />
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Podpisy osi X */}
-          <div className="relative mt-1.5 h-4">
-            {podzialka.map((v, i) => (
-              <span
-                key={v}
-                className="absolute text-[10px] text-gray-400 -translate-x-1/2"
-                style={{ left: `${(i / (podzialka.length - 1)) * 100}%` }}
-              >
-                {v}
-              </span>
-            ))}
-          </div>
+              </div>
+            );
+          })}
         </div>
+      </div>
+
+      {/* Podpisy osi X — przesunięte o kolumnę nazw, żeby liczby stały pod torami */}
+      <div className="relative mt-1.5 h-4" style={{ marginLeft: POCZATEK_TORU }}>
+        {podzialka.map((v, i) => (
+          <span
+            key={v}
+            className="absolute text-[10px] text-gray-400 -translate-x-1/2"
+            style={{ left: `${(i / (podzialka.length - 1)) * 100}%` }}
+          >
+            {v}
+          </span>
+        ))}
       </div>
 
       {/* Dymek z wartością — jeden na wykres, zamiast liczby przy każdym słupku */}

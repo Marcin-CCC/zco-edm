@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "0.9.11",
+      "date": "2026-07-29",
+      "title": "Słupki wyrównane z nazwami użytkowników",
+      "changes": [
+        "Na wykresach aktywności słupki stoją dokładnie na wysokości nazwisk; wcześniej były przesunięte względem podpisów, a różnica narastała ku dołowi wykresu."
+      ]
+    },
+    {
       "version": "0.9.10",
       "date": "2026-07-28",
       "title": "Poprawiona nawigacja po ścieżce folderów",
