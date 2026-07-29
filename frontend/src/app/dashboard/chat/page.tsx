@@ -90,6 +90,14 @@ function stripEndMarker(text: string): string {
     .replace(/\s*\[{1,2}[^\]]*$/, '');
 }
 
+/** Odmowa modelu w jedynej postaci, w jakiej ją zwraca (prompt narzuca dokładne zdanie). */
+const ODMOWA_PELNA = 'niestety, nie znaleziono w dokumentach informacji na ten temat.';
+
+/** Tekst modelu bez znaczników cytowań i nadmiarowych spacji, małymi literami. */
+function normalizuj(tekst: string): string {
+  return stripInlineMarkers(stripEndMarker(tekst)).replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
 /** Usuń inline znaczniki „[Źródło N]" (gdy nie da się ich zamienić na odnośniki). */
 function stripInlineMarkers(text: string): string {
   return text.replace(new RegExp(`\\s*${INLINE_MARKER_RE.source}`, 'gi'), '');
@@ -306,9 +314,16 @@ export default function ChatPage() {
    * odmowa w czystej postaci — odpowiedź, która przy okazji zawiera to zdanie,
    * nadal jest odpowiedzią.
    */
-  const czystaOdmowa = (tekst: string) => {
-    const t = stripInlineMarkers(stripEndMarker(tekst)).replace(/\s+/g, ' ').trim().toLowerCase();
-    return t === 'niestety, nie znaleziono w dokumentach informacji na ten temat.';
+  const czystaOdmowa = (tekst: string) => normalizuj(tekst) === ODMOWA_PELNA;
+
+  /**
+   * Czy to, co dotąd przyszło ze strumienia, może jeszcze okazać się odmową.
+   * Dopóki może, wstrzymujemy pokazywanie tekstu — bez tego użytkownik widzi
+   * mignięcie „nie znaleziono", które po ponowieniu i tak znika.
+   */
+  const zapowiadaOdmowe = (tekst: string) => {
+    const t = normalizuj(tekst);
+    return t.length > 0 && ODMOWA_PELNA.startsWith(t);
   };
 
   const sendMessage = async () => {
@@ -341,15 +356,21 @@ export default function ChatPage() {
     const mialHistorie = messages.some(
       (m) => m.role === 'assistant' && !m.error && m.content.trim() && !czystaOdmowa(m.content),
     );
+    // Czy jest jeszcze w zanadrzu ponowienie „na czysto" (gaśnie po jego uruchomieniu)
+    let mozliwePonowienie = mialHistorie;
 
     const appendText = (t: string) => {
       setParseWait(false); // pierwszy token → model już odpowiada, chowamy komunikat
-      assistantText += t;
       modelText += t;
+      // Dopóki odpowiedź może okazać się odmową, a mamy czym ponowić — nie pokazujemy
+      // jej. Inaczej „nie znaleziono" mignie na ekranie i zniknie po ponowieniu.
+      // Zwykła odpowiedź rozjeżdża się z odmową już na pierwszym słowie, więc czeka
+      // najwyżej jeden token.
+      if (mozliwePonowienie && zapowiadaOdmowe(modelText)) return;
+      assistantText = prefiks + modelText;
       setMessages((prev) => {
         const next = [...prev];
-        const last = next[next.length - 1];
-        next[next.length - 1] = { ...last, content: last.content + t };
+        next[next.length - 1] = { ...next[next.length - 1], content: assistantText };
         return next;
       });
     };
@@ -413,7 +434,12 @@ export default function ChatPage() {
       // temat), a zakres z rejestru zostaje: wynika z TEGO pytania.
       let zakresZPoprzednich = false;
       let zakresOdcięty = false;   // ponowienie „na czysto" odrzuciło zakres z poprzedniej tury
-      if (doPoprzednich && zbiorRoboczy.length > 0) {
+      // Wyjątek od pierwszeństwa: gdy pytanie NAZYWA rodzaj dokumentów („a inne wnioski",
+      // „jakie jeszcze wnioski są"), samo definiuje swój zakres i poprzednia odpowiedź go
+      // nie zastępuje. Czysta anafora („który z nich jest najnowszy") rodzaju nie nazywa —
+      // zmierzone: w 6 na 6 takich wypowiedzi rejestr nie rozpoznaje typu dokumentu.
+      const rejestrNazywaTyp = !!rejestr?.listRes.filter?.doc_type && rejestr.docs.length > 0;
+      if (doPoprzednich && zbiorRoboczy.length > 0 && !rejestrNazywaTyp) {
         zakres = zbiorRoboczy;
         zakresZPoprzednich = true;
       } else if (rejestr && rejestr.docs.length > 0) {
@@ -422,8 +448,11 @@ export default function ChatPage() {
 
       if (mode === 'LISTA') {
         if (zakres) {
-          const summary = doPoprzednich && !rejestr?.docs.length
-            ? `Dokumenty z poprzedniej odpowiedzi (${zakres.length}):`
+          // Etykieta MUSI opisywać to, co widać na liście. Wcześniej zależała od innego
+          // warunku niż sam zakres, więc dawało się dostać „Znalazłem 35 dokumentów"
+          // nad listą 10 pozycji z poprzedniej odpowiedzi.
+          const summary = zakresZPoprzednich
+            ? `Dokumenty wskazane w poprzedniej odpowiedzi (${zakres.length}):`
             : (rejestr?.summary ?? `Znalazłem ${zakres.length} ${pluralDocs(zakres.length)}.`);
           setMessages((prev) => {
             const next = [...prev];
@@ -621,7 +650,8 @@ export default function ChatPage() {
       // tematyczna nie rozdziela kontynuacji od zmiany (0,38–0,59 wobec 0,27–0,51),
       // więc reagujemy na WYNIK, a nie na przepowiednię. Jedno ponowienie, tylko po
       // odmowie, więc nie może zepsuć odpowiedzi, która się udała.
-      if (!aborted && mialHistorie && czystaOdmowa(modelText)) {
+      if (!aborted && mozliwePonowienie && czystaOdmowa(modelText)) {
+        mozliwePonowienie = false;   // druga próba leci już normalnie, bez wstrzymywania
         assistantText = prefiks;
         modelText = '';
         finalSources = [];
@@ -639,13 +669,15 @@ export default function ChatPage() {
         }
       }
 
-      // Adnotacja „Poniżej odpowiedź na podstawie treści dokumentów" zapowiada coś,
-      // czego ostatecznie nie ma — gdy i tak kończy się odmową, zostaje sama odmowa.
-      if (!aborted && prefiks && czystaOdmowa(modelText)) {
-        assistantText = modelText;
+      // Ostateczna treść wiadomości. Ustawiamy ją zawsze — dzięki temu tekst
+      // wstrzymany na czas rozpoznawania odmowy na pewno trafi na ekran. Gdy mimo
+      // ponowienia zostaje odmowa, zdejmujemy adnotację zapowiadającą odpowiedź:
+      // pusta obietnica nad komunikatem o braku informacji tylko myli.
+      if (!aborted) {
+        assistantText = prefiks && czystaOdmowa(modelText) ? modelText : prefiks + modelText;
         setMessages((prev) => {
           const next = [...prev];
-          next[next.length - 1] = { ...next[next.length - 1], content: modelText };
+          next[next.length - 1] = { ...next[next.length - 1], content: assistantText };
           return next;
         });
       }

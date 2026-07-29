@@ -91,6 +91,19 @@ _SLOWA_OGOLNE = {"dokument", "dokumenty", "dokumentow", "dokumentów", "plik", "
                  "sa", "są", "jakie", "w", "z", "ze", "na", "do", "systemie", "bazie"}
 
 
+# Słowa, które określają RELACJĘ do poprzedniej odpowiedzi, a nie treść dokumentu.
+# Model potrafi zrobić z nich warunek na polu („a inne wnioski" → tytuł zawiera „inne"),
+# co daje zero wyników i pytanie ląduje w ślepej gałęzi.
+_KWANTYFIKATORY = {"inne", "inny", "inna", "innych", "pozostale", "pozostałe", "jeszcze",
+                   "kolejne", "kolejny", "nastepne", "następne", "nowe", "nowszy", "nowsze",
+                   "wszystkie", "wszystkich", "jakies", "jakieś", "reszta", "reszte", "resztę"}
+
+
+def wartosc_bez_tresci(value: str) -> bool:
+    """Czy wartość warunku to samo słowo relacyjne („inne", „pozostałe")."""
+    return (value or "").strip().lower() in _KWANTYFIKATORY
+
+
 def zapytanie_ogolnikowe(query: str) -> bool:
     """Czy wypowiedź nie nazywa NICZEGO konkretnego (same słowa ogólne i polecenia).
 
@@ -439,6 +452,9 @@ async def nl_search(
         value = (f.get("value") or "").strip()
         op = (f.get("op") or "contains").lower()
         if not field or not value:
+            continue
+        if wartosc_bez_tresci(value):
+            logger.info(f"[DOC-SEARCH-NL] Pominięto warunek bez treści: {field}={value!r}")
             continue
         if op not in _ALLOWED_OPS:
             op = "contains"
