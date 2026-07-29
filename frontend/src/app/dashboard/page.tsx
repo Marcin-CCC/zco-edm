@@ -77,13 +77,18 @@ export default function DashboardPage() {
     fetchStats();
   }, []);
 
-  const statItems = [
+  const isAdmin = user?.role === 'admin';
+
+  // Kafelek bez `href` jest tylko liczbą — nie udaje odnośnika (brak kursora
+  // i reakcji na najechanie). Kolejka plików leży w Administracji, więc kafelek
+  // „Przetworzone" prowadzi tam wyłącznie administratora.
+  const statItems: { label: string; value: string; suffix?: string; href?: string }[] = [
     // kafelek Użytkownicy tylko dla admina — prowadzi do strony administracyjnej
     ...(stats.users !== null
       ? [{ label: 'Użytkownicy', value: String(stats.users), href: '/dashboard/users' }]
       : []),
-    { label: 'Dokumenty', value: String(stats.documents), href: '#' },
-    { label: 'Foldery', value: String(stats.folders), href: '#' },
+    { label: 'Dokumenty', value: String(stats.documents), href: '/dashboard/files' },
+    { label: 'Foldery', value: String(stats.folders), href: '/dashboard/files' },
     {
       label: 'Przetworzone',
       value: String(stats.processed),
@@ -94,7 +99,7 @@ export default function DashboardPage() {
             minimumFractionDigits: 2, maximumFractionDigits: 2,
           })}%)`
         : undefined,
-      href: '#',
+      href: isAdmin ? '/dashboard/file-queue' : undefined,
     },
   ];
 
@@ -114,11 +119,15 @@ export default function DashboardPage() {
       <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 ${
         statItems.length === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'
       }`}>
-        {statItems.map((stat) => (
-          <a
+        {statItems.map((stat) => {
+          const Kafelek = stat.href ? 'a' : 'div';
+          return (
+          <Kafelek
             key={stat.label}
-            href={stat.href}
-            className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+            {...(stat.href ? { href: stat.href } : {})}
+            className={`bg-white p-4 rounded-lg shadow-sm border border-gray-200${
+              stat.href ? ' hover:shadow-md transition-shadow' : ''
+            }`}
           >
             <p className="text-sm text-gray-500">{stat.label}</p>
             <p className="text-2xl font-bold text-gray-800">
@@ -127,8 +136,9 @@ export default function DashboardPage() {
                 <span className="ml-2 text-base font-medium text-gray-400">{stat.suffix}</span>
               )}
             </p>
-          </a>
-        ))}
+          </Kafelek>
+          );
+        })}
       </div>
 
       {/* Wykresy aktywności — ostatnie 30 dni */}

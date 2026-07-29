@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.9.12",
+      "date": "2026-07-29",
+      "title": "Kafelki Dashboardu prowadzą do właściwych stron",
+      "changes": [
+        "Kafelki Dokumenty i Foldery przenoszą do Eksploratora plików.",
+        "Kafelek Przetworzone przenosi administratora do Kolejki plików; dla pozostałych ról pozostaje samą liczbą, bez odnośnika."
+      ]
+    },
+    {
       "version": "0.9.11",
       "date": "2026-07-29",
       "title": "Słupki wyrównane z nazwami użytkowników",
