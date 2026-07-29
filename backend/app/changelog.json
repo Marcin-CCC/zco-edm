@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.9.14",
+      "date": "2026-07-29",
+      "title": "Koniec migania listy plików przy zmianie folderu",
+      "changes": [
+        "Wejście do folderu nie powoduje już krótkiego pokazania zawartości katalogu głównego.",
+        "Odświeżenie listy po wgraniu, przeniesieniu lub usunięciu pliku pokazuje bieżący folder, a nie katalog główny.",
+        "Zmiana folderu wysyła jedno zapytanie zamiast trzech, więc lista pojawia się szybciej."
+      ]
+    },
+    {
       "version": "0.9.13",
       "date": "2026-07-29",
       "title": "Długie nazwy folderów mieszczą się na kafelkach",

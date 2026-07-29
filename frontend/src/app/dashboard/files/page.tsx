@@ -173,7 +173,10 @@ function FilesPageInner() {
   }, []);
 
   // Load files
-  const loadFiles = useCallback(async (folderId: number | null = null) => {
+  // UWAGA na domyślną wartość: musi być BIEŻĄCY folder, nie root. Wołania bez
+  // argumentu (po usunięciu, przeniesieniu, wgraniu pliku) ładowały wcześniej
+  // katalog główny, przez co widok przeskakiwał na root.
+  const loadFiles = useCallback(async (folderId: number | null = currentFolderId) => {
     setLoading(true);
     try {
       const params: { folder_id?: number; search?: string } = {};
@@ -238,7 +241,9 @@ function FilesPageInner() {
         setLoading(false);
       }
     } else {
-      loadFiles();
+      // jawne null: setCurrentFolderId(null) z tego samego renderu nie jest jeszcze
+      // widoczne w domknięciu, więc domyślna wartość wskazywałaby stary folder
+      loadFiles(null);
     }
   };
 
@@ -247,7 +252,7 @@ function FilesPageInner() {
     setCurrentFolderId(null);
     setBreadcrumbs([]);
     resetFileView();
-    loadFiles();
+    loadFiles(null);
   };
 
   // Handle file upload — obsługa wielu plików naraz.
@@ -506,19 +511,24 @@ function FilesPageInner() {
     }
   };
 
-  // Search
+  // Wyszukiwarka: opóźnienie, żeby nie odpytywać serwera przy każdej literze.
+  // Ten efekt ładuje też listę początkową (przy montowaniu searchQuery jest puste).
+  // `currentFolderId` i `loadFiles` celowo NIE są zależnościami: zmianę folderu
+  // obsługują handlery nawigacji, a dopisanie ich tutaj powodowało powtórne
+  // uruchomienie efektu przy każdym wejściu do folderu — i to właśnie ono
+  // ładowało katalog główny, który migał przez ułamek sekundy.
   useEffect(() => {
     const timeout = setTimeout(() => {
       loadFiles(currentFolderId);
     }, 300);
     return () => clearTimeout(timeout);
-  }, [searchQuery, currentFolderId, loadFiles]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
 
-  // Initial load
+  // Drzewo folderów ładujemy raz — nie zależy od bieżącego folderu
   useEffect(() => {
     loadFolders();
-    loadFiles();
-  }, [loadFolders, loadFiles]);
+  }, [loadFolders]);
 
   // Dozwolone rozszerzenia — przy błędzie zostaje wartość startowa, żeby okno
   // wysyłki dało się otworzyć mimo niedostępnych ustawień.
