@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.9.20",
+      "date": "2026-07-29",
+      "title": "Ponowienie po zmianie tematu działa też przy odpowiedziach z adnotacją",
+      "changes": [
+        "Naprawione: mechanizm z poprzedniej wersji nie uruchamiał się, gdy nad odpowiedzią była adnotacja „Poniżej odpowiedź na podstawie treści dokumentów\". Aplikacja rozpoznawała wtedy odmowę jako zwykłą odpowiedź i nie ponawiała pytania. Teraz patrzy wyłącznie na to, co odpowiedział model.",
+        "Tura zakończona odmową nie trafia już do kontekstu rozmowy także wtedy, gdy miała taką adnotację - wcześniej mogła wpływać na kolejne pytania w tym samym czacie.",
+        "Gdy odpowiedzi ostatecznie nie ma, aplikacja nie zapowiada już odpowiedzi, której nie będzie - zostaje sam komunikat o braku informacji."
+      ]
+    },
+    {
       "version": "0.9.19",
       "date": "2026-07-29",
       "title": "Zmiana tematu w trwającej rozmowie nie gubi już odpowiedzi",

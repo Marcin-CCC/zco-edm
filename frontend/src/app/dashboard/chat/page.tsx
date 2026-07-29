@@ -328,6 +328,11 @@ export default function ChatPage() {
 
     const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     let assistantText = '';
+    // Sama odpowiedź modelu, BEZ naszej adnotacji doklejanej na początku wiadomości
+    // („Poniżej odpowiedź na podstawie treści dokumentów:"). Rozpoznanie odmowy musi
+    // patrzeć tylko na to — inaczej adnotacja maskuje odmowę i ponowienie nie rusza.
+    let modelText = '';
+    let prefiks = '';
     let finalSources: ChatSource[] = [];
     let aborted = false;
     // Czy backend ma z czego zbudować historię tej rozmowy. Odmowy do historii nie
@@ -340,6 +345,7 @@ export default function ChatPage() {
     const appendText = (t: string) => {
       setParseWait(false); // pierwszy token → model już odpowiada, chowamy komunikat
       assistantText += t;
+      modelText += t;
       setMessages((prev) => {
         const next = [...prev];
         const last = next[next.length - 1];
@@ -516,6 +522,7 @@ export default function ChatPage() {
             : `_Nie znalazłem dokumentów spełniających kryteria${desc ? ` (${desc})` : ''}. ` +
               `Poniżej odpowiedź na podstawie treści dokumentów:_\n\n`;
         assistantText = notice;
+        prefiks = notice;
         setMessages((prev) => {
           const next = [...prev];
           next[next.length - 1] = { ...next[next.length - 1], content: notice };
@@ -614,12 +621,13 @@ export default function ChatPage() {
       // tematyczna nie rozdziela kontynuacji od zmiany (0,38–0,59 wobec 0,27–0,51),
       // więc reagujemy na WYNIK, a nie na przepowiednię. Jedno ponowienie, tylko po
       // odmowie, więc nie może zepsuć odpowiedzi, która się udała.
-      if (!aborted && mialHistorie && czystaOdmowa(assistantText)) {
-        assistantText = '';
+      if (!aborted && mialHistorie && czystaOdmowa(modelText)) {
+        assistantText = prefiks;
+        modelText = '';
         finalSources = [];
         setMessages((prev) => {
           const next = [...prev];
-          next[next.length - 1] = { ...next[next.length - 1], content: '', sources: undefined };
+          next[next.length - 1] = { ...next[next.length - 1], content: prefiks, sources: undefined };
           return next;
         });
         setBezKontekstu(true);
@@ -629,6 +637,17 @@ export default function ChatPage() {
         } finally {
           setBezKontekstu(false);
         }
+      }
+
+      // Adnotacja „Poniżej odpowiedź na podstawie treści dokumentów" zapowiada coś,
+      // czego ostatecznie nie ma — gdy i tak kończy się odmową, zostaje sama odmowa.
+      if (!aborted && prefiks && czystaOdmowa(modelText)) {
+        assistantText = modelText;
+        setMessages((prev) => {
+          const next = [...prev];
+          next[next.length - 1] = { ...next[next.length - 1], content: modelText };
+          return next;
+        });
       }
 
       // Zbiór roboczy na kolejne pytanie: dokumenty użyte w tej odpowiedzi. Gdy pytanie

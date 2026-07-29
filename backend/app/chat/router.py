@@ -77,9 +77,18 @@ def _strip_markers(content: str) -> str:
     return _MARKER_RE.sub("", content or "")
 
 
+# Adnotacja kursywą, którą frontend dokleja NAD odpowiedzią modelu („_Poniżej odpowiedź
+# na podstawie treści dokumentów:_"). Nie jest odpowiedzią — przy rozpoznawaniu odmowy
+# trzeba ją zdjąć, inaczej tura „adnotacja + nie znaleziono" wygląda jak zwykła
+# odpowiedź i trafia do historii, choć nie niesie żadnej treści.
+_ADNOTACJA_RE = re.compile(r"^\s*_[^\n]*_\s*\n+")
+
+
 def _is_refusal(content: str) -> bool:
     c = (content or "").replace(" ", " ").strip()
-    return c.rstrip() == _NO_ANSWER or c.startswith(_NO_MATCH_PREFIX)
+    if c.rstrip() == _NO_ANSWER or c.startswith(_NO_MATCH_PREFIX):
+        return True
+    return _ADNOTACJA_RE.sub("", c, count=1).strip() == _NO_ANSWER
 
 
 def build_history(db: Session, user: User, session_id: str) -> str:
