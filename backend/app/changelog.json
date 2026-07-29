@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "0.9.10",
+      "date": "2026-07-28",
+      "title": "Poprawiona nawigacja po ścieżce folderów",
+      "changes": [
+        "Kliknięcie folderu w ścieżce nawigacji przenosi do tego właśnie folderu; wcześniej cofało o jeden poziom za daleko, więc z głębszych podfolderów wracało do katalogu głównego."
+      ]
+    },
+    {
       "version": "0.9.9",
       "date": "2026-07-28",
       "title": "Krótsza lista dokumentów pod odpowiedzią",

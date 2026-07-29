@@ -215,14 +215,16 @@ function FilesPageInner() {
     }
   };
 
-  // Go up breadcrumb
+  // Skok do folderu ze ścieżki nawigacji.
+  //
+  // `index` to pozycja KLIKNIĘTEGO folderu, więc ścieżkę tniemy tuż ZA nim
+  // (slice(0, index + 1)). Wcześniej było slice(0, index), czyli kliknięty folder
+  // wypadał z wyniku i nawigacja cofała o jeden poziom za daleko — z drugiego
+  // poziomu zagnieżdżenia klik w folder nadrzędny lądował w katalogu głównym.
   const navigateToBreadcrumb = async (index: number) => {
-    const newBreadcrumbs = breadcrumbs.slice(0, index);
+    const newBreadcrumbs = breadcrumbs.slice(0, index + 1);
+    const folderId = newBreadcrumbs[newBreadcrumbs.length - 1]?.id ?? null;
     setBreadcrumbs(newBreadcrumbs);
-
-    const folderId = newBreadcrumbs.length > 0
-      ? newBreadcrumbs[newBreadcrumbs.length - 1].id
-      : null;
     setCurrentFolderId(folderId);
     resetFileView();
 
