@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.9.17",
+      "date": "2026-07-29",
+      "title": "Czat rozumie pytania zadane potocznie",
+      "changes": [
+        "Każdy dokument ma teraz krótki opis z potocznymi określeniami, którymi pracownik nazywa sprawę w pytaniu (na przykład delegacja zamiast podróż służbowa). Dzięki temu czat znajduje właściwy dokument także wtedy, gdy pytanie jest sformułowane inaczej niż język dokumentu.",
+        "Opis służy wyłącznie do wskazania dokumentu - odpowiedź nadal powstaje z oryginalnej treści, a gdy dokumenty nie zawierają odpowiedzi, czat tak jak dotąd informuje, że jej nie znalazł.",
+        "Nowe dokumenty dostają opis automatycznie po przetworzeniu; usunięcie lub przeniesienie pliku aktualizuje go razem z resztą danych."
+      ]
+    },
+    {
       "version": "0.9.16",
       "date": "2026-07-29",
       "title": "Pliki w folderach ułożone alfabetycznie",

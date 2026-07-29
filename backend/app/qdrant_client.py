@@ -226,6 +226,34 @@ def get_text_by_file_id(file_id: int, max_chars: int = 6000) -> str:
     return text[:max_chars]
 
 
+def search_chunks(
+    wektor: list[float], filtr: dict | None = None, limit: int = 15
+) -> list[tuple[float, int | None]]:
+    """Zwróć [(score, file_id)] fragmentów — tak samo jak węzeł Qdrant w n8n.
+
+    Backend używa tego do OCENY, czy zwykłe wyszukiwanie ma czym odpowiedzieć
+    (zob. app/chat/streszczenia.py). Kontekst dla modelu nadal składa n8n.
+    """
+    base = settings.QDRANT_URL.rstrip("/")
+    url = f"{base}/collections/{settings.QDRANT_COLLECTION}/points/search"
+    body: dict = {"vector": wektor, "limit": limit, "with_payload": True}
+    if filtr:
+        body["filter"] = filtr
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            resp = client.post(url, json=body)
+        resp.raise_for_status()
+        wyniki = []
+        for p in resp.json()["result"]:
+            meta = (p.get("payload") or {}).get("metadata") or {}
+            fid = meta.get("file_id")
+            wyniki.append((float(p["score"]), int(fid) if fid is not None else None))
+        return wyniki
+    except Exception as e:
+        logger.warning(f"[QDRANT] Wyszukiwanie fragmentów nieudane: {e}")
+        return []
+
+
 def count_chunks_with_text(term: str) -> int | None:
     """Ile fragmentów zawiera dane słowo (indeks pełnotekstowy na `content`).
 
@@ -244,6 +272,148 @@ def count_chunks_with_text(term: str) -> int | None:
     except Exception as e:
         logger.warning(f"[QDRANT] Zliczanie fragmentów dla {term!r} nieudane: {e}")
         return None
+
+
+# ---------------------------------------------------------------------------
+# Streszczenia dokumentów — OSOBNA kolekcja
+#
+# Streszczenie to „magnes wyszukiwania": zawiera potoczne określenia, którymi
+# pracownik nazwie sprawę w pytaniu („delegacja" zamiast „podróż służbowa").
+# Trzymamy je w osobnej kolekcji, a NIE obok fragmentów, z dwóch powodów:
+#  1. istniejąca ścieżka RAG (n8n) nie może ich przypadkiem wciągnąć do kontekstu
+#     modelu — odpowiedź ma powstawać wyłącznie z oryginalnych fragmentów;
+#  2. zero ryzyka regresji: nic w dzisiejszym przepływie tej kolekcji nie widzi.
+# Streszczenie służy TYLKO do wskazania dokumentu (zob. app/summaries.py).
+# ---------------------------------------------------------------------------
+
+def _kolekcja_streszczen() -> str:
+    return f"{settings.QDRANT_COLLECTION}_streszczenia"
+
+
+def ensure_summary_collection(rozmiar_wektora: int = 1024) -> bool:
+    """Utwórz kolekcję streszczeń, jeśli jeszcze nie istnieje (idempotentne)."""
+    base = settings.QDRANT_URL.rstrip("/")
+    nazwa = _kolekcja_streszczen()
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            if client.get(f"{base}/collections/{nazwa}").status_code == 200:
+                return True
+            resp = client.put(
+                f"{base}/collections/{nazwa}",
+                json={"vectors": {"size": rozmiar_wektora, "distance": "Cosine"}},
+            )
+        resp.raise_for_status()
+        logger.info(f"[QDRANT] Utworzono kolekcję streszczeń {nazwa}")
+        return True
+    except Exception as e:
+        logger.warning(f"[QDRANT] Utworzenie kolekcji {nazwa} nieudane: {e}")
+        return False
+
+
+def upsert_summary(file_id: int, wektor: list[float], payload: dict) -> bool:
+    """Zapisz streszczenie dokumentu. Identyfikator punktu = file_id, więc
+    ponowne wygenerowanie nadpisuje poprzednie i nie tworzy duplikatów."""
+    base = settings.QDRANT_URL.rstrip("/")
+    url = f"{base}/collections/{_kolekcja_streszczen()}/points?wait=true"
+    body = {"points": [{"id": int(file_id), "vector": wektor, "payload": payload}]}
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.put(url, json=body)
+        resp.raise_for_status()
+        return True
+    except Exception as e:
+        logger.warning(f"[QDRANT] Zapis streszczenia pliku {file_id} nieudany: {e}")
+        return False
+
+
+def delete_summary(file_id: int) -> bool:
+    """Usuń streszczenie pliku (wołane razem z usuwaniem jego fragmentów)."""
+    base = settings.QDRANT_URL.rstrip("/")
+    url = f"{base}/collections/{_kolekcja_streszczen()}/points/delete?wait=true"
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            resp = client.post(url, json={"points": [int(file_id)]})
+        resp.raise_for_status()
+        return True
+    except Exception as e:
+        logger.warning(f"[QDRANT] Usuwanie streszczenia pliku {file_id} nieudane: {e}")
+        return False
+
+
+def set_summary_folder_id(file_id: int, folder_id: int | None) -> bool:
+    """Zaktualizuj folder w streszczeniu po przeniesieniu pliku (filtr RBAC)."""
+    base = settings.QDRANT_URL.rstrip("/")
+    url = f"{base}/collections/{_kolekcja_streszczen()}/points/payload?wait=true"
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            resp = client.post(url, json={"payload": {"folder_id": folder_id},
+                                          "points": [int(file_id)]})
+        resp.raise_for_status()
+        return True
+    except Exception as e:
+        logger.warning(f"[QDRANT] Zapis folderu streszczenia pliku {file_id} nieudany: {e}")
+        return False
+
+
+def search_summaries(
+    wektor: list[float], folder_ids: list[int] | None = None, limit: int = 5
+) -> list[tuple[float, int]]:
+    """Zwróć [(score, file_id)] najbliższych streszczeń, z filtrem RBAC po folderach.
+
+    `folder_ids=None` oznacza brak ograniczenia (administrator); pusta lista —
+    użytkownik bez dostępu do czegokolwiek, więc od razu pusty wynik.
+    """
+    if folder_ids is not None and not folder_ids:
+        return []
+    base = settings.QDRANT_URL.rstrip("/")
+    url = f"{base}/collections/{_kolekcja_streszczen()}/points/search"
+    body: dict = {"vector": wektor, "limit": limit, "with_payload": True}
+    if folder_ids is not None:
+        body["filter"] = {"must": [{"key": "folder_id", "match": {"any": folder_ids}}]}
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            resp = client.post(url, json=body)
+        resp.raise_for_status()
+        return [(float(p["score"]), int(p["id"])) for p in resp.json()["result"]]
+    except Exception as e:
+        logger.warning(f"[QDRANT] Wyszukiwanie streszczeń nieudane: {e}")
+        return []
+
+
+def summary_ids() -> set[int]:
+    """Identyfikatory plików, które mają już streszczenie (id punktu = file_id)."""
+    base = settings.QDRANT_URL.rstrip("/")
+    url = f"{base}/collections/{_kolekcja_streszczen()}/points/scroll"
+    ids: set[int] = set()
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            offset = None
+            while True:
+                body = {"limit": 500, "with_payload": False, "with_vector": False}
+                if offset is not None:
+                    body["offset"] = offset
+                resp = client.post(url, json=body)
+                resp.raise_for_status()
+                result = resp.json().get("result", {})
+                ids.update(int(p["id"]) for p in result.get("points", []))
+                offset = result.get("next_page_offset")
+                if not offset:
+                    break
+    except Exception as e:
+        logger.warning(f"[QDRANT] Odczyt listy streszczeń nieudany: {e}")
+    return ids
+
+
+def count_summaries() -> int:
+    """Ile dokumentów ma już streszczenie."""
+    base = settings.QDRANT_URL.rstrip("/")
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.get(f"{base}/collections/{_kolekcja_streszczen()}")
+        resp.raise_for_status()
+        return int(resp.json()["result"].get("points_count") or 0)
+    except Exception:
+        return 0
 
 
 def count_points() -> int:

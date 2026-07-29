@@ -228,8 +228,6 @@ async def chat(
                 {"key": "content", "match": {"text": t}} for t in terminy
             ]})
 
-    qdrant_filter = {"must": warunki} if warunki else None
-
     # Historia rozmowy budowana po naszej stronie (bez odmów) — zastępuje Simple Memory
     history = build_history(db, current_user, payload.session_id)
 
@@ -238,6 +236,26 @@ async def chat(
     search_query = await condense_question(payload.message, history)
     if search_query != payload.message:
         logger.info(f"[CHAT-CONDENSE] {payload.message!r} → {search_query!r}")
+
+    # Pytanie zadane potocznie: gdy zwykłe fragmenty nie przekraczają progu, wskaż
+    # dokumenty po ich streszczeniach i zawęź do nich wyszukiwanie. Odpowiedź nadal
+    # powstaje z oryginalnych fragmentów — streszczenie tylko wskazuje dokument.
+    wskazane_streszczeniem: list[int] = []
+    bez_progu = False
+    if not payload.file_ids and not terminy:
+        from app.chat.streszczenia import wskaz_dokumenty
+        wskazane_streszczeniem, bez_progu, diagnostyka = await wskaz_dokumenty(
+            search_query,
+            {"must": warunki} if warunki else None,
+            allowed_folder_ids if folder_filter_enabled else None,
+        )
+        logger.info(f"[CHAT-STRESZCZENIE] {search_query!r}: {diagnostyka}")
+        if wskazane_streszczeniem:
+            warunki.append(
+                {"key": "metadata.file_id", "match": {"any": wskazane_streszczeniem}}
+            )
+
+    qdrant_filter = {"must": warunki} if warunki else None
 
     n8n_body = {
         "action": "sendMessage",
@@ -254,13 +272,17 @@ async def chat(
         # rzadkie słowo z pytania. Próg trafności w n8n chroni przed odpowiadaniem
         # z przypadkowych dokumentów; przy zawężeniu tego ryzyka nie ma, a trafności są
         # z natury niższe, więc tam próg jest wtedy wyłączony.
-        "scopedToFiles": bool(payload.file_ids or terminy),
+        # Próg trafności w n8n wyłączamy tylko wtedy, gdy zakres ustalił użytkownik
+        # (wskazane pliki), zawęziło go rzadkie słowo albo streszczenie zastąpiło
+        # pusty kontekst. Przy samym UZUPEŁNIENIU zbioru dokumentów próg zostaje.
+        "scopedToFiles": bool(payload.file_ids or terminy or bez_progu),
     }
     logger.info(
         f"[CHAT] user={current_user.username} role={current_user.role.value} "
         f"session={payload.session_id} req={request_id} "
         f"folderFilter={folder_filter_enabled} allowed={allowed_folder_ids} "
-        f"fileIds={payload.file_ids or '-'} terminy={terminy or '-'} -> {chat_url}"
+        f"fileIds={payload.file_ids or '-'} terminy={terminy or '-'} "
+        f"streszczenia={wskazane_streszczeniem or '-'} -> {chat_url}"
     )
 
     client = httpx.AsyncClient(timeout=_TIMEOUT)

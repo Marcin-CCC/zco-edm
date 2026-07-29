@@ -401,7 +401,7 @@ def move_files(
     (katalog główny = tylko admin). Pliki w trakcie przetwarzania są pomijane —
     parsowanie właśnie z nich korzysta.
     """
-    from app.qdrant_client import set_folder_id
+    from app.qdrant_client import set_folder_id, set_summary_folder_id
 
     if not payload.file_ids:
         raise HTTPException(status_code=400, detail="Nie wskazano plików do przeniesienia.")
@@ -441,6 +441,7 @@ def move_files(
     # Qdrant dopiero po zatwierdzeniu zmian w bazie (best-effort)
     for fid in przeniesione:
         set_folder_id(fid, target_id)
+        set_summary_folder_id(fid, target_id)  # streszczenie filtrowane tym samym polem
 
     logger.info(
         f"[MOVE] {current_user.username}: przeniesiono {len(przeniesione)} plik(ów) "
@@ -649,8 +650,9 @@ def delete_file(file_id: int, db: Session = Depends(get_db), current_user: User 
 
     # Usuń wektory z Qdranta (żeby usunięty/wygasły dokument nie odpowiadał
     # już w czacie). Best-effort — awaria Qdranta nie blokuje usunięcia pliku.
-    from app.qdrant_client import delete_vectors_by_file_id
+    from app.qdrant_client import delete_summary, delete_vectors_by_file_id
     qdrant_result = delete_vectors_by_file_id(file_obj.id)
+    delete_summary(file_obj.id)  # razem z fragmentami znika streszczenie dokumentu
 
     # Usuń plik z dysku. Lokalnie zawsze; dodatkowo kopię na Sparku, ale TYLKO w
     # trybie deweloperskim — tam istnieje druga kopia (most SSH). W docelowym

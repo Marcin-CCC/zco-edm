@@ -371,6 +371,13 @@ async def run_extraction(file_id: int, schemas: list[dict], filename: str = "") 
             f.status = DocumentStatus.READY
             mark_processing_finished(f)
             db.commit()
+
+            # Streszczenie dokumentu (magnes wyszukiwania dla pytań zadanych potocznie).
+            # Sekwencyjnie, jeszcze przed wznowieniem kolejki: dokłada ok. 20 s do
+            # parsowania, ale nie konkuruje z niczym o vLLM. Best-effort — brak
+            # streszczenia oznacza tylko brak dodatkowej ścieżki wyszukiwania.
+            from app.summaries import odswiez_streszczenie
+            await odswiez_streszczenie(file_id, f.filename or filename, f.folder_id)
     except Exception as e:
         db.rollback()
         logger.warning(f"[EXTRACT] Plik {file_id}: finalizacja nieudana: {e}")
