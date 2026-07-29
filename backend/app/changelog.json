@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.9.22",
+      "date": "2026-07-30",
+      "title": "Odpowiedź z dokumentów bez żadnego wstępu",
+      "changes": [
+        "Odpowiedzi z treści dokumentów nie są już poprzedzane zapowiedzią „Poniżej odpowiedź na podstawie treści dokumentów\". Wcześniej dostawały ją tylko niektóre pytania - te, które trafiły do treści okrężną drogą - i wyglądało to na niespójność.",
+        "Zachowana została jedna informacja, która nie jest zapowiedzią, tylko odpowiedzią na pytanie: gdy pytasz o rodzaj dokumentów, którego system nie zna, nadal wypisuje rozpoznawane rodzaje.",
+        "Tury bez odpowiedzi („nie znalazłem dokumentów spełniających kryteria\", „nie wiem, o które dokumenty chodzi\") nie trafiają już do kontekstu rozmowy - wcześniej mogły wpływać na kolejne pytania w tym samym czacie."
+      ]
+    },
+    {
       "version": "0.9.21",
       "date": "2026-07-30",
       "title": "Koniec migania komunikatu o braku odpowiedzi",

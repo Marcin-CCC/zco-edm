@@ -60,7 +60,15 @@ def _purge_expired_sources() -> None:
 # Odpowiedzi, których NIE przenosimy do historii rozmowy (zatruwają kolejne tury:
 # model widzi własną odmowę i powiela ją mimo dobrego kontekstu).
 _NO_ANSWER = "Niestety, nie znaleziono w dokumentach informacji na ten temat."
+# Tury, które NIE niosą odpowiedzi — nie wolno ich wpuścić do historii dla modelu
+# (odmowa w pamięci powoduje kolejne odmowy, zob. 0.5.4). Porównujemy po zdjęciu
+# ewentualnego podkreślnika kursywy, bo te komunikaty występowały w obu postaciach.
 _NO_MATCH_PREFIX = "_Nie znalazłem dokumentów spełniających kryteria"
+_BEZ_ODPOWIEDZI_PREFIKSY = (
+    "Nie znalazłem dokumentów spełniających kryteria",
+    "Nie wiem, o które dokumenty chodzi",
+    "W systemie nie ma rodzaju dokumentów",
+)
 
 _HISTORY_TURNS = 3          # ile ostatnich par pytanie–odpowiedź
 _HISTORY_USER_CHARS = 300   # przycięcie pytania
@@ -87,6 +95,9 @@ _ADNOTACJA_RE = re.compile(r"^\s*_[^\n]*_\s*\n+")
 def _is_refusal(content: str) -> bool:
     c = (content or "").replace(" ", " ").strip()
     if c.rstrip() == _NO_ANSWER or c.startswith(_NO_MATCH_PREFIX):
+        return True
+    bez_kursywy = c.lstrip("_")
+    if bez_kursywy.startswith(_BEZ_ODPOWIEDZI_PREFIKSY):
         return True
     return _ADNOTACJA_RE.sub("", c, count=1).strip() == _NO_ANSWER
 

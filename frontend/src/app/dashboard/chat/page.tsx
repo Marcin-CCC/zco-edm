@@ -317,6 +317,20 @@ export default function ChatPage() {
   const czystaOdmowa = (tekst: string) => normalizuj(tekst) === ODMOWA_PELNA;
 
   /**
+   * Czy tura NIE niesie odpowiedzi — odmowa modelu albo komunikat aplikacji
+   * („nie znalazłem dokumentów", „nie wiem, o które dokumenty chodzi"). Takie tury
+   * nie są historią: backend ich nie wysyła modelowi, więc ponawianie „na czysto"
+   * po nich byłoby powtórzeniem tego samego zapytania.
+   */
+  const bezOdpowiedzi = (tekst: string) => {
+    if (czystaOdmowa(tekst)) return true;
+    const t = normalizuj(tekst).replace(/^_+/, '');
+    return ['nie znalazłem dokumentów spełniających kryteria',
+            'nie wiem, o które dokumenty chodzi',
+            'w systemie nie ma rodzaju dokumentów'].some((p) => t.startsWith(p));
+  };
+
+  /**
    * Czy to, co dotąd przyszło ze strumienia, może jeszcze okazać się odmową.
    * Dopóki może, wstrzymujemy pokazywanie tekstu — bez tego użytkownik widzi
    * mignięcie „nie znaleziono", które po ponowieniu i tak znika.
@@ -354,7 +368,7 @@ export default function ChatPage() {
     // wchodzą, więc liczą się tylko tury z prawdziwą odpowiedzią — bez tego
     // ponawianie „na czysto" byłoby powtarzaniem tego samego zapytania.
     const mialHistorie = messages.some(
-      (m) => m.role === 'assistant' && !m.error && m.content.trim() && !czystaOdmowa(m.content),
+      (m) => m.role === 'assistant' && !m.error && m.content.trim() && !bezOdpowiedzi(m.content),
     );
     // Czy jest jeszcze w zanadrzu ponowienie „na czysto" (gaśnie po jego uruchomieniu)
     let mozliwePonowienie = mialHistorie;
@@ -539,24 +553,28 @@ export default function ChatPage() {
           return;
         }
 
-        // Kryterium było zgrubne (sam rodzaj dokumentu) — doklejamy odpowiedź z treści,
-        // bo router bywa omylny i pytanie mogło jednak dotyczyć treści.
+        // Kryterium było zgrubne (sam rodzaj dokumentu) albo nie było go wcale —
+        // odpowiadamy z treści dokumentów.
+        //
+        // BEZ WSTĘPU: odpowiedź z treści ma wyglądać tak samo niezależnie od tego,
+        // którędy do niej doszliśmy. Zapowiedź „Poniżej odpowiedź na podstawie treści
+        // dokumentów" pojawiała się tylko na tej ścieżce i wyglądała jak niespójność,
+        // bo o drodze dojścia użytkownik nic nie wie i wiedzieć nie musi.
+        // Wyjątek: nieznany RODZAJ dokumentu to informacja o samym pytaniu (rejestr
+        // takiego rodzaju nie zna), a nie zapowiedź odpowiedzi — ta zostaje.
         const notice = rejestr.listRes.unknown_type
           ? `_W systemie nie ma rodzaju dokumentów „${rejestr.listRes.unknown_type}". ` +
-            `Rozpoznawane rodzaje: ${(rejestr.listRes.known_types || []).join(', ')}. ` +
-            `Poniżej odpowiedź na podstawie treści dokumentów:_\n\n`
-          : rejestr.noCriteria
-            // Nie było żadnego kryterium do sprawdzenia — nie ma czego „nie znaleźć".
-            ? `_Poniżej odpowiedź na podstawie treści dokumentów:_\n\n`
-            : `_Nie znalazłem dokumentów spełniających kryteria${desc ? ` (${desc})` : ''}. ` +
-              `Poniżej odpowiedź na podstawie treści dokumentów:_\n\n`;
+            `Rozpoznawane rodzaje: ${(rejestr.listRes.known_types || []).join(', ')}._\n\n`
+          : '';
         assistantText = notice;
         prefiks = notice;
-        setMessages((prev) => {
-          const next = [...prev];
-          next[next.length - 1] = { ...next[next.length - 1], content: notice };
-          return next;
-        });
+        if (notice) {
+          setMessages((prev) => {
+            const next = [...prev];
+            next[next.length - 1] = { ...next[next.length - 1], content: notice };
+            return next;
+          });
+        }
       }
       // ===== KONIEC USTALANIA ZAKRESU =====
 
