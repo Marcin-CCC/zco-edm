@@ -584,8 +584,14 @@ function FilesPageInner() {
   }, [permEffective, newPermRole, newPermAccess]);
 
   // Top folders (root or current folder children)
-  const rootFolders = folders.filter(f => f.parent_id === null);
-  const currentFolderChildren = folders.filter(f => f.parent_id === currentFolderId);
+  // Foldery pokazujemy alfabetycznie. localeCompare z 'pl' układa polskie znaki
+  // we właściwej kolejności (ą po a, ł po l), czego zwykłe sortowanie po kodach
+  // znaków nie robi — wypchnęłoby je na koniec listy.
+  const alfabetycznie = (a: Folder, b: Folder) => a.name.localeCompare(b.name, 'pl');
+  const rootFolders = folders.filter(f => f.parent_id === null).sort(alfabetycznie);
+  const currentFolderChildren = folders
+    .filter(f => f.parent_id === currentFolderId)
+    .sort(alfabetycznie);
 
   // Get current folder name for display
   const currentFolderName = currentFolderId

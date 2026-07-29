@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.9.15",
+      "date": "2026-07-29",
+      "title": "Foldery ułożone alfabetycznie",
+      "changes": [
+        "Kafelki folderów są uporządkowane alfabetycznie według nazwy - zarówno w katalogu głównym, jak i wewnątrz podfolderów.",
+        "Kolejność uwzględnia polskie znaki, więc nazwy zaczynające się od ą, ć czy ł trafiają we właściwe miejsce, a nie na koniec listy."
+      ]
+    },
+    {
       "version": "0.9.14",
       "date": "2026-07-29",
       "title": "Koniec migania listy plików przy zmianie folderu",
