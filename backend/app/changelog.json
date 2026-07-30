@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "1.0.1",
+      "date": "2026-07-30",
+      "title": "Kolejka od najnowszych, czytelna instrukcja na stronie Pomoc",
+      "changes": [
+        "Kolejka plików pokazuje najnowsze pozycje na górze. Wcześniej układała się według nazwy pliku, w porządku znakowym bazy danych - najpierw cyfry, potem wielkie litery, na końcu małe - co przy wgrywaniu paczek dokumentów utrudniało śledzenie świeżo dodanych plików. Lista na stronie Pliki pozostaje alfabetyczna, bo tam szuka się dokumentu po nazwie.",
+        "Instrukcja na stronie Pomoc wypełnia teraz całą szerokość okna i ma większe pismo - wcześniej wyświetlała się w wąskiej kolumnie o szerokości kartki A4, przez co tekst i zrzuty ekranu były bardzo drobne. Wersja do druku (PDF) pozostaje bez zmian.",
+        "Spis treści instrukcji jest klikalny, a każdy rozdział ma własną kotwicę; pod rozdziałem jest odnośnik powrotu do spisu treści."
+      ]
+    },
+    {
       "version": "1.0.0",
       "date": "2026-07-30",
       "title": "Pierwsze pełne wydanie ZCO Document Management",

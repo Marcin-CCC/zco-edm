@@ -19,7 +19,7 @@ import sys
 import tempfile
 import time
 
-WERSJA = "1.0.0"
+WERSJA = "1.0.1"
 DATA = "30 lipca 2026"
 ODBIORCA = "Zachodniopomorskie Centrum Onkologii w Szczecinie"
 WYKONAWCA = "Polmedi Group sp. z o.o., Poznań"
@@ -648,11 +648,33 @@ figcaption { font-size:9.5pt; color:var(--szary); margin-top:1.5mm; font-style:i
 .spis ol { list-style:none; padding:0; counter-reset:r; }
 .spis li { counter-increment:r; padding:1.5mm 0; border-bottom:1px dotted var(--linia); }
 .spis li::before { content:counter(r) ". "; color:var(--akcent); font-weight:600; }
+.spis a { color:inherit; text-decoration:none; }
+.do-gory { display:none; }
 section { break-before:page; }
 .naglowek-sekcji { font-size:9pt; color:var(--szary); letter-spacing:.08em;
        text-transform:uppercase; margin-bottom:2mm; }
 @page { size:A4; margin:14mm 12mm; }
 @media print { .strona { max-width:none; padding:0; } }
+/* Na EKRANIE (podgląd w aplikacji, strona Pomoc) treść wypełnia dostępną szerokość.
+   Sztywna kolumna 180 mm jest miarą kartki A4 — w oknie przeglądarki dawała wąski,
+   drobny słupek tekstu i zrzuty ekranu wielkości znaczka pocztowego. Wydruk zostaje
+   bez zmian, bo reguły druku są wyżej i w @media print. */
+@media screen {
+  body { font-size:13pt; }
+  .strona { max-width:none; padding:8mm 12mm 14mm; }
+  h1 { font-size:30pt; } h2 { font-size:19pt; } h3 { font-size:15pt; }
+  table { font-size:12pt; } .tip,.warn { font-size:12pt; }
+  figcaption { font-size:11pt; }
+  p { max-width:170ch; }            /* sam tekst nie rozjeżdża się w nieczytelnie długie wiersze */
+  section { padding-top:6mm; }
+  .oklada { min-height:auto; padding-bottom:10mm; }
+  .spis a { color:var(--akcent); }
+  .spis li:hover { background:var(--tlo); }
+  .do-gory { display:inline-block; margin-top:6mm; font-size:11pt; color:var(--szary);
+             text-decoration:none; }
+  .do-gory:hover { color:var(--akcent); }
+  section { scroll-margin-top:4mm; }
+}
 """
 
 
@@ -698,13 +720,21 @@ def render_blok(blok, katalog_zrzutow):
 
 
 def render(tytul_wydania, sekcje, katalog_zrzutow):
-    spis = "".join(f"<li>{html.escape(t)}</li>" for t, _ in sekcje)
+    # Kotwice: numer rozdziału zamiast slugu z tytułu — odnośnik przeżyje poprawkę
+    # tytułu, a w PDF-ie Edge zamienia je na wewnętrzne przejścia do stron.
+    spis = "".join(
+        f'<li><a href="#rozdzial-{numer}">{html.escape(t)}</a></li>'
+        for numer, (t, _) in enumerate(sekcje, start=1)
+    )
     tresc = []
     for numer, (tytul, bloki) in enumerate(sekcje, start=1):
         ciało = "".join(render_blok(b, katalog_zrzutow) for b in bloki)
         tresc.append(
-            f'<section><div class="naglowek-sekcji">Rozdział {numer}</div>'
-            f"<h2>{html.escape(tytul)}</h2>{ciało}</section>"
+            f'<section id="rozdzial-{numer}">'
+            f'<div class="naglowek-sekcji">Rozdział {numer}</div>'
+            f'<h2>{html.escape(tytul)}</h2>{ciało}'
+            f'<a class="do-gory" href="#spis-tresci">↑ Spis treści</a>'
+            f"</section>"
         )
     return f"""<!doctype html>
 <html lang="pl"><head><meta charset="utf-8">
@@ -723,7 +753,7 @@ def render(tytul_wydania, sekcje, katalog_zrzutow):
   <div class="stopka">Dokument wewnętrzny. Zrzuty ekranu pochodzą z wersji demonstracyjnej
   aplikacji działającej na dokumentach ZCO.</div>
 </div>
-<section class="spis"><h2>Spis treści</h2><ol>{spis}</ol></section>
+<section class="spis" id="spis-tresci"><h2>Spis treści</h2><ol>{spis}</ol></section>
 {''.join(tresc)}
 </div></body></html>"""
 

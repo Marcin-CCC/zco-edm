@@ -329,10 +329,14 @@ def list_file_queue(
     if status:
         query = query.filter(FileModel.status == status)
 
-    # Kolejność alfabetyczna po nazwie. Sortujemy w bazie, a nie po pobraniu:
-    # zapytanie ma limit, więc sortowanie dopiero w przeglądarce układałoby
-    # alfabetycznie wyłącznie pobraną porcję i ukrywało resztę plików.
-    files = query.order_by(FileModel.filename.asc()).offset(skip).limit(limit).all()
+    # NAJNOWSZE NA GÓRZE — kolejka służy do pilnowania świeżo wgranych plików, więc
+    # liczy się czas dodania, a nie nazwa. (Alfabetycznie układa się lista na stronie
+    # Pliki; tam szuka się dokumentu po nazwie.) `id` jako drugi warunek rozstrzyga
+    # pliki wgrane w tej samej sekundzie — bez tego ich kolejność byłaby przypadkowa.
+    # Sortujemy w bazie, a nie po pobraniu: zapytanie ma limit, więc sortowanie
+    # dopiero w przeglądarce ułożyłoby wyłącznie pobraną porcję.
+    files = (query.order_by(FileModel.created_at.desc(), FileModel.id.desc())
+             .offset(skip).limit(limit).all())
     
     result = []
     for f in files:
