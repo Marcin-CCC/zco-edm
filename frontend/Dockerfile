@@ -36,6 +36,9 @@ RUN adduser --system --uid 1001 nextjs
 
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Tryb standalone NIE pakuje katalogu public — trzeba go skopiować osobno. Bez tego
+# pliki statyczne (instrukcja obsługi w /pomoc/) zwracają 404 mimo poprawnej strony.
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 USER nextjs
 
