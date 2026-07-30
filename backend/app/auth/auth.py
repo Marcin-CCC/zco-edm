@@ -125,14 +125,17 @@ async def login(request: Request, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user = db.query(User).filter(
-        (User.email == username) | (User.username == username)
-    ).first()
+    # Logowanie WYŁĄCZNIE adresem e-mail. Wcześniej działała też nazwa użytkownika,
+    # przez co jeden napis mógł pasować do dwóch kont (nazwa jednego = e-mail
+    # drugiego) i właściciel adresu tracił dostęp. Nazwa użytkownika jest teraz
+    # tylko etykietą pokazywaną w interfejsie, więc jej zmiana nikomu nie szkodzi.
+    # Porównanie bez rozróżniania wielkości liter — adresy e-mail są nieczułe na nią.
+    user = db.query(User).filter(func.lower(User.email) == username.strip().lower()).first()
 
     if not user or not verify_password(password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Nieprawidlowy email lub haslo",
+            detail="Nieprawidłowy adres e-mail lub hasło",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

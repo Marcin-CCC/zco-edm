@@ -162,7 +162,7 @@ export default function ProfilPage() {
         {edycja ? (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Nazwa użytkownika</label>
+              <label className="block text-sm text-gray-600 mb-1">Nazwa wyświetlana</label>
               <input
                 value={form.username}
                 onChange={(e) => setForm({ ...form, username: e.target.value })}
@@ -170,8 +170,8 @@ export default function ProfilPage() {
                 autoFocus
               />
               <p className="mt-1 text-xs text-gray-500">
-                Widoczna w nagłówku i w zestawieniach. Zalogujesz się nią tak samo jak
-                adresem e-mail, więc po zmianie używaj nowej nazwy.
+                Widoczna w nagłówku i w zestawieniach. Nie służy do logowania, więc
+                możesz ją zmieniać dowolnie.
               </p>
             </div>
             <div>
@@ -191,7 +191,7 @@ export default function ProfilPage() {
                 className={poleKlasy}
               />
               <p className="mt-1 text-xs text-gray-500">
-                Służy do logowania — tak samo jak nazwa użytkownika.
+                Tym adresem logujesz się do aplikacji.
               </p>
             </div>
             <div className="flex items-center gap-3 pt-1">
@@ -214,7 +214,7 @@ export default function ProfilPage() {
         ) : (
           <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <dt className="text-sm text-gray-500">Nazwa użytkownika</dt>
+              <dt className="text-sm text-gray-500">Nazwa wyświetlana</dt>
               <dd className="text-gray-800 font-medium break-words">{user.username}</dd>
             </div>
             <div>

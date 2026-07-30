@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "0.9.27",
+      "date": "2026-07-30",
+      "title": "Logowanie wyłącznie adresem e-mail",
+      "changes": [
+        "UWAGA: do aplikacji logujemy się teraz wyłącznie adresem e-mail. Nazwą użytkownika już się nie zalogujesz - jeśli dotąd wpisywałeś na przykład „admin\", użyj adresu e-mail przypisanego do konta.",
+        "Adres można wpisać wielkimi lub małymi literami, a przypadkowe spacje na początku i końcu nie przeszkadzają.",
+        "Nazwa użytkownika stała się przez to zwykłą nazwą wyświetlaną - pokazuje się w nagłówku i w zestawieniach, można ją zmieniać dowolnie i nie wpływa na logowanie. Pod tą nazwą występuje teraz w Profilu i w module Użytkownicy.",
+        "To domyka lukę z poprzedniej wersji: skoro nazwa nie jest już poświadczeniem, nie da się nią odciąć nikomu dostępu do konta."
+      ]
+    },
+    {
       "version": "0.9.26",
       "date": "2026-07-30",
       "title": "Nazwa użytkownika nie może przejąć cudzego adresu e-mail",

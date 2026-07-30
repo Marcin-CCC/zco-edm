@@ -135,7 +135,7 @@ export default function UsersPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nazwa użytkownika</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nazwa wyświetlana</label>
               <input
                 type="text"
                 value={form.username}

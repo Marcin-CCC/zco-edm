@@ -62,10 +62,10 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email / Nazwa użytkownika
+                Adres e-mail
               </label>
               <input
-                type="text"
+                type="email"
                 name="username"
                 autoComplete="username"
                 value={email}
