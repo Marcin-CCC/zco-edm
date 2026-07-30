@@ -2,9 +2,9 @@
 
 Dwa wydania instrukcji dla klienta (ZCO Szczecin), każde w HTML i PDF:
 
-- `ZCO-DM-instrukcja-administratora.html` / `.pdf` — 15 rozdziałów: pełen zakres łącznie
+- `ZCO-DM-instrukcja-administratora.html` / `.pdf` — 17 rozdziałów: pełen zakres łącznie
   z uprawnieniami, częścią administracyjną i opisem rozpoznawania dokumentów,
-- `ZCO-DM-instrukcja-uzytkownika.html` / `.pdf` — 10 rozdziałów: to, co potrzebne osobie
+- `ZCO-DM-instrukcja-uzytkownika.html` / `.pdf` — 12 rozdziałów: to, co potrzebne osobie
   korzystającej z bazy wiedzy na co dzień.
 
 Pliki HTML są samodzielne — zrzuty ekranu siedzą w nich jako `data:` URI, więc wystarczy
@@ -41,3 +41,28 @@ PDF drukuje Edge w trybie headless. Dwie pułapki, obie już obsłużone w kodzi
   po cichu ignoruje i pliku nie tworzy,
 - proces Edge kończy się kodem 0 **zanim** dopisze PDF — dlatego `do_pdf()` czeka, aż plik
   powstanie i przestanie rosnąć.
+
+## Instrukcja wbudowana w aplikację
+
+Od wersji 1.0.0 oba wydania są też dostępne w samej aplikacji — pozycja **Pomoc**
+w menu pod inicjałami. Strona `/dashboard/pomoc` osadza plik HTML i daje odnośnik do PDF,
+a wydanie dobiera się po roli konta. Pliki leżą w `frontend/public/pomoc/`:
+
+```bash
+python generuj.py
+cp ZCO-DM-instrukcja-administratora.html ../../frontend/public/pomoc/instrukcja-administratora.html
+cp ZCO-DM-instrukcja-administratora.pdf  ../../frontend/public/pomoc/instrukcja-administratora.pdf
+cp ZCO-DM-instrukcja-uzytkownika.html    ../../frontend/public/pomoc/instrukcja-uzytkownika.html
+cp ZCO-DM-instrukcja-uzytkownika.pdf     ../../frontend/public/pomoc/instrukcja-uzytkownika.pdf
+```
+
+Kolejność przy odświeżaniu zrzutów jest istotna: zrzut strony Pomoc pokazuje instrukcję,
+więc najpierw generujemy wydanie bez niego (brakujący plik zrzutu jest pomijany
+z ostrzeżeniem, nie przerywa generowania), kopiujemy do `public/`, przebudowujemy
+frontend, robimy zrzut Pomocy i generujemy wydanie ponownie.
+
+Zrzuty robi `shot.py` przeciwko ŚWIEŻEMU buildowi frontendu (`npx next start -p 3010`
+z `BACKEND_URL` wskazującym backend deweloperski) — kontener deweloperski serwuje
+starą paczkę, więc zrzuty z niego nie pokazałyby nowych zmian. Wydanie użytkownika
+wymaga konta bez uprawnień administratora; tworzymy je tymczasowo (rola `office_staff`
+ma dostęp do jednego folderu) i kasujemy zaraz po zrzutach.

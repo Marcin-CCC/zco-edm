@@ -166,6 +166,14 @@ export default function DashboardLayout({
                 >
                   Profil
                 </Link>
+                <Link
+                  href="/dashboard/pomoc"
+                  onClick={() => setMenuOtwarte(false)}
+                  role="menuitem"
+                  className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  Pomoc
+                </Link>
                 <button
                   onClick={() => { setMenuOtwarte(false); logout(); }}
                   role="menuitem"

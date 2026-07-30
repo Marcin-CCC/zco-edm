@@ -19,8 +19,8 @@ import sys
 import tempfile
 import time
 
-WERSJA = "0.8.7"
-DATA = "28 lipca 2026"
+WERSJA = "1.0.0"
+DATA = "30 lipca 2026"
 ODBIORCA = "Zachodniopomorskie Centrum Onkologii w Szczecinie"
 WYKONAWCA = "Polmedi Group sp. z o.o., Poznań"
 KATALOG = os.path.dirname(os.path.abspath(__file__))
@@ -94,11 +94,18 @@ def r_o_aplikacji():
 def r_logowanie(rola):
     bloki = [
         a("Aplikację otwieramy w przeglądarce internetowej pod adresem podanym przez administratora. "
-          "Logujemy się nazwą użytkownika i hasłem otrzymanym od administratora."),
+          "Logujemy się <b>adresem e-mail</b> i hasłem otrzymanym od administratora. Wielkość liter "
+          "w adresie nie ma znaczenia."),
         a("Po zalogowaniu ekran dzieli się na dwie części. Po lewej stronie znajduje się granatowe menu, "
-          "po prawej — treść wybranej strony. W prawym górnym rogu widoczne jest imię zalogowanej osoby "
-          "i przycisk <b>Wyloguj</b>. Na samym dole menu widnieje numer wersji aplikacji, który jest "
-          "jednocześnie odnośnikiem do historii zmian."),
+          "po prawej — treść wybranej strony. W prawym górnym rogu widoczne jest powitanie oraz "
+          "<b>kółko z inicjałami</b>, które rozwija menu użytkownika. Na samym dole menu bocznego widnieje "
+          "numer wersji aplikacji — będący odnośnikiem do historii zmian — oraz informacja o producencie."),
+        n("Menu pod inicjałami"),
+        lista(
+            "<b>Profil</b> — własne dane konta i zmiana hasła.",
+            "<b>Pomoc</b> — ta instrukcja, otwarta wprost w aplikacji; można ją też pobrać jako PDF.",
+            "<b>Wyloguj</b> — zakończenie pracy.",
+        ),
         n("Pozycje menu"),
     ]
     if rola == "admin":
@@ -125,6 +132,48 @@ def r_logowanie(rola):
     return bloki
 
 
+def r_profil(rola):
+    """Własne konto i pomoc — rozdział wspólny, różni się tylko wzmianką o rolach."""
+    bloki = [
+        a("Kółko z inicjałami w prawym górnym rogu rozwija menu z trzema pozycjami: "
+          "<b>Profil</b>, <b>Pomoc</b> i <b>Wyloguj</b>. Menu zamyka się klawiszem Escape "
+          "albo kliknięciem obok."),
+        *([zrzut("a18-menu-awatara.png", "Menu użytkownika rozwinięte spod kółka z inicjałami.")]
+          if rola == "admin" else []),
+        n("Strona Profil"),
+        a("Strona <b>Profil</b> pokazuje dane konta: nazwę wyświetlaną, imię i nazwisko, adres e-mail, "
+          "przypisaną rolę, status konta oraz datę ostatniego logowania."),
+        zrzut("a16-profil.png" if rola == "admin" else "u05-profil.png",
+              "Strona Profil — dane konta oraz osobna karta do zmiany hasła."),
+        a("Przycisk <b>Edytuj dane</b> zamienia trzy pierwsze pozycje w pola formularza. Zapisujemy "
+          "przyciskiem <b>Zapisz</b>, wycofujemy się przyciskiem <b>Anuluj</b>."),
+        lista(
+            "<b>Nazwa wyświetlana</b> — pokazuje się w powitaniu, w inicjałach i w zestawieniach "
+            "administratora. Nie służy do logowania, więc można ją zmieniać dowolnie.",
+            "<b>Imię i nazwisko</b> — pełna forma, używana na stronie Profil i w menu.",
+            "<b>Adres e-mail</b> — <b>tym adresem logujemy się do aplikacji</b>. Po jego zmianie "
+            "kolejne logowanie odbywa się już nowym adresem.",
+        ),
+        uwaga("Roli ani statusu konta nie zmienia się samodzielnie — robi to administrator. "
+              "Gdyby wpisany adres e-mail albo nazwa były już zajęte przez inne konto, aplikacja "
+              "powie o tym wprost i nie zapisze zmiany."),
+        n("Zmiana hasła"),
+        a("Hasło zmieniamy w osobnej karcie <b>Hasło</b>, przyciskiem <b>Zmień hasło</b>. Formularz prosi "
+          "o hasło obecnie używane oraz o dwukrotne wpisanie nowego. Nowe hasło musi mieć co najmniej "
+          "osiem znaków i różnić się od dotychczasowego."),
+        a("Po udanej zmianie aplikacja wylogowuje i pokazuje ekran logowania — to celowe: od razu "
+          "sprawdzamy, że nowe hasło działa."),
+        n("Pomoc"),
+        a("Pozycja <b>Pomoc</b> otwiera tę instrukcję wprost w aplikacji, bez szukania pliku na dysku. "
+          "Na górze strony są dwa przyciski: <b>Otwórz w nowej karcie</b> oraz <b>Pobierz PDF</b>. "
+          "Administrator widzi wydanie pełne, pozostałe konta — wydanie użytkownika, opisujące wyłącznie "
+          "ekrany, do których mają dostęp."),
+        zrzut("a17-pomoc.png" if rola == "admin" else "u06-pomoc.png",
+              "Strona Pomoc — instrukcja obsługi wbudowana w aplikację."),
+    ]
+    return bloki
+
+
 def r_dashboard(rola):
     if rola == "admin":
         return [
@@ -139,8 +188,11 @@ def r_dashboard(rola):
             a("Administrator widzi dane całej aplikacji, co jest zaznaczone opisem „wszyscy użytkownicy” "
               "przy każdym wykresie."),
             zrzut("a01-pulpit.png", "Dashboard administratora — kafelki podsumowania i wykresy aktywności z ostatnich 30 dni."),
-            a("Pod wykresami znajduje się karta <b>Twoje konto</b> z nazwą użytkownika, adresem e-mail, "
-              "rolą i statusem konta."),
+            a("Pod wykresami widnieje sekcja <b>Aktywność wg użytkowników</b> — dwa wykresy poziome "
+              "pokazujące, kto wysłał najwięcej plików do przetworzenia i kto zadał najwięcej pytań "
+              "w ciągu ostatnich trzydziestu dni. Sekcję widzi wyłącznie administrator."),
+            a("Danych własnego konta szukamy na stronie <b>Profil</b>, pod kółkiem z inicjałami "
+              "w prawym górnym rogu."),
         ]
     return [
         a("Dashboard to ekran startowy. U góry znajdują się trzy kafelki: liczba dokumentów, liczba folderów "
@@ -153,7 +205,8 @@ def r_dashboard(rola):
           "wyłącznie nasze własne pytania; cudze pozostają prywatne."),
         a("Opis nad każdym wykresem mówi wprost, czego dotyczy: „dostępne dla Ciebie” oraz „Twoje zapytania”."),
         zrzut("u01-pulpit.png", "Dashboard zwykłego użytkownika — liczby i wykresy w zakresie nadanych uprawnień."),
-        a("Pod wykresami znajduje się karta <b>Twoje konto</b> z podstawowymi danymi konta i przypisaną rolą."),
+        a("Dane własnego konta znajdziemy na stronie <b>Profil</b>, pod kółkiem z inicjałami "
+          "w prawym górnym rogu ekranu."),
     ]
 
 
@@ -165,6 +218,8 @@ def r_pliki_przegladanie(rola):
         a("Kliknięcie kafelka wchodzi do folderu, kliknięcie elementu ścieżki u góry cofa do wybranego poziomu. "
           "Listę dokumentów można przełączyć między widokiem <b>Lista</b> a <b>Kafelki</b>, a pole "
           "<i>Szukaj pliku…</i> filtruje dokumenty po nazwie."),
+        a("Foldery i dokumenty ułożone są alfabetycznie, z uwzględnieniem polskich znaków — nazwy "
+          "zaczynające się od ą, ć czy ł trafiają tam, gdzie powinny, a nie na koniec listy."),
     ]
     if rola == "admin":
         bloki += [
@@ -256,18 +311,27 @@ def r_czat(rola):
           "zamiast zgadywać."),
         n("Jak pytać, żeby dostać dobrą odpowiedź"),
         lista(
-            "Pytać pełnym zdaniem: „jakie są zasady pracy zdalnej?” zadziała lepiej niż samo „praca zdalna”.",
-            "Doprecyzować, gdy pytanie jest ogólne: „ile dni urlopu opiekuńczego przysługuje pracownikowi?”.",
+            "Wystarczy sama nazwa dokumentu: wpisanie „wniosek o urlop opiekuńczy” albo „regulamin "
+            "wynagradzania” daje krótkie wyjaśnienie, czym ten dokument jest, wraz z odnośnikiem do niego.",
+            "Pełne zdanie działa równie dobrze: „jakie są zasady pracy zdalnej?”.",
+            "Można pytać potocznie. Jeśli dokument mówi o „podróży służbowej”, a my zapytamy o „delegację”, "
+            "aplikacja i tak trafi we właściwy dokument.",
             "Można pytać dalej w tej samej rozmowie — aplikacja pamięta kontekst, więc po pytaniu o zarządzenie "
             "można zapytać po prostu „a kto je podpisał?”.",
             "Pytania o listę dokumentów też działają: „wypisz wszystkie zarządzenia z 2024 roku” zwróci "
             "zestawienie dokumentów zamiast opisu ich treści.",
         ),
+        n("Zmiana tematu w trakcie rozmowy"),
+        a("Kiedy w środku rozmowy przechodzimy do zupełnie innej sprawy, aplikacja radzi sobie sama. "
+          "Gdyby odpowiedź oparta na dotychczasowym wątku nic nie znalazła, pytanie zostaje zadane "
+          "ponownie — tak, jakby padło w nowym czacie. Widać wtedy krótką informację „Nowy temat w tej "
+          "rozmowie”, a zaraz po niej właściwą odpowiedź. Zakładanie nowego czatu tylko z tego powodu "
+          "nie jest już potrzebne."),
         n("Historia rozmów"),
         a("Każda rozmowa zapisuje się automatycznie w panelu <b>Historia chatów</b> pod nazwą wziętą z pierwszego "
           "pytania. Kliknięcie pozycji na liście przywraca całą rozmowę. Przycisk <b>+ Nowy chat</b> zaczyna "
-          "rozmowę od czysta — warto z niego korzystać przy zmianie tematu, żeby poprzednie pytania nie "
-          "wpływały na kolejne odpowiedzi. Krzyżyk przy pozycji historii usuwa rozmowę."),
+          "rozmowę od czysta — przydaje się, gdy chcemy oddzielić sprawy od siebie, ale przy samej zmianie "
+          "tematu nie jest konieczny (zob. wyżej). Krzyżyk przy pozycji historii usuwa rozmowę."),
         wskazowka("Historia rozmów jest prywatna. Widzimy wyłącznie własne rozmowy, także administrator "
                   "nie ogląda cudzych pytań w tym panelu."),
     ]
@@ -329,6 +393,14 @@ def r_faq(rola):
         ["Nie mogę wgrać pliku — okno wyboru go nie pokazuje.",
          "Aplikacja przyjmuje formaty PDF, DOCX, ODT i XLSX. Pliki w innych formatach trzeba najpierw zapisać "
          "w jednym z nich."],
+        ["Nie mogę się zalogować nazwą użytkownika.",
+         "Do logowania służy wyłącznie adres e-mail przypisany do konta. Nazwa użytkownika jest tylko "
+         "nazwą wyświetlaną."],
+        ["Zapomniałem hasła.",
+         "Nowe hasło ustawia administrator w module Użytkownicy. Po zalogowaniu warto zmienić je na własne "
+         "na stronie Profil."],
+        ["Gdzie znajdę tę instrukcję w aplikacji?",
+         "Pod kółkiem z inicjałami w prawym górnym rogu, pozycja Pomoc. Stamtąd można ją też pobrać jako PDF."],
     ]
     admin = [
         ["Dokument został rozpoznany jako niewłaściwy rodzaj.",
@@ -507,6 +579,7 @@ def dokument_admina():
         ("Czym jest ZCO Document Management", r_o_aplikacji()),
         ("Logowanie i układ ekranu", r_logowanie("admin")),
         ("Dashboard", r_dashboard("admin")),
+        ("Twoje konto i pomoc", r_profil("admin")),
         ("Przeglądanie dokumentów", r_pliki_przegladanie("admin")),
         ("Dodawanie dokumentów", r_wgrywanie("admin")),
         ("Porządkowanie: foldery, przenoszenie, usuwanie", r_porzadkowanie()),
@@ -527,6 +600,7 @@ def dokument_uzytkownika():
         ("Czym jest ZCO Document Management", r_o_aplikacji()),
         ("Logowanie i układ ekranu", r_logowanie("user")),
         ("Dashboard", r_dashboard("user")),
+        ("Twoje konto i pomoc", r_profil("user")),
         ("Przeglądanie dokumentów", r_pliki_przegladanie("user")),
         ("Dodawanie dokumentów", r_wgrywanie("user")),
         ("Baza wiedzy — pytania o treść dokumentów", r_czat("user")),
@@ -583,7 +657,13 @@ section { break-before:page; }
 
 
 def obraz_data_uri(katalog_zrzutow, plik):
+    """Zrzut wbudowany w HTML jako data URI. Brak pliku NIE przerywa generowania —
+    instrukcja powstaje wtedy bez tej ilustracji, z ostrzeżeniem na konsoli. Pozwala to
+    złożyć wydanie zanim powstanie zrzut ekranu, który sam tę instrukcję pokazuje."""
     sciezka = os.path.join(katalog_zrzutow, plik)
+    if not os.path.exists(sciezka):
+        print(f"  UWAGA: brak zrzutu {plik} — pomijam ilustrację")
+        return None
     with open(sciezka, "rb") as f:
         return "data:image/png;base64," + base64.b64encode(f.read()).decode()
 
@@ -605,7 +685,10 @@ def render_blok(blok, katalog_zrzutow):
         return f"<table><thead><tr>{gl}</tr></thead><tbody>{tr}</tbody></table>"
     if rodzaj == "fig":
         plik, podpis = dane
-        return (f'<figure><img src="{obraz_data_uri(katalog_zrzutow, plik)}" alt="{html.escape(podpis)}">'
+        src = obraz_data_uri(katalog_zrzutow, plik)
+        if not src:
+            return ""
+        return (f'<figure><img src="{src}" alt="{html.escape(podpis)}">'
                 f"<figcaption>{podpis}</figcaption></figure>")
     if rodzaj == "tip":
         return f'<div class="tip"><b class="etykieta">Wskazówka</b>{dane}</div>'

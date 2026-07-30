@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "1.0.0",
+      "date": "2026-07-30",
+      "title": "Pierwsze pełne wydanie ZCO Document Management",
+      "changes": [
+        "Instrukcja obsługi jest teraz częścią aplikacji: pozycja „Pomoc\" w menu pod inicjałami otwiera ją wprost na ekranie, z możliwością pobrania PDF. Administrator dostaje wydanie pełne, pozostałe konta - wydanie użytkownika.",
+        "Menu pod inicjałami zawiera trzy pozycje: Profil, Pomoc i Wyloguj.",
+        "Instrukcja została napisana od nowa pod obecny wygląd i zachowanie aplikacji: logowanie adresem e-mail, strona Profil ze zmianą danych i hasła, nowe zachowanie czatu przy zmianie tematu i przy pytaniach zadanych samą nazwą dokumentu.",
+        "Numer wersji 1.0.0 zamyka etap budowy: aplikacja obsługuje pełny obieg dokumentu - od wgrania, przez rozpoznanie rodzaju i pól, po pytania o treść z odnośnikami do źródeł."
+      ]
+    },
+    {
       "version": "0.9.28",
       "date": "2026-07-30",
       "title": "Kolory marki i ikona aplikacji",

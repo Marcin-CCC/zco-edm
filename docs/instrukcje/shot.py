@@ -12,7 +12,7 @@ import websockets
 
 EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 PORT = 9333
-ORIGIN = "http://localhost:3003"
+ORIGIN = "http://localhost:3010"
 SCALE = 2  # gęstość: ostre zrzuty do druku
 
 
