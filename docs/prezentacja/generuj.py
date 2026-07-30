@@ -242,12 +242,12 @@ SLAJDY = [
         "puenta": "Kto umie korzystać z wyszukiwarki internetowej, umie korzystać z tego.",
         "tresc": punkty(
             "Przeglądarka — nic do instalowania na komputerach pracowników",
-            "Trzy ekrany: Pliki, Baza wiedzy, Profil. Administracja tylko dla administratora",
+            "Trzy ekrany: <b>Dashboard</b>, <b>Pliki</b>, <b>Baza wiedzy</b>. Administracja tylko dla administratora",
             "Pytanie potoczne działa: „delegacja” znajdzie „podróż służbową”, „L4” — „zwolnienie lekarskie”",
             "Wystarczy sama nazwa dokumentu, żeby dostać jego opis i odnośnik",
             "<b>Szkolenie pracownika: 20 minut.</b> Instrukcja w aplikacji, pod przyciskiem Pomoc",
         ),
-        "obraz": "u03-chat.png",
+        "obraz": "a08-chat.png",
         "notatka": "Sprawdzianem jest osoba, która nie chce uczyć się nowego programu. "
                    "Kto umie korzystać z wyszukiwarki, umie korzystać z tego.",
     },
