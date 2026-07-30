@@ -96,7 +96,7 @@ def graf_liczby():
     kafelki = [
         ("128 GB", "pamięci dla modelu", "jedno urządzenie obsługuje cały szpital"),
         ("4 TB", "na dokumenty", "setki tysięcy plików biurowych"),
-        ("~15 s", "odpowiedź na pytanie", "niezależnie od wielkości bazy"),
+        ("~1 s", "do pierwszego słowa odpowiedzi", "cała odpowiedź gotowa w ok. 15 s"),
     ]
     kafle = "".join(
         f"<div class='liczba'><div class='liczba-duza'>{d}</div>"
@@ -109,17 +109,22 @@ def graf_liczby():
 <div class='slupki'>
   <div class='slupki-tytul'>Ile to trwa w praktyce</div>
   <div class='slupek-wiersz'>
-    <span class='slupek-nazwa'>Odpowiedź na pytanie</span>
-    <span class='slupek' style='width:25%;background:{TURKUS_CIEMNY}'></span>
+    <span class='slupek-nazwa'>Czas do rozpoczęcia odpowiedzi</span>
+    <span class='slupek-tor'><span class='slupek' style='width:1.67%;background:{TURKUS_CIEMNY}'></span></span>
+    <span class='slupek-wartosc'>ok. 1 s</span>
+  </div>
+  <div class='slupek-wiersz'>
+    <span class='slupek-nazwa'>Czas utworzenia całej odpowiedzi</span>
+    <span class='slupek-tor'><span class='slupek' style='width:25%;background:{TURKUS_CIEMNY}'></span></span>
     <span class='slupek-wartosc'>ok. 15 s</span>
   </div>
   <div class='slupek-wiersz'>
     <span class='slupek-nazwa'>Przygotowanie dokumentu</span>
-    <span class='slupek' style='width:100%;background:{NIEBIESKI}'></span>
-    <span class='slupek-wartosc'>ok. 60 s</span>
+    <span class='slupek-tor'><span class='slupek' style='width:100%;background:{NIEBIESKI}'></span></span>
+    <span class='slupek-wartosc'>średnio ok. 60 s</span>
   </div>
-  <div class='slupki-nota'>Pomiary z działającego wdrożenia demonstracyjnego (157 dokumentów).
-    Przygotowanie odbywa się raz, w tle, przy wgraniu pliku.</div>
+  <div class='slupki-nota'>Długość słupka odpowiada czasowi. Pomiary z działającego wdrożenia
+    demonstracyjnego (157 dokumentów); przygotowanie dokumentu odbywa się raz, w tle, przy wgraniu pliku.</div>
 </div>"""
 
 
@@ -343,8 +348,9 @@ ul.punkty li::before {{ content:""; position:absolute; left:4px; top:13px; width
 .slupki {{ border-top:1px solid var(--linia); padding-top:18px; }}
 .slupki-tytul {{ font-size:15px; font-weight:600; color:var(--granat); margin-bottom:12px; }}
 .slupek-wiersz {{ display:flex; align-items:center; gap:14px; margin-bottom:10px; }}
-.slupek-nazwa {{ width:250px; font-size:17px; color:var(--tekst); }}
-.slupek {{ height:20px; border-radius:4px; max-width:620px; }}
+.slupek-nazwa {{ width:300px; font-size:17px; color:var(--tekst); }}
+.slupek-tor {{ flex:0 0 620px; height:20px; }}
+.slupek {{ display:block; height:100%; border-radius:4px; }}
 .slupek-wartosc {{ font-size:17px; font-weight:600; color:var(--tekst); }}
 .slupki-nota {{ font-size:12.5px; color:var(--szary); margin-top:4px; line-height:1.4; }}
 
