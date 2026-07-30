@@ -1,6 +1,6 @@
 # Prezentacja sprzedażowa ZCO Document Management
 
-Dziesięć slajdów 16:9 w dwóch postaciach, z jednego źródła (`generuj.py`):
+Jedenaście slajdów 16:9 w trzech postaciach, z jednego źródła:
 
 - `ZCO-DM-prezentacja.html` — do pokazania z laptopa. Slajd ma stały rozmiar 1280×720 px
   i skaluje się do okna. Klawisze: `→` `←` slajdy, `P` tryb pokazu (jeden slajd na pełnym
@@ -8,9 +8,22 @@ Dziesięć slajdów 16:9 w dwóch postaciach, z jednego źródła (`generuj.py`)
 - `ZCO-DM-prezentacja.pdf` — do wysłania. Jedna strona = jeden slajd, 338,667 × 190,5 mm
   (te same 1280×720 px przy 96 dpi), bez marginesów i nagłówków.
 
+- `ZCO-DM-prezentacja.pptx` — do samodzielnego poprawiania w PowerPoincie. Wszystko
+  jest natywnymi kształtami i polami tekstowymi (jedyne obrazki to zrzuty ekranu), więc
+  każdy element da się kliknąć i zmienić. Notatki prelegenta trafiają do panelu notatek.
+
 ```bash
-python generuj.py
+python generuj.py        # HTML + PDF
+python generuj_pptx.py   # PPTX (wymaga: pip install python-pptx)
 ```
+
+Treść infografik siedzi w stałych na górze `generuj.py` (`KROKI_SCIEZKI`, `CZASY`,
+`CENNIK`, `OSOBY_KONTAKT`…), z których korzystają OBA generatory — dzięki temu wersja
+do pokazania i wersja do edycji nie rozjadą się w treści. Zmiana tekstu w jednym miejscu
+przechodzi do HTML, PDF i PPTX.
+
+Podgląd PPTX bez PowerPointa: `soffice --headless --convert-to pdf` na Sparku
+(LibreOffice jest tam zainstalowany) — tak sprawdzałem układ slajdów.
 
 Zrzuty ekranu brane są z `../instrukcje/zrzuty/` — tego samego kompletu, co instrukcja
 obsługi, więc prezentacja nie rozjeżdża się z aplikacją.

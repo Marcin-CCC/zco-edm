@@ -74,14 +74,54 @@ def graf_bezpieczenstwo():
 </div>"""
 
 
+KROKI_SCIEZKI = [
+    ("1", "Pytanie", "zwykłym językiem, np. „jak rozliczyć delegację?”"),
+    ("2", "Wyszukanie", "system znajduje fragmenty w Waszych plikach"),
+    ("3", "Odpowiedź", "zbudowana wyłącznie z tych fragmentów"),
+    ("4", "Dowód", "numer przy zdaniu prowadzi do dokumentu i strony"),
+]
+KAFELKI_LICZB = [
+    ("128 GB", "pamięci dla modelu", "jedno urządzenie obsługuje cały szpital"),
+    ("4 TB", "na dokumenty", "setki tysięcy plików biurowych"),
+    ("~1 s", "do pierwszego słowa odpowiedzi", "cała odpowiedź gotowa w ok. 15 s"),
+]
+CZASY = [
+    ("Czas do rozpoczęcia odpowiedzi", 1, "ok. 1 s"),
+    ("Czas utworzenia całej odpowiedzi", 15, "ok. 15 s"),
+    ("Przygotowanie dokumentu", 60, "średnio ok. 60 s"),
+]
+ETAPY_WDROZENIA = [
+    ("Tydzień 1", "Instalacja i uruchomienie", "urządzenie w serwerowni, konta, uprawnienia"),
+    ("Tydzień 2", "Wasze dokumenty i wzorce", "wgrywamy pierwszą partię, układamy schematy pism"),
+    ("Tydzień 3", "Szkolenia i start", "20 min dla użytkownika, 2 h dla administratora"),
+]
+DZIALY = [
+    ("Kadry", "regulaminy, wnioski, PPK, ZFŚS"),
+    ("Jakość i akredytacja", "procedury, instrukcje, wersje obowiązujące"),
+    ("Personel medyczny", "procedury kliniczne i pielęgniarskie"),
+    ("Administracja", "umowy, zarządzenia, przetargi"),
+    ("BHP · RODO · IT", "polityki i instrukcje wewnętrzne"),
+    ("Poza szpitalem", "uczelnie, urzędy, kancelarie, produkcja"),
+]
+CENNIK = [
+    ("Sprzęt: NVIDIA DGX Spark — 128 GB pamięci, 4 TB SSD", "20 000 zł"),
+    ("Dostawa i wdrożenie oprogramowania", "25 000 zł"),
+    ("Wsparcie i rozwój", "1 000 zł / mies."),
+]
+OSOBY_KONTAKT = [
+    ("Piotr Piątek", "wyceny, umowa", "501 674 303"),
+    ("Marcin Cieślak", "sprawy techniczne", "602 220 693"),
+]
+WARSTWY_SERWEROWNI = [
+    ("🖥️", "Aplikacja", "przeglądarka pracownika"),
+    ("🧠", "Model językowy", "działa na Waszym urządzeniu"),
+    ("🗄️", "Dokumenty i indeks", "dysk w serwerowni"),
+]
+
+
 def graf_sciezka():
     """Cztery kroki od pytania do sprawdzalnej odpowiedzi."""
-    kroki = [
-        ("1", "Pytanie", "zwykłym językiem, np. „jak rozliczyć delegację?”"),
-        ("2", "Wyszukanie", "system znajduje fragmenty w Waszych plikach"),
-        ("3", "Odpowiedź", "zbudowana wyłącznie z tych fragmentów"),
-        ("4", "Dowód", "numer przy zdaniu prowadzi do dokumentu i strony"),
-    ]
+    kroki = KROKI_SCIEZKI
     kafle = "".join(
         f"<div class='krok'><div class='krok-numer'>{n}</div>"
         f"<b>{t}</b><span>{o}</span></div>"
@@ -93,11 +133,7 @@ def graf_sciezka():
 
 def graf_liczby():
     """Kafelki z liczbami + porównanie dwóch czasów (znaczniki z podpisami wprost)."""
-    kafelki = [
-        ("128 GB", "pamięci dla modelu", "jedno urządzenie obsługuje cały szpital"),
-        ("4 TB", "na dokumenty", "setki tysięcy plików biurowych"),
-        ("~1 s", "do pierwszego słowa odpowiedzi", "cała odpowiedź gotowa w ok. 15 s"),
-    ]
+    kafelki = KAFELKI_LICZB
     kafle = "".join(
         f"<div class='liczba'><div class='liczba-duza'>{d}</div>"
         f"<div class='liczba-opis'>{o}</div><div class='liczba-nota'>{n}</div></div>"
@@ -124,16 +160,12 @@ def graf_liczby():
     <span class='slupek-wartosc'>średnio ok. 60 s</span>
   </div>
   <div class='slupki-nota'>Długość słupka odpowiada czasowi. Pomiary z działającego wdrożenia
-    demonstracyjnego (157 dokumentów); przygotowanie dokumentu odbywa się raz, w tle, przy wgraniu pliku.</div>
+    demonstracyjnego; przygotowanie dokumentu odbywa się raz, w tle, przy wgraniu pliku.</div>
 </div>"""
 
 
 def graf_harmonogram():
-    etapy = [
-        ("Tydzień 1", "Instalacja i uruchomienie", "urządzenie w serwerowni, konta, uprawnienia"),
-        ("Tydzień 2", "Wasze dokumenty i wzorce", "wgrywamy pierwszą partię, układamy schematy pism"),
-        ("Tydzień 3", "Szkolenia i start", "20 min dla użytkownika, 2 h dla administratora"),
-    ]
+    etapy = ETAPY_WDROZENIA
     return "<div class='harmonogram'>" + "".join(
         f"<div class='etap'><div class='etap-kropka'></div>"
         f"<div class='etap-tydzien'>{t}</div><b>{n}</b><span>{o}</span></div>"
@@ -142,17 +174,25 @@ def graf_harmonogram():
 
 
 def graf_zastosowania():
-    dzialy = [
-        ("Kadry", "regulaminy, wnioski, PPK, ZFŚS"),
-        ("Jakość i akredytacja", "procedury, instrukcje, wersje obowiązujące"),
-        ("Personel medyczny", "procedury kliniczne i pielęgniarskie"),
-        ("Administracja", "umowy, zarządzenia, przetargi"),
-        ("BHP · RODO · IT", "polityki i instrukcje wewnętrzne"),
-        ("Poza szpitalem", "uczelnie, urzędy, kancelarie, produkcja"),
-    ]
+    dzialy = DZIALY
     return "<div class='siatka-dzialow'>" + "".join(
         f"<div class='dzial'><b>{n}</b><span>{o}</span></div>" for n, o in dzialy
     ) + "</div>"
+
+
+def graf_kontakt():
+    osoby = OSOBY_KONTAKT
+    karty = []
+    for imie_nazwisko, rola, telefon in osoby:
+        czlony = imie_nazwisko.split()
+        inicjaly = (czlony[0][0] + czlony[-1][0]).upper()
+        karty.append(
+            f"<div class='kontakt'><div class='kontakt-inicjaly'>{inicjaly}</div>"
+            f"<div class='kontakt-dane'><b>{imie_nazwisko}</b>"
+            f"<span class='kontakt-rola'>{rola}</span>"
+            f"<span class='kontakt-tel'>tel. {telefon}</span></div></div>"
+        )
+    return "<div class='kontakty'>" + "".join(karty) + "</div>"
 
 
 def graf_cennik():
@@ -281,6 +321,15 @@ SLAJDY = [
         "notatka": "Nie proszę o decyzję zakupową, tylko o test na własnych dokumentach. "
                    "Jeśli po dwóch tygodniach kadry powiedzą, że to nie pomaga — rozstajemy się bez kosztów.",
     },
+    {
+        "tytul": "Zapraszamy do kontaktu",
+        "puenta": "Jesteśmy tu dla Was.",
+        "tresc": "<div class='kontakt-wstep'>Czekają na Was:</div>" + graf_kontakt()
+                 + "<div class='kontakt-firma'><b>Polmedi Group sp. z o.o.</b> · Poznań"
+                   "<span>polmedi.com</span></div>",
+        "notatka": "Zostawiam wizytówki. Do Piotra dzwonicie w sprawie wyceny i umowy, "
+                   "do mnie — gdy pytanie jest techniczne. Odpowiadamy tego samego dnia.",
+    },
 ]
 
 STYL = f"""
@@ -321,13 +370,13 @@ ul.punkty li::before {{ content:""; position:absolute; left:4px; top:13px; width
 .kafel b {{ display:block; font-size:18px; margin-bottom:3px; }}
 .kafel span {{ font-size:14px; color:#cbd5e1; line-height:1.35; }}
 .mur {{ width:96px; display:flex; flex-direction:column; align-items:center; justify-content:center; }}
-.mur-linia {{ width:0; height:78px; border-left:4px dashed #cbd5e1; }}
-.mur-podpis {{ font-size:12px; color:var(--szary); text-align:center; margin-top:8px; line-height:1.3; }}
-.chmura {{ width:250px; border:2px dashed var(--linia); border-radius:12px; padding:14px 16px;
+.mur-linia {{ width:0; height:96px; border-left:5px dashed var(--turkus-ciemny); }}
+.mur-podpis {{ font-size:12.5px; color:var(--turkus-ciemny); font-weight:600; text-align:center; margin-top:8px; line-height:1.3; }}
+.chmura {{ width:250px; border:2px solid #cbd5e1; background:var(--tlo); border-radius:12px; padding:14px 16px;
           text-align:center; display:flex; flex-direction:column; justify-content:center; }}
-.chmura-ikona {{ font-size:26px; filter:grayscale(1); opacity:.5; }}
-.chmura b {{ font-size:16px; color:var(--szary); margin:4px 0 4px; }}
-.chmura span {{ font-size:12.5px; color:var(--szary); line-height:1.35; }}
+.chmura-ikona {{ font-size:30px; }}
+.chmura b {{ font-size:17px; color:var(--granat); margin:5px 0 4px; }}
+.chmura span {{ font-size:13px; color:var(--tekst); line-height:1.4; }}
 
 /* --- infografika: ścieżka odpowiedzi --- */
 .graf-sciezka {{ display:flex; align-items:stretch; gap:8px; }}
@@ -382,6 +431,23 @@ table.cennik tr.suma td {{ font-weight:700; color:var(--granat); font-size:23px;
 .cennik-nota div {{ flex:1; font-size:15px; color:var(--tekst); line-height:1.45;
                    border-left:3px solid var(--turkus); padding-left:12px; }}
 
+.kontakt-wstep {{ font-size:23px; color:var(--tekst); margin-bottom:6px; }}
+.kontakty {{ display:flex; gap:28px; }}
+.kontakt {{ flex:1; display:flex; align-items:center; gap:22px; background:var(--tlo);
+           border:1px solid var(--linia); border-left:6px solid var(--turkus-ciemny);
+           border-radius:12px; padding:34px 30px; }}
+.kontakt-inicjaly {{ width:74px; height:74px; flex:0 0 74px; border-radius:50%;
+                    background:var(--granat); color:#fff; font-size:27px; font-weight:700;
+                    display:flex; align-items:center; justify-content:center; }}
+.kontakt-dane {{ display:flex; flex-direction:column; gap:3px; min-width:0; }}
+.kontakt-dane b {{ font-size:26px; color:var(--granat); line-height:1.2; }}
+.kontakt-rola {{ font-size:17px; color:var(--szary); }}
+.kontakt-tel {{ font-size:26px; font-weight:600; color:var(--turkus-ciemny); margin-top:6px;
+               white-space:nowrap; }}
+.kontakt-firma {{ margin-top:30px; padding-top:22px; border-top:1px solid var(--linia);
+                 display:flex; align-items:baseline; gap:16px; font-size:19px; color:var(--tekst); }}
+.kontakt-firma b {{ color:var(--granat); }}
+.kontakt-firma span {{ color:var(--turkus-ciemny); font-weight:600; }}
 .stopka-slajdu {{ margin-top:auto; padding-top:18px; font-size:20px; color:var(--granat); }}
 .puenta {{ margin-top:auto; margin-bottom:6px; background:var(--granat); color:#fff; border-radius:10px;
           padding:16px 22px; font-size:22px; font-weight:600; line-height:1.35;
