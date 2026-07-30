@@ -62,12 +62,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       )}
 
       <aside
-        className={`fixed top-0 left-[var(--shell-x)] z-50 h-full w-64 bg-slate-900 text-white transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed top-0 left-[var(--shell-x)] z-50 h-full w-64 bg-[#1d2a4d] text-white transition-transform duration-300 lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between px-4 py-5 border-b border-slate-700">
-          <h1 className="text-xl font-bold">ZCO DM</h1>
+        <div className="flex items-center justify-between px-4 py-5 border-b border-white/10">
+          <h1 className="text-xl font-bold text-[#1fc8ba]">ZCO DM</h1>
           <button onClick={onClose} className="lg:hidden text-white text-xl">&times;</button>
         </div>
 
@@ -82,7 +82,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 className={`block px-4 py-3 mx-2 rounded-md text-sm font-medium transition-colors ${
                   isActiveItem
                     ? 'bg-blue-600 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
                 }`}
               >
                 {item.label}
@@ -91,7 +91,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           })}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-700">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
           <Link
             href="/dashboard/changelog"
             onClick={onClose}

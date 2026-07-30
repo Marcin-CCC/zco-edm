@@ -9,7 +9,7 @@ import { HBarChart } from '@/components/bar-chart-h';
 // Kolory serii sprawdzone pod kątem czytelności i rozróżnialności przy zaburzeniach
 // widzenia barw (osobna seria na wykres, więc bez legendy — tytuł karty ją nazywa).
 const KOLOR_PARSOWANIE = '#2563eb';  // niebieski aplikacji
-const KOLOR_ZAPYTANIA = '#0f8a5f';   // zieleń
+const KOLOR_ZAPYTANIA = '#1fc8ba';   // turkus z logo
 
 export default function DashboardPage() {
   const { user } = useAuth();

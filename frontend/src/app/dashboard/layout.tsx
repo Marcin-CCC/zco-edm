@@ -121,7 +121,7 @@ export default function DashboardLayout({
       {/* Hamburger button for mobile */}
       <button
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        className="fixed top-3 left-3 z-50 p-2 bg-slate-900 text-white rounded-md lg:hidden"
+        className="fixed top-3 left-3 z-50 p-2 bg-[#1d2a4d] text-white rounded-md lg:hidden"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />

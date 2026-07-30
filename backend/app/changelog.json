@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "0.9.28",
+      "date": "2026-07-30",
+      "title": "Kolory marki i ikona aplikacji",
+      "changes": [
+        "Tło menu bocznego ma teraz kolor #1d2a4d, a nazwa „ZCO DM\" na jego szczycie oraz słupki wykresu zapytań - turkus #1fc8ba z logo.",
+        "Podświetlenie pozycji menu po najechaniu i linie oddzielające zostały dopasowane do nowego tła; wcześniej były dobrane pod poprzedni, ciemniejszy odcień.",
+        "Aplikacja ma własną ikonę: widać ją na karcie przeglądarki, w zakładkach, na pasku zadań i po dodaniu skrótu na ekranie głównym telefonu."
+      ]
+    },
+    {
       "version": "0.9.27",
       "date": "2026-07-30",
       "title": "Logowanie wyłącznie adresem e-mail",
