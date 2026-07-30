@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "0.9.26",
+      "date": "2026-07-30",
+      "title": "Nazwa użytkownika nie może przejąć cudzego adresu e-mail",
+      "changes": [
+        "Zalogować można się zarówno adresem e-mail, jak i nazwą użytkownika. Do tej pory nazwa była sprawdzana pod kątem powtórzeń tylko wśród nazw - dało się więc ustawić sobie nazwę równą cudzemu adresowi e-mail i odciąć tamtej osobie logowanie. Teraz obie wartości sprawdzane są razem, także przy edycji konta przez administratora.",
+        "Podpowiedzi na stronie Profil mówią wprost, że nazwa użytkownika i adres e-mail działają przy logowaniu tak samo."
+      ]
+    },
+    {
       "version": "0.9.25",
       "date": "2026-07-30",
       "title": "Strona Profil i menu użytkownika pod awatarem",

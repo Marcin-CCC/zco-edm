@@ -172,6 +172,21 @@ MIN_DLUGOSC_HASLA = 8
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}$")
 
 
+def identyfikator_zajety(db: Session, wartosc: str, wlasne_id: int) -> bool:
+    """Czy napis jest już czyimś loginem — w KTÓREJKOLWIEK z dwóch kolumn.
+
+    Logowanie dopuszcza jedno i drugie (`email == x OR username == x`), więc
+    unikalność wewnątrz jednej kolumny nie wystarcza. Bez tego sprawdzenia można
+    ustawić sobie nazwę użytkownika równą CUDZEMU adresowi e-mail — zapytanie
+    logujące zwraca wtedy pierwsze pasujące konto i właściciel adresu przestaje
+    się logować (zmierzone: ofiara dostawała 401).
+    """
+    return db.query(User).filter(
+        User.id != wlasne_id,
+        (func.lower(User.username) == wartosc.lower()) | (func.lower(User.email) == wartosc.lower()),
+    ).first() is not None
+
+
 @router.patch("/me", response_model=UserInDB)
 async def update_own_profile(
     payload: ProfileUpdate,
@@ -196,10 +211,7 @@ async def update_own_profile(
         if len(nowa) > 100:
             raise HTTPException(status_code=400, detail="Nazwa użytkownika może mieć najwyżej 100 znaków.")
         if nowa != current_user.username:
-            zajete = db.query(User).filter(
-                func.lower(User.username) == nowa.lower(), User.id != current_user.id
-            ).first()
-            if zajete:
+            if identyfikator_zajety(db, nowa, current_user.id):
                 raise HTTPException(status_code=409, detail="Ta nazwa użytkownika jest już zajęta.")
             current_user.username = nowa
             zmiany.append("username")
@@ -209,10 +221,7 @@ async def update_own_profile(
         if not _EMAIL_RE.match(nowy):
             raise HTTPException(status_code=400, detail="Podaj poprawny adres e-mail.")
         if nowy.lower() != (current_user.email or "").lower():
-            zajety = db.query(User).filter(
-                func.lower(User.email) == nowy.lower(), User.id != current_user.id
-            ).first()
-            if zajety:
+            if identyfikator_zajety(db, nowy, current_user.id):
                 raise HTTPException(status_code=409, detail="Ten adres e-mail jest już używany przez inne konto.")
             current_user.email = nowy
             zmiany.append("email")
@@ -296,6 +305,12 @@ async def update_user(user_id: int, user_update: UserUpdate, current_user: User 
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Uzytkownik nie znaleziony")
+    # Login sprawdza obie kolumny naraz, więc kolizja MIĘDZY nimi odcięłaby komuś
+    # dostęp — admin też nie powinien móc jej wprowadzić przez pomyłkę.
+    if user_update.email is not None and identyfikator_zajety(db, user_update.email, user.id):
+        raise HTTPException(status_code=409, detail="Ten adres e-mail jest już zajęty przez inne konto.")
+    if user_update.username is not None and identyfikator_zajety(db, user_update.username, user.id):
+        raise HTTPException(status_code=409, detail="Ta nazwa użytkownika jest już zajęta przez inne konto.")
     if user_update.email is not None:
         user.email = user_update.email
     if user_update.username is not None:

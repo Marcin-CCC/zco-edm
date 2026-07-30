@@ -170,7 +170,8 @@ export default function ProfilPage() {
                 autoFocus
               />
               <p className="mt-1 text-xs text-gray-500">
-                Widoczna w nagłówku i w zestawieniach. Do logowania służy adres e-mail.
+                Widoczna w nagłówku i w zestawieniach. Zalogujesz się nią tak samo jak
+                adresem e-mail, więc po zmianie używaj nowej nazwy.
               </p>
             </div>
             <div>
@@ -189,7 +190,9 @@ export default function ProfilPage() {
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 className={poleKlasy}
               />
-              <p className="mt-1 text-xs text-gray-500">Tym adresem logujesz się do aplikacji.</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Służy do logowania — tak samo jak nazwa użytkownika.
+              </p>
             </div>
             <div className="flex items-center gap-3 pt-1">
               <button
