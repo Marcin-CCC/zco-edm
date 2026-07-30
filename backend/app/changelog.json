@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.0.2",
+      "date": "2026-07-30",
+      "title": "Szybki powrót do spisu treści w Pomocy",
+      "changes": [
+        "Na stronie Pomoc, w prawym dolnym rogu ekranu, jest teraz okrągły niebieski przycisk ze strzałką w górę. Kliknięcie przewija instrukcję z powrotem do spisu treści, niezależnie od tego, jak daleko została przewinięta.",
+        "Przycisk pozostaje w tym samym miejscu podczas czytania i nie zasłania treści instrukcji."
+      ]
+    },
+    {
       "version": "1.0.1",
       "date": "2026-07-30",
       "title": "Kolejka od najnowszych, czytelna instrukcja na stronie Pomoc",

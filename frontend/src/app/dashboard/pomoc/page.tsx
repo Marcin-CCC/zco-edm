@@ -10,6 +10,8 @@
  * bo opisuje wyłącznie ekrany, które faktycznie widzą.
  */
 
+import { useRef } from 'react';
+
 import { useAuth } from '@/lib/store';
 
 const WYDANIA = {
@@ -30,6 +32,27 @@ const WYDANIA = {
 export default function PomocPage() {
   const { user } = useAuth();
   const wydanie = user?.role === 'admin' ? WYDANIA.admin : WYDANIA.user;
+  const ramka = useRef<HTMLIFrameElement>(null);
+
+  /**
+   * Przewinięcie do spisu treści. Instrukcja jest w ramce, więc przewijamy JEJ
+   * zawartość, a nie stronę aplikacji — ramka pochodzi z tego samego adresu, więc
+   * mamy do niej dostęp. Gdyby kotwicy zabrakło (starszy plik instrukcji),
+   * wracamy na sam początek dokumentu.
+   */
+  const doSpisuTresci = () => {
+    try {
+      const okno = ramka.current?.contentWindow;
+      const spis = okno?.document.getElementById('spis-tresci');
+      if (spis) {
+        spis.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        okno?.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    } catch {
+      /* gdyby instrukcja kiedyś trafiła na inny adres — przycisk po prostu nic nie zrobi */
+    }
+  };
 
   return (
     <div className="flex flex-col" style={{ height: 'calc(100vh - 8rem)' }}>
@@ -62,10 +85,26 @@ export default function PomocPage() {
       {/* Instrukcja jest samodzielnym plikiem HTML (zrzuty ekranu wbudowane
           w treść), więc wystarczy ją osadzić — nie wymaga żadnych zasobów obok. */}
       <iframe
+        ref={ramka}
         src={wydanie.html}
         title={wydanie.nazwa}
         className="flex-1 w-full bg-white rounded-lg border border-gray-200 shadow-sm"
       />
+
+      {/* Powrót do spisu treści — przycisk unieruchomiony w rogu EKRANU (nie ramki),
+          więc jest pod ręką niezależnie od tego, jak daleko przewinięta jest instrukcja. */}
+      <button
+        onClick={doSpisuTresci}
+        title="Przewiń do spisu treści"
+        aria-label="Przewiń do spisu treści"
+        className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-blue-600 text-white
+                   shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500
+                   focus:ring-offset-2 transition-colors flex items-center justify-center"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+        </svg>
+      </button>
     </div>
   );
 }
