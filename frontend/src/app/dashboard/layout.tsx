@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Sidebar } from '@/components/sidebar';
+import { inicjaly } from '@/lib/user';
 import { useAuth } from '@/lib/store';
 import { settingsApi } from '@/lib/api';
 import { useRouter, usePathname } from 'next/navigation';
@@ -35,6 +36,8 @@ export default function DashboardLayout({
 }) {
   const [isReady, setIsReady] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [menuOtwarte, setMenuOtwarte] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const { user, logout, isAuthenticated } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -49,6 +52,24 @@ export default function DashboardLayout({
       router.push('/login');
     }
   }, [isAuthenticated, router]);
+
+  // Menu użytkownika zamyka się kliknięciem poza nim, klawiszem Escape oraz przy
+  // przejściu na inną stronę — inaczej zostawałoby otwarte nad nową treścią.
+  useEffect(() => {
+    if (!menuOtwarte) return;
+    const pozaMenu = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOtwarte(false);
+    };
+    const escape = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOtwarte(false); };
+    document.addEventListener('mousedown', pozaMenu);
+    document.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('mousedown', pozaMenu);
+      document.removeEventListener('keydown', escape);
+    };
+  }, [menuOtwarte]);
+
+  useEffect(() => { setMenuOtwarte(false); }, [pathname]);
 
   // Auto-wylogowanie po bezczynności (czas z ustawień admina, domyślnie 15 min).
   // Główny mechanizm wylogowania; token JWT to tylko absolutny backstop.
@@ -112,16 +133,49 @@ export default function DashboardLayout({
       {/* Top bar */}
       <header className="fixed top-0 left-[var(--shell-x)] right-[var(--shell-x)] z-30 bg-white shadow-sm lg:left-[calc(var(--shell-x)+256px)]">
         {/* User info row */}
-        <div className={`flex items-center justify-end px-4 gap-4 ${showTabs ? 'h-10' : 'h-12'}`}>
+        <div className={`flex items-center justify-end px-4 gap-3 ${showTabs ? 'h-10' : 'h-12'}`}>
           <span className="text-sm text-gray-600">
             Witaj, <span className="font-medium text-gray-800">{user?.username}</span>
           </span>
-          <button
-            onClick={logout}
-            className="px-4 py-1 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
-          >
-            Wyloguj
-          </button>
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOtwarte((v) => !v)}
+              className="w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-semibold flex items-center justify-center hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-colors"
+              title="Menu użytkownika"
+              aria-haspopup="menu"
+              aria-expanded={menuOtwarte}
+            >
+              {inicjaly(user?.full_name, user?.username)}
+            </button>
+            {menuOtwarte && (
+              <div
+                role="menu"
+                className="absolute right-0 mt-2 w-44 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50"
+              >
+                <div className="px-3 py-2 border-b border-gray-100">
+                  <div className="text-sm font-medium text-gray-800 truncate">
+                    {user?.full_name || user?.username}
+                  </div>
+                  <div className="text-xs text-gray-500 truncate">{user?.email}</div>
+                </div>
+                <Link
+                  href="/dashboard/profil"
+                  onClick={() => setMenuOtwarte(false)}
+                  role="menuitem"
+                  className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  Profil
+                </Link>
+                <button
+                  onClick={() => { setMenuOtwarte(false); logout(); }}
+                  role="menuitem"
+                  className="block w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-100"
+                >
+                  Wyloguj
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Horizontal submenu tabs for admin pages */}

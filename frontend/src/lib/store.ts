@@ -68,6 +68,13 @@ export const useAuth = create<AuthState>((set) => {
       set({ token: null, user: null, isAuthenticated: false });
     },
 
-    setUser: (user) => set({ user }),
+    // Zapis także do localStorage — inaczej dane zmienione na stronie Profil
+    // wracałyby do starych po odświeżeniu strony (stan startowy czytamy stamtąd).
+    setUser: (user) => {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('auth_user', JSON.stringify(user));
+      }
+      set({ user });
+    },
   };
 });

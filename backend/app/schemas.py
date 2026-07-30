@@ -26,6 +26,24 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None  # nowe hasło (opcjonalnie; puste = bez zmiany)
 
 
+class ProfileUpdate(BaseModel):
+    """Dane, które użytkownik zmienia SAM SOBIE na stronie Profil.
+
+    Świadomie NIE ma tu roli ani statusu aktywności — te zmienia wyłącznie
+    administrator w module Użytkownicy. Inaczej każdy mógłby nadać sobie
+    uprawnienia administratora.
+    """
+    username: Optional[str] = None
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+
+
+class PasswordChange(BaseModel):
+    """Zmiana własnego hasła — zawsze za potwierdzeniem aktualnym hasłem."""
+    current_password: str
+    new_password: str
+
+
 class UserResponse(UserBase):
     id: int
     created_at: datetime

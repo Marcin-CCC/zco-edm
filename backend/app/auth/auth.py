@@ -1,12 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Body
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User, UserRole
-from app.schemas import UserCreate, UserInDB, UserUpdate
+from app.schemas import PasswordChange, ProfileUpdate, UserCreate, UserInDB, UserUpdate
 from app.auth.jwt_handler import hash_password, verify_password, create_access_token, get_current_user
 from app.config import settings
 from datetime import datetime
+import logging
 import os
+import re
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -161,6 +166,98 @@ async def login(request: Request, db: Session = Depends(get_db)):
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Pobranie danych aktualnie zalogowanego uzytkownika."""
     return current_user
+
+
+MIN_DLUGOSC_HASLA = 8
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}$")
+
+
+@router.patch("/me", response_model=UserInDB)
+async def update_own_profile(
+    payload: ProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Zmiana WŁASNYCH danych konta (strona Profil).
+
+    Rola i status pozostają poza zasięgiem użytkownika — zmienia je tylko admin
+    przez `PUT /users/{id}`. Login i e-mail muszą pozostać unikalne, bo służą do
+    logowania; kolizję zgłaszamy komunikatem, a nie błędem bazy.
+    """
+    zmiany: list[str] = []
+
+    if payload.username is not None:
+        # Spacje są dozwolone: logowanie odbywa się ADRESEM E-MAIL, a nazwa
+        # użytkownika jest etykietą pokazywaną w interfejsie — w bazie są już konta
+        # w rodzaju „Paweł C" i zakaz spacji uniemożliwiłby im zapis własnych danych.
+        nowa = payload.username.strip()
+        if len(nowa) < 3:
+            raise HTTPException(status_code=400, detail="Nazwa użytkownika musi mieć co najmniej 3 znaki.")
+        if len(nowa) > 100:
+            raise HTTPException(status_code=400, detail="Nazwa użytkownika może mieć najwyżej 100 znaków.")
+        if nowa != current_user.username:
+            zajete = db.query(User).filter(
+                func.lower(User.username) == nowa.lower(), User.id != current_user.id
+            ).first()
+            if zajete:
+                raise HTTPException(status_code=409, detail="Ta nazwa użytkownika jest już zajęta.")
+            current_user.username = nowa
+            zmiany.append("username")
+
+    if payload.email is not None:
+        nowy = payload.email.strip()
+        if not _EMAIL_RE.match(nowy):
+            raise HTTPException(status_code=400, detail="Podaj poprawny adres e-mail.")
+        if nowy.lower() != (current_user.email or "").lower():
+            zajety = db.query(User).filter(
+                func.lower(User.email) == nowy.lower(), User.id != current_user.id
+            ).first()
+            if zajety:
+                raise HTTPException(status_code=409, detail="Ten adres e-mail jest już używany przez inne konto.")
+            current_user.email = nowy
+            zmiany.append("email")
+
+    if payload.full_name is not None:
+        nowe = payload.full_name.strip()
+        if len(nowe) > 200:
+            raise HTTPException(status_code=400, detail="Imię i nazwisko może mieć najwyżej 200 znaków.")
+        if (nowe or None) != current_user.full_name:
+            current_user.full_name = nowe or None
+            zmiany.append("full_name")
+
+    if zmiany:
+        db.commit()
+        db.refresh(current_user)
+        logger.info(f"[PROFIL] {current_user.username} zmienił: {', '.join(zmiany)}")
+    return current_user
+
+
+@router.post("/me/password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_own_password(
+    payload: PasswordChange,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Zmiana własnego hasła — wymaga podania aktualnego.
+
+    Sesja jest kluczowana po `id` użytkownika, więc token po zmianie hasła nadal
+    działa. Frontend celowo wylogowuje po sukcesie, żeby użytkownik od razu
+    sprawdził nowe hasło (decyzja produktowa).
+    """
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Aktualne hasło jest nieprawidłowe.")
+    nowe = payload.new_password or ""
+    if len(nowe) < MIN_DLUGOSC_HASLA:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Nowe hasło musi mieć co najmniej {MIN_DLUGOSC_HASLA} znaków.",
+        )
+    if verify_password(nowe, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Nowe hasło musi różnić się od dotychczasowego.")
+
+    current_user.hashed_password = hash_password(nowe)
+    db.commit()
+    logger.info(f"[PROFIL] {current_user.username} zmienił hasło")
 
 
 @router.get("/users/check/{username}")

@@ -215,30 +215,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* User info */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Twoje konto</h2>
-        <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <dt className="text-sm text-gray-500">Użytkownik</dt>
-            <dd className="text-gray-800 font-medium">{user?.username}</dd>
-          </div>
-          <div>
-            <dt className="text-sm text-gray-500">Email</dt>
-            <dd className="text-gray-800 font-medium">{user?.email}</dd>
-          </div>
-          <div>
-            <dt className="text-sm text-gray-500">Rola</dt>
-            <dd className="text-gray-800 font-medium capitalize">{user?.role}</dd>
-          </div>
-          <div>
-            <dt className="text-sm text-gray-500">Status</dt>
-            <dd className="text-gray-800 font-medium">
-              {user?.is_active ? 'Aktywny' : 'Nieaktywny'}
-            </dd>
-          </div>
-        </dl>
-      </div>
+      {/* Dane konta przeniesione na stronę Profil (menu pod awatarem w nagłówku) —
+          Dashboard pokazuje wyłącznie stan dokumentów i aktywność. */}
 
       {/* Coming soon */}
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">

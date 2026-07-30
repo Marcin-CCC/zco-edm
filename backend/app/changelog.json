@@ -1,6 +1,18 @@
 {
   "entries": [
     {
+      "version": "0.9.25",
+      "date": "2026-07-30",
+      "title": "Strona Profil i menu użytkownika pod awatarem",
+      "changes": [
+        "W nagłówku, w miejscu przycisku „Wyloguj\", jest teraz awatar z inicjałami. Po kliknięciu rozwija się menu z pozycjami „Profil\" i „Wyloguj\"; zamyka je klawisz Escape lub kliknięcie obok.",
+        "Nowa strona Profil zebrała dane konta, które wcześniej były na Dashboardzie: nazwę użytkownika, imię i nazwisko, adres e-mail, rolę, status oraz datę ostatniego logowania.",
+        "Przycisk „Edytuj dane\" pozwala zmienić nazwę użytkownika, imię i nazwisko oraz adres e-mail. Zajęta nazwa lub zajęty e-mail kończą się czytelnym komunikatem, a nie błędem.",
+        "Osobna karta „Hasło\" umożliwia zmianę hasła po podaniu obecnego. Nowe hasło musi mieć co najmniej 8 znaków i różnić się od dotychczasowego; po udanej zmianie aplikacja wylogowuje, żeby od razu sprawdzić nowe hasło.",
+        "Rola i status konta pozostają tylko do odczytu - zmienia je administrator w module Użytkownicy."
+      ]
+    },
+    {
       "version": "0.9.24",
       "date": "2026-07-30",
       "title": "Informacja o producencie w menu bocznym",

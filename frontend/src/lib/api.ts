@@ -111,6 +111,22 @@ export const authApi = {
       token,
     }),
 
+  /** Zmiana WŁASNYCH danych konta (strona Profil). Rola i status tu nie wchodzą. */
+  updateProfile: (data: { username?: string; full_name?: string; email?: string }) =>
+    apiRequest<any>('/api/auth/me', {
+      method: 'PATCH',
+      body: data,
+      token: getAuthToken(),
+    }),
+
+  /** Zmiana własnego hasła — zawsze za potwierdzeniem aktualnym hasłem. */
+  changePassword: (current_password: string, new_password: string) =>
+    apiRequest<void>('/api/auth/me/password', {
+      method: 'POST',
+      body: { current_password, new_password },
+      token: getAuthToken(),
+    }),
+
   /** Initial setup registration - creates first admin without auth */
   setup: (data: { email: string; username: string; password: string; full_name?: string }) =>
     apiRequest<any>('/api/auth/register-setup', {
