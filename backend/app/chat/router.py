@@ -31,6 +31,7 @@ from app.schemas import (
     ChatRequest, ChatSourcesPayload,
     ConversationCreate, ConversationSummary, ConversationDetail, MessageOut, TurnCreate,
 )
+from app.chat.formulka import bez_koncowej_formulki, filtruj_strumien
 from app.settings.router import _load_cache_from_db, get_chat_webhook_url
 from app.webhook_auth import verify_webhook_secret
 from app.n8n_auth import outgoing_headers
@@ -137,8 +138,11 @@ def build_history(db: Session, user: User, session_id: str) -> str:
 
     lines = []
     for u, a in turns[-_HISTORY_TURNS:]:
+        # Rozmowy sprzed poprawki mają formułkę doklejoną na końcu odpowiedzi. Wzorzec
+        # podany modelowi w historii sam zachęca do powtórki, więc go stąd zdejmujemy.
+        odpowiedz = bez_koncowej_formulki(_strip_markers(a))
         lines.append(f"Użytkownik: {u.strip()[:_HISTORY_USER_CHARS]}")
-        lines.append(f"Asystent: {_strip_markers(a).strip()[:_HISTORY_ASSIST_CHARS]}")
+        lines.append(f"Asystent: {odpowiedz.strip()[:_HISTORY_ASSIST_CHARS]}")
     return "\n".join(lines)
 
 
@@ -351,10 +355,10 @@ async def chat(
 
     async def stream_body():
         try:
-            async for chunk in upstream.aiter_bytes():
-                yield chunk
-        except httpx.HTTPError as e:
-            logger.error(f"[CHAT] Przerwany strumień z n8n: {e}")
+            # Jedyna ingerencja w treść odpowiedzi: zdjęcie formułki o braku informacji,
+            # gdy model dokleja ją do odpowiedzi, która coś jednak mówi (zob. formulka.py).
+            async for kawalek in filtruj_strumien(upstream.aiter_bytes(), f" (req={request_id})"):
+                yield kawalek
         finally:
             await upstream.aclose()
             await client.aclose()

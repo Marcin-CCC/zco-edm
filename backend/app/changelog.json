@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.0.3",
+      "date": "2026-08-01",
+      "title": "Koniec formułki doklejanej do gotowej odpowiedzi",
+      "changes": [
+        "Odpowiedź z treści dokumentów nie kończy się już zdaniem \"Niestety, nie znaleziono w dokumentach informacji na ten temat\". Model dopisywał je czasem mimo udzielenia odpowiedzi - w zapisanych rozmowach dotyczyło to 24 odpowiedzi na 459 - przez co odpowiedź zaprzeczała sama sobie. Teraz zdanie jest zdejmowane w locie, zanim dotrze na ekran.",
+        "Komunikat o braku informacji pozostaje bez zmian tam, gdzie jest jedyną treścią odpowiedzi - tak jak dotąd oznacza, że w dokumentach nic na dany temat nie ma."
+      ]
+    },
+    {
       "version": "1.0.2",
       "date": "2026-07-30",
       "title": "Szybki powrót do spisu treści w Pomocy",
