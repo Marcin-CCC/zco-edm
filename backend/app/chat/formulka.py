@@ -34,6 +34,11 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+# UWAGA: to zdanie jest podyktowane modelowi w prompcie systemowym workflow n8n
+# („ZCO - RAG do testowania EDM ZCO", nod AI Agent). Zmiana brzmienia TAM wymaga
+# zmiany TUTAJ — inaczej filtr przestanie cokolwiek rozpoznawać. Tego samego napisu
+# pilnują jeszcze trzy miejsca: `_is_refusal` (historia), `czystaOdmowa` w interfejsie
+# (ponowienie po zmianie tematu) i nod Sources Gate w n8n (zerowanie źródeł).
 FORMULKA = "Niestety, nie znaleziono w dokumentach informacji na ten temat."
 
 # Zapas na białe znaki za kropką: model kończy zwykle „…temat.\n". Ogon musi je objąć,
