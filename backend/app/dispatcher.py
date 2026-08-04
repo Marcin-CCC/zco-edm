@@ -37,8 +37,12 @@ from app.n8n_auth import outgoing_headers
 
 logger = logging.getLogger(__name__)
 
-# Po ilu minutach plik wiszący w PROCESSING uznajemy za martwy (watchdog)
-PROCESSING_TIMEOUT_MINUTES = int(os.getenv("PROCESSING_TIMEOUT_MINUTES", "30"))
+# Po ilu minutach plik wiszący w PROCESSING uznajemy za martwy (watchdog).
+# 30 minut było za mało dla dużych dokumentów i watchdog zabierał pliki, które wciąż
+# się przetwarzały: zmierzone przebiegi w n8n to 15,1 min dla 78 stron i 37,8 min dla
+# największego dotąd dokumentu, a weryfikacja obrazowa kosztuje ok. 9,7 s na stronę,
+# więc 256 stron to ok. 50 minut. Limit ma łapać MARTWY przebieg, nie długi — stąd 90.
+PROCESSING_TIMEOUT_MINUTES = int(os.getenv("PROCESSING_TIMEOUT_MINUTES", "90"))
 
 # Ile razy wolno automatycznie ponowić plik, którego przebieg w n8n umarł bez
 # odpowiedzi. Awarie bywają przejściowe (zmierzone: ten sam obrazek, który wywalił

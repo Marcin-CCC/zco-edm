@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.0.4",
+      "date": "2026-08-04",
+      "title": "Dłuższy limit dla obszernych dokumentów",
+      "changes": [
+        "Dokument, który przetwarza się długo, nie jest już przedwcześnie uznawany za nieudany. Limit podniesiono z 30 do 90 minut - pomiary pokazały, że sam odczyt i weryfikacja 256-stronicowego pliku zajmują około 50 minut, a przy starym limicie plik wracał do kolejki, mimo że przetwarzanie wciąż trwało.",
+        "Limit nadal wychwytuje przetwarzanie, które naprawdę przestało odpowiadać - kolejka nie zatrzymuje się na stałe."
+      ]
+    },
+    {
       "version": "1.0.3",
       "date": "2026-08-01",
       "title": "Koniec formułki doklejanej do gotowej odpowiedzi",
