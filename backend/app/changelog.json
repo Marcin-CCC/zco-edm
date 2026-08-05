@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.0.7",
+      "date": "2026-08-05",
+      "title": "Poprawka: katalog zapisu dokumentow z konfiguracji",
+      "changes": [
+        "Wgrywane dokumenty zapisuja sie w katalogu wskazanym w konfiguracji wdrozenia. Wczesniej sciezka byla wpisana w kodzie na stale, przez co przy nietypowej konfiguracji pliki trafialy poza wspoldzielony magazyn - przetwarzanie takiego pliku konczylo sie bledem, a sam plik moglby zniknac przy aktualizacji aplikacji.",
+        "Dla tego wdrozenia nic sie nie zmienia: katalog zapisu pozostaje ten sam."
+      ]
+    },
+    {
       "version": "1.0.6",
       "date": "2026-08-05",
       "title": "Indeks przypisany do instancji",

@@ -24,12 +24,18 @@ logger = logging.getLogger(__name__)
 
 
 # ==================== HELPERS ====================
-# Save files inside mounted Docker volume at /data/shared_docs
-# This ensures files persist across container restarts AND are accessible by Docling
-_DOCKER_SHARED = "/data/shared_docs"
-# Project root is one level above backend/app (fallback for non-Docker dev)
+# Katalog zapisu dokumentów — Z KONFIGURACJI (STORAGE_PATH), nie wpisany na sztywno.
+#
+# Wcześniej stała była zaszyta jako "/data/shared_docs" z awaryjnym zejściem do katalogu
+# projektu, gdy tamtej ścieżki nie ma. Przy drugiej instancji (własny wolumen pod
+# /data/hirs_shared_docs) warunek nie trafiał i pliki lądowały w katalogu WEWNĄTRZ
+# kontenera: n8n ich nie widział, parsowanie padało natychmiast, a odtworzenie kontenera
+# skasowałoby je bezpowrotnie. Ścieżka jest konfigurowalna od dawna — tylko ten fragment
+# o tym nie wiedział.
+#
+# Fallback zostaje dla uruchomienia poza Dockerem (deweloperskie `uvicorn` z repo).
 _PROJECT_ROOT_SHARED = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "shared_docs")
-STORAGE_DIR = _DOCKER_SHARED if os.path.exists(_DOCKER_SHARED) else _PROJECT_ROOT_SHARED
+STORAGE_DIR = settings.STORAGE_PATH or _PROJECT_ROOT_SHARED
 
 # Publiczny adres backendu widziany z n8n (do callbacków statusu).
 # Dev lokalny: http://<IP-PC-w-LAN>:8001, Spark: http://192.168.1.34:8083
