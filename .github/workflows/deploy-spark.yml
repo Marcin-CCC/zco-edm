@@ -127,6 +127,16 @@ jobs:
           # Absolutny backstop sesji (JWT). Główne wylogowanie = bezczynność (frontend).
           echo "ACCESS_TOKEN_EXPIRE_MINUTES=720" >> .env
 
+          # Marka TEJ instancji. Wartości domyślne w kodzie opisują demo uniwersalne
+          # (HIRS), więc wdrożenie klienckie musi nazwać się samo — inaczej po
+          # najbliższym wdrożeniu zmieniłoby nazwę i kolory.
+          echo "APP_NAME=ZCO DM" >> .env
+          echo "APP_DESCRIPTION=System zarządzania dokumentami" >> .env
+          echo "BRAND_PRIMARY=#1d2a4d" >> .env
+          echo "BRAND_ACCENT=#1fc8ba" >> .env
+          echo "LOGIN_EMAIL_PLACEHOLDER=admin@zco.pl" >> .env
+          echo "BRAND_HEADER_TEXT=#1fc8ba" >> .env
+
           # NIE drukować całego .env — zawiera sekrety. Tylko tagi obrazów.
           grep '^BUILD_TAG' .env
 

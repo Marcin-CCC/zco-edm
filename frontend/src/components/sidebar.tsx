@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/store';
 import { versionApi } from '@/lib/api';
+import { useMarka } from '@/components/marka-provider';
 import { useEffect, useState } from 'react';
 
 interface SidebarProps {
@@ -40,6 +41,7 @@ function isActive(pathname: string, item: NavItem): boolean {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useAuth();
+  const marka = useMarka();
   const userRole = user?.role || '';
   const [version, setVersion] = useState('');
 
@@ -62,12 +64,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       )}
 
       <aside
-        className={`fixed top-0 left-[var(--shell-x)] z-50 h-full w-64 bg-[#1d2a4d] text-white transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed top-0 left-[var(--shell-x)] z-50 h-full w-64 bg-[var(--marka-tlo)] text-white transition-transform duration-300 lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <div className="flex items-center justify-between px-4 py-5 border-b border-white/10">
-          <h1 className="text-xl font-bold text-[#1fc8ba]">ZCO DM</h1>
+          <h1 className="text-xl font-bold text-[var(--marka-naglowek)]">{marka.nazwa}</h1>
           <button onClick={onClose} className="lg:hidden text-white text-xl">&times;</button>
         </div>
 
@@ -98,7 +100,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             className="block text-xs text-slate-400 hover:text-white transition-colors"
             title="Historia zmian"
           >
-            ZCO DM v{version} · Historia zmian
+            {marka.nazwa} v{version} · Historia zmian
           </Link>
           <a
             href="https://polmedi.com"

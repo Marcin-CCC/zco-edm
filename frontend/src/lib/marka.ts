@@ -1,0 +1,54 @@
+/**
+ * Marka instancji — nazwa i kolory czytane z konfiguracji, nie wpisane w kod.
+ *
+ * Jeden obraz obsługuje wiele wdrożeń: demo uniwersalne (HIRS) i wdrożenia klienckie
+ * (np. „ZCO DM") różnią się WYŁĄCZNIE zmiennymi środowiskowymi, więc rozwój dzieje się
+ * raz, a każda instancja dostaje tę samą zmianę. Bez tego każda nazwa i każdy kolor
+ * oznaczałyby osobną gałąź kodu do utrzymania.
+ *
+ * Wartości czyta się po stronie serwera (`markaZeSrodowiska`) w układzie głównym i
+ * przekazuje w dół przez kontekst — dzięki temu nie ma migotania nazwy po hydratacji
+ * ani potrzeby przebudowy obrazu przy zmianie marki. Zmienne NEXT_PUBLIC_* by tu nie
+ * zadziałały: są wklejane do kodu w czasie budowy.
+ */
+
+export interface Marka {
+  /** Nazwa wyświetlana w nagłówku, na logowaniu i w tytule okna */
+  nazwa: string;
+  /** Zdanie pod nazwą na ekranie logowania */
+  opis: string;
+  /** Kolor tła paska bocznego */
+  tlo: string;
+  /** Kolor akcentu (wykresy, wyróżnienia) */
+  akcent: string;
+  /** Przykład w polu adresu e-mail na logowaniu */
+  przykladEmail: string;
+  /** Kolor nazwy w nagłówku paska bocznego (HIRS: biały, ZCO: turkus marki) */
+  naglowek: string;
+}
+
+/** Domyślnie demo uniwersalne. Wdrożenia klienckie nadpisują to zmiennymi środowiskowymi. */
+export const MARKA_DOMYSLNA: Marka = {
+  nazwa: 'HIRS',
+  opis: 'Hospital Information Retrieval System',
+  tlo: '#1d2a4d',
+  akcent: '#1fc8ba',
+  przykladEmail: 'admin@firma.pl',
+  naglowek: '#ffffff',
+};
+
+/**
+ * Marka ze zmiennych środowiskowych. WYŁĄCZNIE po stronie serwera — w komponencie
+ * klienckim `process.env` nie ma tych wartości (patrz komentarz na górze pliku).
+ */
+export function markaZeSrodowiska(): Marka {
+  const env = process.env;
+  return {
+    nazwa: env.APP_NAME || MARKA_DOMYSLNA.nazwa,
+    opis: env.APP_DESCRIPTION || MARKA_DOMYSLNA.opis,
+    tlo: env.BRAND_PRIMARY || MARKA_DOMYSLNA.tlo,
+    akcent: env.BRAND_ACCENT || MARKA_DOMYSLNA.akcent,
+    przykladEmail: env.LOGIN_EMAIL_PLACEHOLDER || MARKA_DOMYSLNA.przykladEmail,
+    naglowek: env.BRAND_HEADER_TEXT || MARKA_DOMYSLNA.naglowek,
+  };
+}

@@ -9,7 +9,9 @@ import { HBarChart } from '@/components/bar-chart-h';
 // Kolory serii sprawdzone pod kątem czytelności i rozróżnialności przy zaburzeniach
 // widzenia barw (osobna seria na wykres, więc bez legendy — tytuł karty ją nazywa).
 const KOLOR_PARSOWANIE = '#2563eb';  // niebieski aplikacji
-const KOLOR_ZAPYTANIA = '#1fc8ba';   // turkus z logo
+// Akcent marki — ta sama wartosc co w pasku bocznym, czytana ze zmiennej CSS
+// ustawionej w ukladzie glownym (biblioteka wykresow potrzebuje konkretu, nie klasy).
+const KOLOR_ZAPYTANIA = 'var(--marka-akcent)';
 
 export default function DashboardPage() {
   const { user } = useAuth();

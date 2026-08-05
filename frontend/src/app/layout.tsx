@@ -1,22 +1,42 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { MarkaProvider } from '@/components/marka-provider';
+import { markaZeSrodowiska } from '@/lib/marka';
 
 const inter = Inter({ subsets: ['latin'] });
 
-export const metadata: Metadata = {
-  title: 'ZCO DM - System zarządzania dokumentami',
-  description: 'System zarządzania dokumentami medycznymi',
-};
+// Marka pochodzi ze zmiennych środowiskowych, więc strona musi powstawać przy żądaniu,
+// a nie w czasie budowy obrazu — inaczej ten sam obraz nie obsłużyłby dwóch wdrożeń.
+export const dynamic = 'force-dynamic';
+
+export function generateMetadata(): Metadata {
+  const marka = markaZeSrodowiska();
+  return {
+    title: `${marka.nazwa} - System zarządzania dokumentami`,
+    description: marka.opis,
+  };
+}
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const marka = markaZeSrodowiska();
+  // Kolory jadą jako zmienne CSS: klasy Tailwinda są ustalane w czasie budowy, więc
+  // wartość koloru musi wejść do drzewa stylów, a nie do nazwy klasy.
+  const zmienneKoloru = {
+    '--marka-tlo': marka.tlo,
+    '--marka-akcent': marka.akcent,
+    '--marka-naglowek': marka.naglowek,
+  } as React.CSSProperties;
+
   return (
-    <html lang="pl">
-      <body className={inter.className}>{children}</body>
+    <html lang="pl" style={zmienneKoloru}>
+      <body className={inter.className}>
+        <MarkaProvider marka={marka}>{children}</MarkaProvider>
+      </body>
     </html>
   );
 }

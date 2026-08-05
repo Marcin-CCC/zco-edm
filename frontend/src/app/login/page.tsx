@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi, versionApi } from '@/lib/api';
 import { useAuth } from '@/lib/store';
+import { useMarka } from '@/components/marka-provider';
 
 export default function LoginPage() {
+  const marka = useMarka();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -51,8 +53,8 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">ZCO DM</h1>
-          <p className="text-slate-300">System zarządzania dokumentami</p>
+          <h1 className="text-4xl font-bold text-white mb-2">{marka.nazwa}</h1>
+          <p className="text-slate-300">{marka.opis}</p>
         </div>
 
         {/* Card */}
@@ -71,7 +73,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="admin@zco.pl"
+                placeholder={marka.przykladEmail}
                 required
               />
             </div>
@@ -110,7 +112,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-center text-slate-400 text-sm mt-6">
-          ZCO DM {version ? `v${version} ` : ''}&copy; 2026
+          {marka.nazwa} {version ? `v${version} ` : ''}&copy; 2026
         </p>
       </div>
     </div>

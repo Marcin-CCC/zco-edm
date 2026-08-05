@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.0.5",
+      "date": "2026-08-05",
+      "title": "Nazwa i kolory aplikacji z konfiguracji instancji",
+      "changes": [
+        "Nazwa aplikacji, kolory i opis pochodzą teraz z ustawień wdrożenia, a nie z kodu. Dzięki temu ta sama aplikacja może działać pod różnymi nazwami dla różnych odbiorców, a rozwój prowadzimy w jednym miejscu - każda poprawka trafia do wszystkich wdrożeń bez przepisywania.",
+        "Dla tego wdrożenia nic się nie zmienia: nazwa, kolory i wygląd pozostają bez zmian."
+      ]
+    },
+    {
       "version": "1.0.4",
       "date": "2026-08-04",
       "title": "Dłuższy limit dla obszernych dokumentów",

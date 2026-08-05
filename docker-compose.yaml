@@ -27,6 +27,14 @@ services:
       - "${FRONTEND_PORT:-3000}:3000"
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://backend:8000}
+      # Marka instancji — czytana przy żądaniu, więc ten sam obraz obsługuje demo
+      # uniwersalne (HIRS) i wdrożenia klienckie. Brak zmiennej = wartości domyślne.
+      - APP_NAME=${APP_NAME:-HIRS}
+      - APP_DESCRIPTION=${APP_DESCRIPTION:-Hospital Information Retrieval System}
+      - BRAND_PRIMARY=${BRAND_PRIMARY:-#1d2a4d}
+      - BRAND_ACCENT=${BRAND_ACCENT:-#1fc8ba}
+      - LOGIN_EMAIL_PLACEHOLDER=${LOGIN_EMAIL_PLACEHOLDER:-admin@firma.pl}
+      - BRAND_HEADER_TEXT=${BRAND_HEADER_TEXT:-#ffffff}
     depends_on:
       backend:
         condition: service_started
@@ -56,6 +64,7 @@ services:
       - N8N_AUTH_HEADER=${N8N_AUTH_HEADER:-X-N8N-Webhook-Secret}
       - N8N_AUTH_VALUE=${N8N_AUTH_VALUE:-}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - APP_NAME=${APP_NAME:-HIRS}
     volumes:
       - shared_docs:/data
     networks:

@@ -39,8 +39,12 @@ from app.doc_search import router as doc_search_router
 Base.metadata.create_all(bind=engine)
 
 # ============ APLIKACJA FASTAPI ============
+# Nazwa instancji pochodzi z konfiguracji — jeden obraz obsługuje demo uniwersalne
+# (HIRS) i wdrożenia klienckie, które różnią się wyłącznie zmiennymi środowiskowymi.
+NAZWA_APLIKACJI = os.getenv("APP_NAME", "HIRS")
+
 app = FastAPI(
-    title="EDM ZCO - API",
+    title=f"{NAZWA_APLIKACJI} - API",
     version="1.0.0"
 )
 
@@ -106,7 +110,7 @@ app.include_router(doc_search_router)
 @app.get("/")
 def read_root():
     return {
-        "message": "EDM ZCO API dziala poprawnie.",
+        "message": f"{NAZWA_APLIKACJI} API dziala poprawnie.",
         "version": "1.0.0",
         "docs": "/docs"
     }

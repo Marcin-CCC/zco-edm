@@ -3,8 +3,10 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/store';
+import { useMarka } from '@/components/marka-provider';
 
 export default function RootPage() {
+  const marka = useMarka();
   const { isAuthenticated } = useAuth();
   const router = useRouter();
 
@@ -25,7 +27,7 @@ export default function RootPage() {
              🔧 GitHub Actions CI/CD Active
            </p>
          </div>
-         <h1 className="text-4xl font-bold mb-2">ZCO DM</h1>
+         <h1 className="text-4xl font-bold mb-2">{marka.nazwa}</h1>
          <p className="text-slate-300">Wdrozenie przez GitHub Actions - TEST</p>
        </div>
      </div>
