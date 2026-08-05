@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.0.6",
+      "date": "2026-08-05",
+      "title": "Indeks przypisany do instancji",
+      "changes": [
+        "Przetwarzanie dokumentow i wyszukiwanie w czacie korzystaja teraz z indeksu przypisanego do konkretnego wdrozenia. Dzieki temu na jednym serwerze moze pracowac kilka niezaleznych instalacji - kazda widzi wylacznie swoje dokumenty.",
+        "Dla tego wdrozenia nic sie nie zmienia: dokumenty i odpowiedzi pochodza z tego samego zbioru co dotad."
+      ]
+    },
+    {
       "version": "1.0.5",
       "date": "2026-08-05",
       "title": "Nazwa i kolory aplikacji z konfiguracji instancji",

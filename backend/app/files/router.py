@@ -47,6 +47,9 @@ def build_webhook_payload(file_id: int, file_path: str, folder_id: int | None = 
         "file_path": file_path,
         "folder_id": folder_id,
         "status_update_url": f"{BACKEND_CALLBACK_URL}/api/webhook/file/{file_id}/status",
+        # Kolekcja TEJ instancji. Jeden workflow n8n obsługuje wiele wdrożeń — bez tego
+        # dokumenty demo trafiłyby do indeksu klienta (nazwa kolekcji była w n8n stałą).
+        "collection": settings.QDRANT_COLLECTION,
     }
 
 

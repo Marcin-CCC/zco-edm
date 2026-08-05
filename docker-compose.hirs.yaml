@@ -1,0 +1,91 @@
+# ============================================================
+# HIRS — demo uniwersalne (druga instancja tej samej aplikacji)
+# ============================================================
+# Ten sam obraz co wdrożenie klienckie; różnice są WYŁĄCZNIE tutaj:
+#   - marka (nazwa, kolory) — zob. frontend/src/lib/marka.ts,
+#   - własna baza, własne kolekcje w Qdrancie, własny wolumen dokumentów,
+#   - inne porty i inny adres zwrotny dla n8n.
+#
+# Uruchamianie na Sparku (katalog /home/marcin/hirs-app):
+#   docker compose -f docker-compose.hirs.yaml up -d
+#
+# Frontend wystawiony przez tunel Cloudflare jako hirs-demo.polmedi.com -> 3001.
+# Backendu NIE publikujemy w tunelu: przeglądarka rozmawia tylko z frontendem,
+# który przekazuje /api/* po stronie serwera (trasa api/[[...path]]).
+services:
+  frontend:
+    image: ${BUILD_TAG_FRONTEND:-ghcr.io/marcin-ccc/zco-edm/frontend:latest}
+    container_name: hirs-frontend
+    ports:
+      - "${FRONTEND_PORT:-3001}:3000"
+    environment:
+      # Adres backendu WEWNĄTRZ sieci dockerowej — trasa pośrednicząca w Next.js
+      - BACKEND_URL=http://hirs-backend:8000
+      - NEXT_PUBLIC_API_URL=http://hirs-backend:8000
+      # Marka demo uniwersalnego (wartości domyślne w kodzie są takie same,
+      # ale wpisujemy je jawnie — instancja ma się nazywać sama).
+      - APP_NAME=${APP_NAME:-HIRS}
+      - APP_DESCRIPTION=${APP_DESCRIPTION:-Hospital Information Retrieval System}
+      - BRAND_PRIMARY=${BRAND_PRIMARY:-#1d2a4d}
+      - BRAND_ACCENT=${BRAND_ACCENT:-#1fc8ba}
+      - BRAND_HEADER_TEXT=${BRAND_HEADER_TEXT:-#ffffff}
+      - LOGIN_EMAIL_PLACEHOLDER=${LOGIN_EMAIL_PLACEHOLDER:-admin@firma.pl}
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - hirs_network
+    restart: unless-stopped
+
+  backend:
+    image: ${BUILD_TAG_BACKEND:-ghcr.io/marcin-ccc/zco-edm/backend:latest}
+    container_name: hirs-backend
+    ports:
+      - "${BACKEND_PORT:-8087}:8000"
+    environment:
+      # WŁASNA baza — dokumenty klienta nie mogą trafić do demo i odwrotnie.
+      # Ten sam serwer Postgresa, inna baza; blokady kolejki są per baza,
+      # więc obie instancje nie przeszkadzają sobie w parsowaniu.
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://postgres:tajne_haslo@192.168.1.34:5433/hirsdatabase}
+      - SECRET_KEY=${SECRET_KEY:-hirs-demo-secret-change-me}
+      - QDRANT_URL=${QDRANT_URL:-http://192.168.1.34:6333}
+      # Własne kolekcje: streszczenia dostają automatycznie sufiks _streszczenia
+      - QDRANT_COLLECTION=${QDRANT_COLLECTION:-hirs_2026}
+      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://192.168.1.34:5678/webhook/document-uploaded}
+      # Adres, pod który n8n odsyła statusy i źródła — MUSI wskazywać TĘ instancję
+      - BACKEND_CALLBACK_URL=${BACKEND_CALLBACK_URL:-http://192.168.1.34:8087}
+      # Inna ścieżka niż w instancji klienckiej — CELOWO. n8n czyta pliki po
+      # ścieżce bezwzględnej z bazy i musi widzieć oba wolumeny naraz, a dwóch
+      # różnych wolumenów nie da się zamontować pod tym samym punktem.
+      - STORAGE_PATH=/data/hirs_shared_docs
+      - DOCLING_API_URL=${DOCLING_API_URL:-http://192.168.1.34:8085}
+      - OLLAMA_API_URL=${OLLAMA_API_URL:-http://192.168.1.34:11434}
+      - VLLM_URL=${VLLM_URL:-http://192.168.1.34:8002}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://hirs-demo.polmedi.com}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:-}
+      - N8N_AUTH_HEADER=${N8N_AUTH_HEADER:-X-N8N-Webhook-Secret}
+      - N8N_AUTH_VALUE=${N8N_AUTH_VALUE:-}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-720}
+      - APP_NAME=${APP_NAME:-HIRS}
+    volumes:
+      # Własny wolumen dokumentów, montowany także w n8n pod TĄ SAMĄ ścieżką —
+      # inaczej parsowanie nie zobaczy wgranych plików.
+      - hirs_shared_docs:/data/hirs_shared_docs
+    networks:
+      - hirs_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  hirs_shared_docs:
+    driver: local
+
+networks:
+  hirs_network:
+    driver: bridge

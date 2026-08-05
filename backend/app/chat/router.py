@@ -308,6 +308,8 @@ async def chat(
         "history": history,
         "requestId": request_id,
         "sources_update_url": f"{BACKEND_CALLBACK_URL}/api/chat/sources",
+        # Kolekcja TEJ instancji — jeden workflow n8n obsługuje wiele wdrożeń.
+        "collection": settings.QDRANT_COLLECTION,
         "folderFilterEnabled": folder_filter_enabled,
         "allowedFolderIds": allowed_folder_ids,
         "qdrantFilter": qdrant_filter,
