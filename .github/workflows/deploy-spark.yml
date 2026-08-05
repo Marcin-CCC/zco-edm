@@ -112,6 +112,15 @@ jobs:
             echo "ERROR: Target directory $TARGET_DIR does not exist"
             exit 1
           fi
+          # Plik compose bierzemy Z REPOZYTORIUM. Wcześniej wdrożenie używało kopii
+          # leżącej na Sparku, która nie była niczym aktualizowana — zmiany w compose
+          # (np. nowe zmienne środowiskowe) nigdy nie docierały na produkcję, a kopia
+          # zdążyła się rozjechać z repo. Zachowujemy poprzednią wersję na wszelki wypadek.
+          if [ -f "$TARGET_DIR/docker-compose.yaml" ]; then
+            cp "$TARGET_DIR/docker-compose.yaml" "$TARGET_DIR/docker-compose.yaml.poprzedni"
+          fi
+          cp docker-compose.yaml "$TARGET_DIR/docker-compose.yaml"
+
           cd "$TARGET_DIR"
 
           # Obrazy zbudowane lokalnie (kroki powyżej) — compose użyje ich bez pull.
