@@ -5,6 +5,7 @@
       "date": "2026-08-06",
       "title": "Koniec zmyslania znaczenia nieznanych skrotow",
       "changes": [
+        "Aplikacja pilnuje przy starcie, ze indeks wyszukiwania po slowach istnieje. Jego brak powodowal, ze wyszukiwanie po nazwach wlasnych po cichu nie dzialalo, a kazdy skrot wygladal na nieobecny w dokumentach.",
         "Gdy w pytaniu pada skrot, ktorego nie ma w zadnym dokumencie, aplikacja uprzedza o tym model. Wczesniej model probowal rozwinac taki skrot na wlasna reke - w pomiarze szesciu prob wymyslil cztery rozne rozwiniecia, dokladajac do nich nieprawdziwe fakty.",
         "Odpowiedz na pozostala czesc pytania pozostaje bez zmian: jesli dokumenty opisuja temat, dostaniesz odpowiedz, a o samym skrocie - jasna informacje, ze nie ma go w materialach."
       ]

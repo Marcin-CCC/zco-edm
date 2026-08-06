@@ -41,6 +41,12 @@ class TestNieznaneSkroty:
         """None = nie wiemy, czy skrót jest w bazie. Lepiej nie ostrzegać fałszywie."""
         assert nieznane_skroty("co to jest ZCO", lambda t: None) == []
 
+    def test_pomija_skroty_krotsze_niz_indeks(self):
+        """Indeks Qdranta ma min_token_len 3 — „L4" zwraca 0 nawet gdy JEST
+        w dokumentach (zmierzone na bazie ZCO). Fałszywe ostrzeżenie byłoby gorsze."""
+        assert nieznane_skroty("jak zgłosić L4", lambda t: 0) == []
+        assert nieznane_skroty("co z L4 i ZCO", lambda t: 0) == ["ZCO"]
+
     def test_limit_liczby_skrotow(self):
         wynik = nieznane_skroty("ZCO ABC DEF GHI JKL", lambda t: 0)
         assert len(wynik) == 3

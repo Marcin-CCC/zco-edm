@@ -310,6 +310,42 @@ def ensure_summary_collection(rozmiar_wektora: int = 1024) -> bool:
         return False
 
 
+def ensure_text_index() -> bool:
+    """Dopilnuj indeksu pełnotekstowego na polu `content` w kolekcji fragmentów.
+
+    Bez tego indeksu dopasowanie po słowie (`match.text`) zwraca ZERO dla każdego
+    słowa — także dla tych, które w dokumentach są. Cicho psuje to dwie rzeczy:
+    zawężanie leksykalne po nazwach własnych (app/chat/lexical.py) oraz wykrywanie
+    skrótów spoza dokumentów (app/chat/skroty.py), które wtedy ostrzegałoby o
+    KAŻDYM skrócie.
+
+    Zmierzone 2026-08-06 na nowej instancji: kolekcja założona ręcznie nie miała
+    indeksu (kolekcję ZCO utworzył kiedyś n8n i indeks tam był), więc „ppk" dawało
+    0 trafień przy 124 fragmentach w bazie. Parametry MUSZĄ być te same, co w ZCO —
+    inaczej tokenizacja rozjedzie się między instancjami.
+    """
+    base = settings.QDRANT_URL.rstrip("/")
+    nazwa = settings.QDRANT_COLLECTION
+    parametry = {"type": "text", "tokenizer": "prefix",
+                 "min_token_len": 3, "max_token_len": 20, "lowercase": True}
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            info = client.get(f"{base}/collections/{nazwa}")
+            if info.status_code != 200:
+                return False                      # kolekcji jeszcze nie ma — nie nasza rola
+            schemat = (info.json().get("result") or {}).get("payload_schema") or {}
+            if "content" in schemat:
+                return True
+            resp = client.put(f"{base}/collections/{nazwa}/index?wait=true",
+                              json={"field_name": "content", "field_schema": parametry})
+        resp.raise_for_status()
+        logger.info(f"[QDRANT] Utworzono indeks pełnotekstowy `content` w {nazwa}")
+        return True
+    except Exception as e:
+        logger.warning(f"[QDRANT] Indeks pełnotekstowy w {nazwa} nieudany: {e}")
+        return False
+
+
 def upsert_summary(file_id: int, wektor: list[float], payload: dict) -> bool:
     """Zapisz streszczenie dokumentu. Identyfikator punktu = file_id, więc
     ponowne wygenerowanie nadpisuje poprzednie i nie tworzy duplikatów."""

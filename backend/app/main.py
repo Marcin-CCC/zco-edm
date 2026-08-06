@@ -81,6 +81,15 @@ async def resume_processing_queue():
         finally:
             db.close()
 
+    # Indeks pełnotekstowy w kolekcji tej instancji — bez niego dopasowanie po słowie
+    # zwraca zero dla wszystkiego i psuje zawężanie leksykalne oraz wykrywanie skrótów
+    # spoza dokumentów. Idempotentne, więc kosztuje jedno zapytanie przy starcie.
+    try:
+        from app.qdrant_client import ensure_text_index
+        ensure_text_index()
+    except Exception as e:
+        logger.warning(f"[QUEUE] Kontrola indeksu Qdranta nieudana: {e}")
+
     await _dispatch_once("startup")
 
     async def _watchdog_loop():

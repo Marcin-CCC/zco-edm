@@ -38,6 +38,12 @@ _NIE_SKROTY = {"NIE", "TAK", "ORAZ", "JAK", "CZY", "CO", "KTO", "GDZIE", "KIEDY"
 
 MAX_SKROTOW = 3   # więcej i tak nie zmieści się sensownie w ostrzeżeniu
 
+# Indeks pełnotekstowy Qdranta ma `min_token_len: 3`, więc krótszych skrótów NIE MA
+# w nim nawet wtedy, gdy występują w dokumentach — zmierzone: „l4" zwraca 0 trafień
+# w bazie ZCO, choć zwolnienia lekarskie są opisane w Regulaminie Pracy. Takich
+# skrótów nie umiemy zweryfikować, więc o nich nie ostrzegamy.
+MIN_DLUGOSC = 3
+
 
 def skroty_z_pytania(tresc: str) -> list[str]:
     """Skróty użyte w pytaniu, w kolejności wystąpienia, bez powtórzeń."""
@@ -61,6 +67,8 @@ def nieznane_skroty(tresc: str, policz) -> list[str]:
     for s in skroty_z_pytania(tresc):
         if len(wynik) >= MAX_SKROTOW:
             break
+        if len(s) < MIN_DLUGOSC:
+            continue                  # poniżej progu indeksu — nie do sprawdzenia
         ile = policz(s.lower())
         if ile == 0:
             wynik.append(s)
