@@ -311,10 +311,26 @@ async def chat(
 
     qdrant_filter = {"must": warunki} if warunki else None
 
+    # Skrót użyty w pytaniu, którego w dokumentach nie ma, wymusza na modelu zmyślenie
+    # rozwinięcia (zmierzone: 4 na 6 prób dla „PPK w ZCO", za każdym razem inne).
+    # Uprzedzenie modelu likwiduje to zjawisko (0 na 6), zachowując odpowiedź na
+    # pozostałą część pytania — zob. app/chat/skroty.py.
+    from app.chat.skroty import nieznane_skroty, uwaga_o_skrotach
+    from app.qdrant_client import count_chunks_with_text
+    tresc_dla_modelu = payload.message
+    try:
+        obce = nieznane_skroty(payload.message, count_chunks_with_text)
+    except Exception as e:            # wykrywanie nie może zablokować odpowiedzi
+        logger.warning(f"[CHAT-SKROTY] Sprawdzenie skrótów nieudane: {e}")
+        obce = []
+    if obce:
+        tresc_dla_modelu += uwaga_o_skrotach(obce)
+        logger.info(f"[CHAT-SKROTY] Skróty spoza dokumentów: {obce} — uprzedzam model")
+
     n8n_body = {
         "action": "sendMessage",
         "sessionId": f"{current_user.id}:{payload.session_id}",
-        "chatInput": payload.message,
+        "chatInput": tresc_dla_modelu,
         "searchQuery": search_query,
         "history": history,
         "requestId": request_id,
