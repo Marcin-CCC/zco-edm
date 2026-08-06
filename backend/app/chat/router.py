@@ -31,6 +31,7 @@ from app.schemas import (
     ChatRequest, ChatSourcesPayload,
     ConversationCreate, ConversationSummary, ConversationDetail, MessageOut, TurnCreate,
 )
+from app.chat.definicje import pytanie_definicyjne
 from app.chat.formulka import bez_koncowej_formulki, filtruj_strumien
 from app.settings.router import _load_cache_from_db, get_chat_webhook_url
 from app.webhook_auth import verify_webhook_secret
@@ -273,6 +274,16 @@ async def chat(
     # modelowi odmówić (zmierzone: „wniosek o urlop" po rozmowie o PPK → odmowa,
     # to samo pytanie w świeżym wątku → pełna odpowiedź).
     history = build_history(db, current_user, payload.session_id) if payload.use_history else ""
+
+    # Pytanie o ZNACZENIE POJĘCIA idzie bez historii. Zmierzone na demo (5 powtórzeń):
+    # „rozwiń skrót zco" bez historii → odmowa 5/5, z historią o PPK → wymyślone
+    # rozwinięcie 5/5, za każdym razem inne. Model traktuje skrót wspomniany
+    # w poprzedniej turze jak byt ustalony i rozwija go z własnej wiedzy, choć
+    # dokumenty milczą. Bez historii odpowiedź ma jedno źródło: treść dokumentów.
+    if history and pytanie_definicyjne(payload.message):
+        history = ""
+        logger.info(f"[CHAT-DEFINICJA] Pytanie o pojęcie — historia odcięta: "
+                    f"{payload.message[:60]!r}")
 
     # Zapytanie DO WYSZUKIWANIA: pytanie kontekstowe („kto go podpisał?") rozwinięte
     # na podstawie historii. Model odpowiadający dostaje nadal oryginalne pytanie.

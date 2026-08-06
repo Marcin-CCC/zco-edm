@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "1.0.8",
+      "date": "2026-08-06",
+      "title": "Koniec wymyslonych rozwiniec skrotow",
+      "changes": [
+        "Pytanie o znaczenie pojecia lub skrotu (\"co to jest...\", \"rozwin skrot...\") jest od teraz rozstrzygane wylacznie na podstawie dokumentow, bez ogladania sie na wczesniejsza rozmowe. Wczesniej samo wspomnienie skrotu w poprzednim pytaniu wystarczalo, zeby aplikacja podala jego wymyslone rozwiniecie - w pomiarze pieciu prob za kazdym razem inne.",
+        "Gdy w dokumentach nie ma wyjasnienia pojecia, dostaniesz jasna informacje, ze nie znaleziono - zamiast prawdopodobnie nieprawdziwej odpowiedzi.",
+        "Pytania odnoszace sie do rozmowy (\"co to jest ten dokument\") dzialaja bez zmian - tam wczesniejsza rozmowa jest potrzebna i zostaje uwzgledniona."
+      ]
+    },
+    {
       "version": "1.0.7",
       "date": "2026-08-05",
       "title": "Poprawka: katalog zapisu dokumentow z konfiguracji",
