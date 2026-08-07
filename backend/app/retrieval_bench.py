@@ -42,20 +42,41 @@ def _sciezka(plan) -> str:
     return "zwykła"
 
 
-def _ocena(wpis: dict, plan) -> tuple[bool, str]:
-    """(czy wynik jest poprawny, krótki opis)."""
+def _ocena(wpis: dict, plan) -> tuple[bool, str, float]:
+    """(czy poprawne, dokument dominujący, udział oczekiwanego w kontekście).
+
+    Kryterium to DOMINACJA, nie obecność. Pierwsza wersja pytała tylko, czy
+    oczekiwany dokument trafił do kontekstu — i zaliczyła jako poprawne pytanie
+    „od jakiego wieku dziecka przysługuje grusza?", na które padła odpowiedź
+    z polisy ubezpieczeniowej. Regulamin ZFŚS BYŁ w kontekście, tyle że w mniejszości
+    wobec polis, więc model oparł się na nich. Obecność jest warunkiem koniecznym,
+    nie wystarczającym; liczy się, co w kontekście przeważa.
+    """
+    from app.chat.dobor import dokument_zwyciezca
+
     w_kontekscie = list(plan.w_kontekscie)
-    nazwy = [str(t.get("filename") or "") for t in w_kontekscie]
-    nazwy += [str(d.get("filename") or "") for d in plan.dobrane]
     oczekiwany = wpis.get("oczekiwany")
 
+    if not w_kontekscie:
+        return (oczekiwany is None), "pusty kontekst", 0.0
+
+    zwyciezca = dokument_zwyciezca(w_kontekscie)
+    nazwa_zwyciezcy = (zwyciezca[1] if zwyciezca else "?") or "?"
+
     if oczekiwany is None:
-        return (not w_kontekscie), ("pusty kontekst" if not w_kontekscie
-                                    else f"kontekst z {len(w_kontekscie)} fragm.")
+        return False, f"kontekst z {len(w_kontekscie)} fragm.", 0.0
     if oczekiwany == "":
-        return True, (nazwy[0][:34] if nazwy else "pusty kontekst")   # tylko obserwacja
-    trafiony = any(oczekiwany.lower() in n.lower() for n in nazwy)
-    return trafiony, (nazwy[0][:34] if nazwy else "pusty kontekst")
+        return True, nazwa_zwyciezcy[:34], 0.0                  # tylko obserwacja
+
+    # Lista wariantów: ten sam dokument bywa w bazie pod różnymi nazwami, a bywa też,
+    # że na pytanie poprawnie odpowiada kilka dokumentów z jednej rodziny.
+    warianty = [oczekiwany] if isinstance(oczekiwany, str) else list(oczekiwany)
+    pasuje = lambda n: any(w.lower() in n.lower() for w in warianty)   # noqa: E731
+
+    nazwy = [str(t.get("filename") or "") for t in w_kontekscie]
+    nazwy += [str(d.get("filename") or "") for d in plan.dobrane]
+    udzial = sum(1 for n in nazwy if pasuje(n)) / len(nazwy)
+    return pasuje(nazwa_zwyciezcy), nazwa_zwyciezcy[:34], udzial
 
 
 async def zmierz(znane_rdzenie: set[str]) -> list[dict]:
@@ -72,7 +93,7 @@ async def zmierz(znane_rdzenie: set[str]) -> list[dict]:
             znane_rdzenie=znane_rdzenie,
         )
         nad_progiem = sum(1 for t in plan.trafienia if t["score"] >= PROG_FRAGMENTU)
-        ok, opis = _ocena(wpis, plan)
+        ok, opis, udzial = _ocena(wpis, plan)
         wyniki.append({
             "pytanie": pytanie,
             "oczekiwany": wpis.get("oczekiwany"),
@@ -82,6 +103,7 @@ async def zmierz(znane_rdzenie: set[str]) -> list[dict]:
             "nad_progiem": nad_progiem,
             "w_kontekscie": len(plan.w_kontekscie),
             "dobrane": len(plan.dobrane),
+            "udzial": round(udzial, 2),
             "szczyt": round(plan.trafienia[0]["score"], 3) if plan.trafienia else 0.0,
             "pierwszy": opis,
         })
@@ -89,12 +111,12 @@ async def zmierz(znane_rdzenie: set[str]) -> list[dict]:
 
 
 def wypisz(wyniki: list[dict]) -> None:
-    print(f"{'':2} {'pytanie':52} {'ścieżka':9} {'>próg':>5} {'kontekst':>8} "
-          f"{'dobr':>4} {'szczyt':>6}  pierwszy dokument")
+    print(f"{'':2} {'pytanie':50} {'ścieżka':9} {'>próg':>5} {'kontekst':>8} "
+          f"{'dobr':>4} {'udział':>6}  dokument dominujący")
     for w in wyniki:
         znak = "  " if w["obserwacja"] else ("ok" if w["ok"] else "!!")
-        print(f"{znak} {w['pytanie'][:52]:52} {w['sciezka']:9} {w['nad_progiem']:5} "
-              f"{w['w_kontekscie']:8} {w['dobrane']:4} {w['szczyt']:6.3f}  {w['pierwszy']}")
+        print(f"{znak} {w['pytanie'][:50]:50} {w['sciezka']:9} {w['nad_progiem']:5} "
+              f"{w['w_kontekscie']:8} {w['dobrane']:4} {w.get('udzial', 0):6.0%}  {w['pierwszy']}")
     oceniane = [w for w in wyniki if not w["obserwacja"]]
     udane = sum(1 for w in oceniane if w["ok"])
     print(f"\nWYNIK: {udane}/{len(oceniane)} poprawnych "

@@ -1,27 +1,34 @@
 {
-  "opis": "Zestaw kontrolny wyszukiwania. `oczekiwany` to fragment nazwy pliku, który MUSI trafić do kontekstu; null oznacza, że poprawną odpowiedzią jest brak kontekstu (odmowa). Pole `stan` opisuje zachowanie zmierzone 2026-08-07 i służy do wyłapywania regresji, a nie do oceny — oceną jest kolumna wyniku.",
+  "opis": "Zestaw kontrolny wyszukiwania. `oczekiwany`: fragment nazwy pliku albo lista wariantów — dokument, który MUSI DOMINOWAĆ w kontekście (nie tylko w nim być). `null` = poprawną odpowiedzią jest brak kontekstu. `\"\"` = wiersz tylko obserwowany, nie wliczany do wyniku.",
+  "zasady": [
+    "Twarde oczekiwanie stawiamy WYŁĄCZNIE tam, gdzie właściwy dokument został zweryfikowany pomiarem. Zgadywanie, który dokument 'powinien' odpowiedzieć, zamienia pomiar w generator fałszywych alarmów.",
+    "Pytania bezsensowne są obserwowane, nie oceniane: o odmowie decyduje MODEL na podstawie promptu, a ten pomiar kończy się na retrievalu. Rosnący kontekst przy takim pytaniu to jednak sygnał ostrzegawczy — warto na niego patrzeć.",
+    "Wiersz `stan` opisuje zachowanie w chwili dopisania pytania i służy do czytania historii, a nie do oceny."
+  ],
   "pytania": [
-    {"pytanie": "na co mogą iść środki z ZFŚS?", "oczekiwany": "Regulamin ZFŚS", "stan": "działa"},
-    {"pytanie": "wymień wszystkie cele na jakie mogą być przeznaczone środki z ZFŚS", "oczekiwany": "Regulamin ZFŚS", "stan": "działa"},
-    {"pytanie": "w jakim wieku dzieci uprawnione są do korzystania z ZFŚS?", "oczekiwany": "Regulamin ZFŚS", "stan": "działa"},
-    {"pytanie": "w jakim wieku dzieci mogą korzystać z wczasów pod gruszą?", "oczekiwany": "Regulamin ZFŚS", "stan": "naprawione w 1.0.10 (dobór)"},
-    {"pytanie": "od jakiego wieku dziecka przysługuje grusza?", "oczekiwany": "Regulamin ZFŚS", "stan": "ZEPSUTE — żargon, odpowiedź z polisy"},
-    {"pytanie": "czy na wczasy pod gruszą też?", "oczekiwany": "ZFŚS", "stan": "działa"},
-    {"pytanie": "jak rozliczyć delegację?", "oczekiwany": "wyj", "stan": "działa (potoczne)"},
-    {"pytanie": "ile wynosi dieta za delegację?", "oczekiwany": null, "stan": "0 fragmentów nad progiem"},
-    {"pytanie": "czy mogę przystąpić do PPK?", "oczekiwany": "PPK", "stan": "działa"},
-    {"pytanie": "co to jest PPK?", "oczekiwany": "PPK", "stan": "działa"},
-    {"pytanie": "jak zgłosić zwolnienie lekarskie?", "oczekiwany": "Regulamin Pracy", "stan": "do ustalenia"},
-    {"pytanie": "jak zgłosić L4?", "oczekiwany": "Regulamin Pracy", "stan": "do ustalenia (potoczne)"},
-    {"pytanie": "ile dni urlopu na żądanie mi przysługuje?", "oczekiwany": "Regulamin Pracy", "stan": "do ustalenia"},
-    {"pytanie": "jakie są zasady pracy zdalnej?", "oczekiwany": "", "stan": "do ustalenia"},
-    {"pytanie": "kto zatwierdza wniosek o urlop?", "oczekiwany": "", "stan": "do ustalenia"},
-    {"pytanie": "jak wygląda procedura zgonu pacjenta?", "oczekiwany": "", "stan": "do ustalenia"},
-    {"pytanie": "co to jest gorączka neutropeniczna?", "oczekiwany": "", "stan": "do ustalenia (termin fachowy)"},
-    {"pytanie": "jakie są standardy akredytacyjne dla szpitali?", "oczekiwany": "standardy-akredytacyjne", "stan": "do ustalenia"},
-    {"pytanie": "jakie kwalifikacje musi mieć sanitariusz?", "oczekiwany": "kwalifikacje", "stan": "do ustalenia"},
-    {"pytanie": "ile wynosi kara za spóźnioną ewakuację jednorożca?", "oczekiwany": null, "stan": "poprawna odmowa"},
-    {"pytanie": "jaka jest wysokość dodatku za pracę na Marsie?", "oczekiwany": null, "stan": "poprawna odmowa"},
-    {"pytanie": "co to jest ZCO?", "oczekiwany": null, "stan": "brak w dokumentach, obsługiwane przez skroty.py"}
+    {"pytanie": "na co mogą iść środki z ZFŚS?", "oczekiwany": "ZFŚS", "stan": "2026-08-07: działa"},
+    {"pytanie": "wymień wszystkie cele na jakie mogą być przeznaczone środki z ZFŚS", "oczekiwany": "ZFŚS", "stan": "2026-08-07: działa"},
+    {"pytanie": "w jakim wieku dzieci uprawnione są do korzystania z ZFŚS?", "oczekiwany": "ZFŚS", "stan": "2026-08-07: działa"},
+    {"pytanie": "w jakim wieku dzieci mogą korzystać z wczasów pod gruszą?", "oczekiwany": "ZFŚS", "stan": "2026-08-07: naprawione w 1.0.10 (dobór)"},
+    {"pytanie": "od jakiego wieku dziecka przysługuje grusza?", "oczekiwany": "ZFŚS", "stan": "2026-08-07: ZEPSUTE — żargon, dominują polisy"},
+    {"pytanie": "czy na wczasy pod gruszą też?", "oczekiwany": ["ZFŚS", "grusz"], "stan": "2026-08-07: działa"},
+    {"pytanie": "jak rozliczyć delegację?", "oczekiwany": ["wyj", "delegac", "podróż"], "stan": "2026-08-07: działa (potoczne)"},
+    {"pytanie": "czy mogę przystąpić do PPK?", "oczekiwany": ["PPK", "Poradnik_Pracownika"], "stan": "2026-08-07: działa"},
+    {"pytanie": "co to jest PPK?", "oczekiwany": ["PPK", "Poradnik_Pracownika"], "stan": "2026-08-07: działa"},
+    {"pytanie": "jakie są standardy akredytacyjne dla szpitali?", "oczekiwany": "standardy-akredytacyjne", "stan": "2026-08-07: działa"},
+    {"pytanie": "jakie kwalifikacje musi mieć sanitariusz?", "oczekiwany": "kwalifikacje", "stan": "2026-08-07: działa"},
+    {"pytanie": "jakie są zasady pracy zdalnej?", "oczekiwany": "praca zdalna", "stan": "2026-08-07: działa"},
+    {"pytanie": "co to jest gorączka neutropeniczna?", "oczekiwany": "Gorączka neutropenic", "stan": "2026-08-07: działa (termin fachowy)"},
+
+    {"pytanie": "ile wynosi dieta za delegację?", "oczekiwany": "", "stan": "2026-08-07: 0 fragmentów nad progiem, kontekst z ratunku po streszczeniach; nie wiadomo, czy stawki diet są w bazie"},
+    {"pytanie": "jak zgłosić zwolnienie lekarskie?", "oczekiwany": "", "stan": "2026-08-07: dominuje Zał. do Zarządzenia 20/2023 — do ustalenia, czy to właściwy dokument"},
+    {"pytanie": "jak zgłosić L4?", "oczekiwany": "", "stan": "2026-08-07: 0 nad progiem, ratunek daje inny dokument niż wersja pełnym słowem — znany brak"},
+    {"pytanie": "ile dni urlopu na żądanie mi przysługuje?", "oczekiwany": "", "stan": "2026-08-07: dominuje Zał. do Zarządzenia 20/2023"},
+    {"pytanie": "kto zatwierdza wniosek o urlop?", "oczekiwany": "", "stan": "2026-08-07: dominuje Regulamin Pracy"},
+    {"pytanie": "jak wygląda procedura zgonu pacjenta?", "oczekiwany": "", "stan": "2026-08-07: dominują standardy akredytacyjne"},
+
+    {"pytanie": "ile wynosi kara za spóźnioną ewakuację jednorożca?", "oczekiwany": "", "stan": "2026-08-07: zawężenie leksykalne daje 10 fragmentów mimo bezsensu pytania — obserwować"},
+    {"pytanie": "jaka jest wysokość dodatku za pracę na Marsie?", "oczekiwany": "", "stan": "2026-08-07: 6 fragmentów nad progiem I 3 dobrane — obserwować, czy dobór nie wzmacnia szumu"},
+    {"pytanie": "co to jest ZCO?", "oczekiwany": "", "stan": "2026-08-07: kontekst pełny; o odmowie decyduje ostrzeżenie o skrótach (skroty.py), nie retrieval"}
   ]
 }
