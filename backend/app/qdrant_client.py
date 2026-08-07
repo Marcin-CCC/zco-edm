@@ -254,6 +254,43 @@ def search_chunks(
         return []
 
 
+def search_chunks_full(
+    wektor: list[float], filtr: dict | None = None, limit: int = 15
+) -> list[dict]:
+    """To samo wyszukiwanie, co `search_chunks`, ale z TREŚCIĄ i nazwą pliku.
+
+    Potrzebne doborowi z dokumentu-zwycięzcy (app/chat/dobor.py): żeby ocenić,
+    której części pytania kontekst NIE POKRYWA, trzeba zobaczyć teksty fragmentów,
+    a nie same trafności. Osobna funkcja, bo `search_chunks` zwraca krotki i jest
+    używana tam, gdzie treść jest zbędna.
+    """
+    base = settings.QDRANT_URL.rstrip("/")
+    url = f"{base}/collections/{settings.QDRANT_COLLECTION}/points/search"
+    body: dict = {"vector": wektor, "limit": limit, "with_payload": True}
+    if filtr:
+        body["filter"] = filtr
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            resp = client.post(url, json=body)
+        resp.raise_for_status()
+        wyniki = []
+        for p in resp.json()["result"]:
+            payload = p.get("payload") or {}
+            meta = payload.get("metadata") or {}
+            fid = meta.get("file_id")
+            wyniki.append({
+                "score": float(p["score"]),
+                "file_id": int(fid) if fid is not None else None,
+                "filename": meta.get("filename"),
+                "page": meta.get("page"),
+                "content": payload.get("content") or "",
+            })
+        return wyniki
+    except Exception as e:
+        logger.warning(f"[QDRANT] Wyszukiwanie fragmentów (z treścią) nieudane: {e}")
+        return []
+
+
 def count_chunks_with_text(term: str) -> int | None:
     """Ile fragmentów zawiera dane słowo (indeks pełnotekstowy na `content`).
 

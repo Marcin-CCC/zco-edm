@@ -38,7 +38,9 @@ LIMIT_FRAGMENTOW = 15    # topK węzła Qdrant w n8n
 
 
 async def wskaz_dokumenty(pytanie: str, filtr_rbac: dict | None,
-                          folder_ids: list[int] | None) -> tuple[list[int], bool, str]:
+                          folder_ids: list[int] | None,
+                          wektor_pytania: list[float] | None = None,
+                          ) -> tuple[list[int], bool, str]:
     """Zwróć (file_ids do filtra, czy wyłączyć próg, opis diagnostyczny do logu).
 
     Dwa tryby:
@@ -56,11 +58,14 @@ async def wskaz_dokumenty(pytanie: str, filtr_rbac: dict | None,
     Pusta lista = nie ingerujemy w dzisiejszą ścieżkę. Best-effort: każdy błąd
     (Qdrant, model osadzeń) kończy się pustą listą, czyli zachowaniem sprzed zmiany.
     """
-    try:
-        w = await wektor(pytanie)
-    except Exception as e:
-        logger.warning(f"[STRESZCZENIE-ROUTE] Osadzenie pytania nieudane: {e}")
-        return [], False, "brak osadzenia"
+    if wektor_pytania is not None:
+        w = wektor_pytania          # policzone raz przez routera, dzielone z doborem
+    else:
+        try:
+            w = await wektor(pytanie)
+        except Exception as e:
+            logger.warning(f"[STRESZCZENIE-ROUTE] Osadzenie pytania nieudane: {e}")
+            return [], False, "brak osadzenia"
 
     fragmenty = search_chunks(w, filtr_rbac, limit=LIMIT_FRAGMENTOW)
     nad_progiem = [(s, fid) for s, fid in fragmenty if s >= PROG_FRAGMENTU]

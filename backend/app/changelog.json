@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "1.0.10",
+      "date": "2026-08-07",
+      "title": "Pytania wymagajace polaczenia dwoch miejsc w dokumencie",
+      "changes": [
+        "Gdy odpowiedz na pytanie wymaga zestawienia dwoch odleglych miejsc tego samego dokumentu (np. wiek dzieci jest okreslony raz dla calego funduszu socjalnego, a pytanie dotyczy jednego ze swiadczen), aplikacja dobiera brakujacy fragment z rozpoznanego dokumentu. Wczesniej odpowiedz powstawala z przypadkowego dokumentu, ktory tylko wspominal o wieku dziecka.",
+        "Dobor uruchamia sie wylacznie wtedy, gdy dokument jest rozpoznany jednoznacznie, a w znalezionych fragmentach brakuje dokladnie jednego watku z pytania. Pytania, ktore dzialaly dotad poprawnie, przechodza bez zmian.",
+        "Gdy w dokumentach nie ma warunku, terminu ani ograniczenia, aplikacja pisze, czego nie znalazla, zamiast stwierdzac, ze ograniczenia nie ma. Brak zapisu w materialach nie jest juz przedstawiany jako brak wymogu."
+      ]
+    },
+    {
       "version": "1.0.9",
       "date": "2026-08-06",
       "title": "Koniec zmyslania znaczenia nieznanych skrotow",

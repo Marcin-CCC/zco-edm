@@ -245,6 +245,10 @@ async def chat(
     warunki: list[dict] = []
     if folder_filter_enabled:
         warunki.append({"key": "metadata.folder_id", "match": {"any": allowed_folder_ids}})
+    # Same uprawnienia, bez zawężeń wynikających z treści pytania. Dobór z dokumentu
+    # -zwycięzcy szuka właśnie z tym filtrem: zawężenie po rzadkim słowie ma wskazać
+    # DOKUMENT, a nie ograniczać, którą jego stronę wolno przeczytać (zob. dobor.py).
+    warunki_rbac = list(warunki)
 
     # Zawężenie do konkretnych dokumentów (pytanie o treść wskazanych wcześniej plików).
     # Dokłada się do warunku uprawnień, więc nie da się nim obejść RBAC — najwyżej
@@ -296,12 +300,22 @@ async def chat(
     # powstaje z oryginalnych fragmentów — streszczenie tylko wskazuje dokument.
     wskazane_streszczeniem: list[int] = []
     bez_progu = False
+    wektor_pytania: list[float] | None = None
+    if not payload.file_ids:
+        # Jedno osadzenie pytania na dwóch odbiorców: wskazywanie po streszczeniach
+        # i dobór z dokumentu-zwycięzcy. Awaria = obie ścieżki po prostu nie działają.
+        from app.summaries import wektor as osadz
+        try:
+            wektor_pytania = await osadz(search_query)
+        except Exception as e:
+            logger.warning(f"[CHAT] Osadzenie pytania nieudane: {e}")
     if not payload.file_ids and not terminy:
         from app.chat.streszczenia import wskaz_dokumenty
         wskazane_streszczeniem, bez_progu, diagnostyka = await wskaz_dokumenty(
             search_query,
             {"must": warunki} if warunki else None,
             allowed_folder_ids if folder_filter_enabled else None,
+            wektor_pytania=wektor_pytania,
         )
         logger.info(f"[CHAT-STRESZCZENIE] {search_query!r}: {diagnostyka}")
         if wskazane_streszczeniem:
@@ -310,6 +324,37 @@ async def chat(
             )
 
     qdrant_filter = {"must": warunki} if warunki else None
+
+    # Pytanie o złożonym ciągu rozumowania („w jakim wieku dzieci mogą korzystać
+    # z wczasów pod gruszą?"): dokument jest rozpoznany dobrze, ale kryterium leży
+    # na innej stronie niż opis świadczenia i nie mieści się w progu. Dokładamy
+    # fragmenty z dokumentu-zwycięzcy pod niepokrytą część pytania — zob. dobor.py.
+    # Pomijamy tylko wtedy, gdy zakres wskazał UŻYTKOWNIK (pytanie o konkretne pliki)
+    # albo gdy nie udało się osadzić pytania.
+    dobrane: list[dict] = []
+    if wektor_pytania is not None:
+        from app.chat.dobor import dobierz_fragmenty
+        from app.chat.streszczenia import PROG_FRAGMENTU
+        from app.qdrant_client import search_chunks_full
+        from app.summaries import wektor as osadz
+        try:
+            trafienia = search_chunks_full(wektor_pytania, qdrant_filter, limit=15)
+            # Odwzorowanie węzła „Chunks Filter": przy zawężonym wyszukiwaniu próg
+            # jest wyłączony i do kontekstu wchodzi wszystko, inaczej — tylko to,
+            # co przekroczyło próg. Dobór musi liczyć na TYM SAMYM zbiorze.
+            w_kontekscie = (
+                trafienia if (terminy or bez_progu)
+                else [t for t in trafienia if t["score"] >= PROG_FRAGMENTU]
+            )
+            dobrane = await dobierz_fragmenty(
+                search_query,
+                w_kontekscie,
+                {"must": warunki_rbac} if warunki_rbac else None,
+                osadz,
+                search_chunks_full,
+            )
+        except Exception as e:      # dobór nie może zablokować odpowiedzi
+            logger.warning(f"[CHAT-DOBOR] Dobór fragmentów nieudany: {e}")
 
     # Skrót użyty w pytaniu, którego w dokumentach nie ma, wymusza na modelu zmyślenie
     # rozwinięcia (zmierzone: 4 na 6 prób dla „PPK w ZCO", za każdym razem inne).
@@ -348,6 +393,9 @@ async def chat(
         # (wskazane pliki), zawęziło go rzadkie słowo albo streszczenie zastąpiło
         # pusty kontekst. Przy samym UZUPEŁNIENIU zbioru dokumentów próg zostaje.
         "scopedToFiles": bool(payload.file_ids or terminy or bez_progu),
+        # Fragmenty dobrane z dokumentu-zwycięzcy — n8n dokleja je do kontekstu
+        # z pominięciem progu (zob. węzeł „Chunks Filter"). Pusta lista = bez zmian.
+        "extraChunks": dobrane,
     }
     logger.info(
         f"[CHAT] user={current_user.username} role={current_user.role.value} "
@@ -355,6 +403,7 @@ async def chat(
         f"folderFilter={folder_filter_enabled} allowed={allowed_folder_ids} "
         f"fileIds={payload.file_ids or '-'} terminy={terminy or '-'} "
         f"streszczenia={wskazane_streszczeniem or '-'} "
+        f"dobrane={len(dobrane) or '-'} "
         f"historia={'tak' if payload.use_history else 'ODCIETA'} -> {chat_url}"
     )
 
