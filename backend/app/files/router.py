@@ -663,9 +663,10 @@ def delete_file(file_id: int, db: Session = Depends(get_db), current_user: User 
 
     # Usuń wektory z Qdranta (żeby usunięty/wygasły dokument nie odpowiadał
     # już w czacie). Best-effort — awaria Qdranta nie blokuje usunięcia pliku.
-    from app.qdrant_client import delete_summary, delete_vectors_by_file_id
+    from app.qdrant_client import delete_sections, delete_summary, delete_vectors_by_file_id
     qdrant_result = delete_vectors_by_file_id(file_obj.id)
-    delete_summary(file_obj.id)  # razem z fragmentami znika streszczenie dokumentu
+    delete_summary(file_obj.id)   # razem z fragmentami znika streszczenie dokumentu
+    delete_sections(file_obj.id)  # oraz jego streszczenia sekcyjne (zob. app/sekcje.py)
 
     # Usuń plik z dysku. Lokalnie zawsze; dodatkowo kopię na Sparku, ale TYLKO w
     # trybie deweloperskim — tam istnieje druga kopia (most SSH). W docelowym

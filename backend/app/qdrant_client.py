@@ -181,12 +181,11 @@ def set_folder_id(file_id: int, folder_id: int | None) -> dict:
     return {"ok": False, "status": resp.status_code}
 
 
-def get_text_by_file_id(file_id: int, max_chars: int = 6000) -> str:
-    """Odtwórz tekst JEDNEGO dokumentu z chunków w Qdrancie (dla klasyfikacji #7B-2).
+def get_chunks_by_file_id(file_id: int) -> list[tuple[int, int, str]]:
+    """Fragmenty JEDNEGO dokumentu jako [(strona, wiersz, treść)], posortowane.
 
-    Filtruje po `metadata.file_id`, skleja `content` w kolejności (strona, wiersz).
-    Zwraca początek dokumentu (do `max_chars`) — do klasyfikacji typu i pól
-    nagłówkowych wystarcza nagłówek/pierwsze strony. Pusty string, gdy brak chunków.
+    Numer strony jest potrzebny streszczeniom sekcyjnym (app/sekcje.py): sekcja musi
+    wiedzieć, których stron dotyczy, żeby dało się do nich zawęzić wyszukiwanie.
     """
     base = settings.QDRANT_URL.rstrip("/")
     collection = settings.QDRANT_COLLECTION
@@ -218,10 +217,20 @@ def get_text_by_file_id(file_id: int, max_chars: int = 6000) -> str:
                 if not offset:
                     break
     except Exception as e:
-        logger.warning(f"[QDRANT] Odczyt tekstu pliku {file_id} nieudany: {e}")
-        return ""
+        logger.warning(f"[QDRANT] Odczyt fragmentów pliku {file_id} nieudany: {e}")
+        return []
 
     parts.sort(key=lambda p: (p[0], p[1]))
+    return parts
+
+
+def get_text_by_file_id(file_id: int, max_chars: int = 6000) -> str:
+    """Odtwórz tekst JEDNEGO dokumentu z chunków w Qdrancie (dla klasyfikacji #7B-2).
+
+    Zwraca początek dokumentu (do `max_chars`) — do klasyfikacji typu i pól
+    nagłówkowych wystarcza nagłówek/pierwsze strony. Pusty string, gdy brak chunków.
+    """
+    parts = get_chunks_by_file_id(file_id)
     text = "\n".join(p[2] for p in parts if p[2]).strip()
     return text[:max_chars]
 
@@ -512,6 +521,156 @@ def count_summaries() -> int:
     try:
         with httpx.Client(timeout=5.0) as client:
             resp = client.get(f"{base}/collections/{_kolekcja_streszczen()}")
+        resp.raise_for_status()
+        return int(resp.json()["result"].get("points_count") or 0)
+    except Exception:
+        return 0
+
+
+# ---------------------------------------------------------------------------
+# Streszczenia SEKCYJNE — trzecia kolekcja
+#
+# Jedno streszczenie nie unosi wielotematycznego regulaminu: „Regulamin Pracy" na
+# 106 tys. znaków dostaje jeden opis, w którym nie mieści się ani L4, ani urlop na
+# żądanie, ani praca zdalna. Sekcja to blok kolejnych stron, opisany osobno i ze
+# świadomością, których stron dotyczy — dzięki temu wskazanie może zawęzić
+# wyszukiwanie do FRAGMENTU dokumentu, a nie do całości.
+#
+# Osobna kolekcja z tego samego powodu, co przy streszczeniach dokumentów: dopóki
+# nic jej nie czyta, nie może niczego zepsuć. Podłączenie do wyszukiwania jest
+# osobną decyzją, podejmowaną po pomiarze (app/retrieval_bench.py).
+# ---------------------------------------------------------------------------
+
+MAX_SEKCJI_NA_PLIK = 1000     # ogranicza schemat identyfikatora punktu
+
+
+def _kolekcja_sekcji() -> str:
+    return f"{settings.QDRANT_COLLECTION}_sekcje"
+
+
+def ensure_section_collection(rozmiar_wektora: int = 1024) -> bool:
+    """Utwórz kolekcję sekcji, jeśli jeszcze nie istnieje (idempotentne)."""
+    base = settings.QDRANT_URL.rstrip("/")
+    nazwa = _kolekcja_sekcji()
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            if client.get(f"{base}/collections/{nazwa}").status_code == 200:
+                return True
+            resp = client.put(
+                f"{base}/collections/{nazwa}",
+                json={"vectors": {"size": rozmiar_wektora, "distance": "Cosine"}},
+            )
+        resp.raise_for_status()
+        logger.info(f"[QDRANT] Utworzono kolekcję sekcji {nazwa}")
+        return True
+    except Exception as e:
+        logger.warning(f"[QDRANT] Utworzenie kolekcji {nazwa} nieudane: {e}")
+        return False
+
+
+def upsert_section(file_id: int, numer: int, wektor: list[float], payload: dict) -> bool:
+    """Zapisz jedną sekcję. Identyfikator = file_id * 1000 + numer, więc ponowne
+    wygenerowanie nadpisuje poprzednie zamiast mnożyć punkty."""
+    if not 0 <= numer < MAX_SEKCJI_NA_PLIK:
+        logger.warning(f"[QDRANT] Sekcja {numer} pliku {file_id} poza zakresem — pomijam")
+        return False
+    base = settings.QDRANT_URL.rstrip("/")
+    url = f"{base}/collections/{_kolekcja_sekcji()}/points?wait=true"
+    punkt = {"id": int(file_id) * MAX_SEKCJI_NA_PLIK + int(numer),
+             "vector": wektor, "payload": payload}
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.put(url, json={"points": [punkt]})
+        resp.raise_for_status()
+        return True
+    except Exception as e:
+        logger.warning(f"[QDRANT] Zapis sekcji {numer} pliku {file_id} nieudany: {e}")
+        return False
+
+
+def delete_sections(file_id: int) -> bool:
+    """Usuń WSZYSTKIE sekcje pliku — filtrem po `file_id`, nie po identyfikatorach.
+
+    Liczba sekcji zmienia się przy ponownym parsowaniu (inny podział na strony),
+    więc kasowanie po wyliczonych identyfikatorach zostawiałoby sieroty.
+    """
+    base = settings.QDRANT_URL.rstrip("/")
+    url = f"{base}/collections/{_kolekcja_sekcji()}/points/delete?wait=true"
+    body = {"filter": {"must": [{"key": "file_id", "match": {"value": int(file_id)}}]}}
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            resp = client.post(url, json=body)
+        resp.raise_for_status()
+        return True
+    except Exception as e:
+        logger.warning(f"[QDRANT] Usuwanie sekcji pliku {file_id} nieudane: {e}")
+        return False
+
+
+def search_sections(
+    wektor: list[float], folder_ids: list[int] | None = None, limit: int = 5
+) -> list[dict]:
+    """[{score, file_id, filename, strona_od, strona_do}] najbliższych sekcji."""
+    if folder_ids is not None and not folder_ids:
+        return []
+    base = settings.QDRANT_URL.rstrip("/")
+    url = f"{base}/collections/{_kolekcja_sekcji()}/points/search"
+    body: dict = {"vector": wektor, "limit": limit, "with_payload": True}
+    if folder_ids is not None:
+        body["filter"] = {"must": [{"key": "folder_id", "match": {"any": folder_ids}}]}
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            resp = client.post(url, json=body)
+        resp.raise_for_status()
+        wyniki = []
+        for p in resp.json()["result"]:
+            pay = p.get("payload") or {}
+            wyniki.append({
+                "score": float(p["score"]),
+                "file_id": pay.get("file_id"),
+                "filename": pay.get("filename"),
+                "strona_od": pay.get("strona_od"),
+                "strona_do": pay.get("strona_do"),
+            })
+        return wyniki
+    except Exception as e:
+        logger.warning(f"[QDRANT] Wyszukiwanie sekcji nieudane: {e}")
+        return []
+
+
+def section_file_ids() -> set[int]:
+    """Pliki, które mają już wygenerowane sekcje (do wznawiania backfillu)."""
+    base = settings.QDRANT_URL.rstrip("/")
+    url = f"{base}/collections/{_kolekcja_sekcji()}/points/scroll"
+    ids: set[int] = set()
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            offset = None
+            while True:
+                body = {"limit": 500, "with_payload": True, "with_vector": False}
+                if offset is not None:
+                    body["offset"] = offset
+                resp = client.post(url, json=body)
+                resp.raise_for_status()
+                result = resp.json().get("result", {})
+                for p in result.get("points", []):
+                    fid = (p.get("payload") or {}).get("file_id")
+                    if fid is not None:
+                        ids.add(int(fid))
+                offset = result.get("next_page_offset")
+                if not offset:
+                    break
+    except Exception as e:
+        logger.warning(f"[QDRANT] Odczyt listy sekcji nieudany: {e}")
+    return ids
+
+
+def count_sections() -> int:
+    """Ile sekcji jest zapisanych (diagnostyka backfillu)."""
+    base = settings.QDRANT_URL.rstrip("/")
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.get(f"{base}/collections/{_kolekcja_sekcji()}")
         resp.raise_for_status()
         return int(resp.json()["result"].get("points_count") or 0)
     except Exception:
