@@ -52,5 +52,14 @@ class Settings:
     VLLM_URL: str = os.getenv("VLLM_URL", "http://192.168.1.34:8002")
     VLLM_MODEL: str = os.getenv("VLLM_MODEL", "Qwen/Qwen3-VL-30B-A3B-Instruct")
 
+    # Czy wskazywanie dokumentów ma korzystać ze streszczeń SEKCYJNYCH obok
+    # streszczeń całych dokumentów (zob. app/sekcje.py). Domyślnie WYŁĄCZONE:
+    # sekcje dokładają ~290 celów do warstwy, która nie rozdziela trafień od
+    # nietrafień wartością score, więc włączamy je dopiero po pomiarze
+    # (app/retrieval_bench.py). Przełącznik zostaje, żeby dało się wrócić.
+    SEKCJE_W_WYSZUKIWANIU: bool = os.getenv("SEKCJE_W_WYSZUKIWANIU", "").lower() in (
+        "1", "true", "tak", "yes"
+    )
+
 
 settings = Settings()
