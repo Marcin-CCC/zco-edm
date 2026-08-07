@@ -57,6 +57,27 @@ SYSTEM = (
     "- Żadnych nagłówków, komentarzy ani wstępów — zwróć sam opis."
 )
 
+# Dopisywane przy PONOWIENIU, gdy model pominął obowiązkową linię zamienników.
+# Zmierzone 2026-08-07: 20 z 188 streszczeń (11%) nie miało jej wcale — w tym
+# `Regulamin ZFŚS 2026.pdf`. Taki dokument traci całą ścieżkę dotarcia przez
+# słownictwo potoczne, a nic tego nie wykrywało.
+WYMUSZENIE = (
+    "\n\nUWAGA: poprzednia odpowiedź NIE zawierała obowiązkowej linii „Inne określenia:”. "
+    "Zwróć opis jeszcze raz, w komplecie, i umieść w nim osobną linię zaczynającą się "
+    "dokładnie od „Inne określenia:” z 5-10 potocznymi zwrotami po przecinku. Bez tej "
+    "linii odpowiedź jest nieprawidłowa."
+)
+
+
+def ma_linie_zamiennikow(opis: str) -> bool:
+    """Czy opis zawiera obowiązkową linię „Inne określenia:”.
+
+    Ta linia jest jedynym miejscem, w którym streszczenie mówi językiem pracownika
+    („delegacja” zamiast „podróż służbowa”), więc jej brak wycisza dokument dla
+    wszystkich pytań zadanych potocznie.
+    """
+    return any(l.lstrip().lower().startswith("inne okre") for l in (opis or "").splitlines())
+
 
 def probka_tekstu(file_id: int, budzet: int = BUDZET_ZNAKOW) -> str:
     """Tekst dokumentu przycięty do budżetu — dla długich plików próbka z całości.
@@ -79,14 +100,17 @@ def probka_tekstu(file_id: int, budzet: int = BUDZET_ZNAKOW) -> str:
     return poczatek + "\n[…]\n" + "\n[…]\n".join(probki)
 
 
-async def opis_dokumentu(filename: str, tekst: str) -> str:
-    """Wygeneruj opis przez vLLM. Rzuca wyjątek przy błędzie HTTP."""
+async def opis_dokumentu(filename: str, tekst: str, wymus_zamienniki: bool = False) -> str:
+    """Wygeneruj opis przez vLLM. Rzuca wyjątek przy błędzie HTTP.
+
+    `wymus_zamienniki` = to jest PONOWIENIE po opisie bez linii „Inne określenia”.
+    """
     body = {
         "model": settings.VLLM_MODEL,
         "temperature": 0.2,
         "max_tokens": 600,
         "messages": [
-            {"role": "system", "content": SYSTEM},
+            {"role": "system", "content": SYSTEM + (WYMUSZENIE if wymus_zamienniki else "")},
             {"role": "user", "content": f"NAZWA PLIKU: {filename}\n\nDOKUMENT:\n{tekst}"},
         ],
     }
@@ -123,6 +147,18 @@ async def odswiez_streszczenie(file_id: int, filename: str, folder_id: int | Non
         opis = await opis_dokumentu(filename, tekst)
         if not opis:
             return None
+        # Jedno ponowienie, gdy model pominął linię zamienników. Kosztuje podwójny
+        # czas tylko dla tych dokumentów, którym się to przydarzyło (zmierzone 11%).
+        if not ma_linie_zamiennikow(opis):
+            logger.info(f"[STRESZCZENIE] Plik {file_id}: brak linii zamienników — ponawiam")
+            druga = await opis_dokumentu(filename, tekst, wymus_zamienniki=True)
+            if druga and ma_linie_zamiennikow(druga):
+                opis = druga
+            else:
+                logger.warning(
+                    f"[STRESZCZENIE] Plik {file_id}: nadal bez linii zamienników — "
+                    f"zapisuję opis bez niej"
+                )
         w = await wektor(opis)
         payload = {
             "opis": opis,

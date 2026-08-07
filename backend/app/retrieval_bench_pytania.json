@@ -1,0 +1,27 @@
+{
+  "opis": "Zestaw kontrolny wyszukiwania. `oczekiwany` to fragment nazwy pliku, który MUSI trafić do kontekstu; null oznacza, że poprawną odpowiedzią jest brak kontekstu (odmowa). Pole `stan` opisuje zachowanie zmierzone 2026-08-07 i służy do wyłapywania regresji, a nie do oceny — oceną jest kolumna wyniku.",
+  "pytania": [
+    {"pytanie": "na co mogą iść środki z ZFŚS?", "oczekiwany": "Regulamin ZFŚS", "stan": "działa"},
+    {"pytanie": "wymień wszystkie cele na jakie mogą być przeznaczone środki z ZFŚS", "oczekiwany": "Regulamin ZFŚS", "stan": "działa"},
+    {"pytanie": "w jakim wieku dzieci uprawnione są do korzystania z ZFŚS?", "oczekiwany": "Regulamin ZFŚS", "stan": "działa"},
+    {"pytanie": "w jakim wieku dzieci mogą korzystać z wczasów pod gruszą?", "oczekiwany": "Regulamin ZFŚS", "stan": "naprawione w 1.0.10 (dobór)"},
+    {"pytanie": "od jakiego wieku dziecka przysługuje grusza?", "oczekiwany": "Regulamin ZFŚS", "stan": "ZEPSUTE — żargon, odpowiedź z polisy"},
+    {"pytanie": "czy na wczasy pod gruszą też?", "oczekiwany": "ZFŚS", "stan": "działa"},
+    {"pytanie": "jak rozliczyć delegację?", "oczekiwany": "wyj", "stan": "działa (potoczne)"},
+    {"pytanie": "ile wynosi dieta za delegację?", "oczekiwany": null, "stan": "0 fragmentów nad progiem"},
+    {"pytanie": "czy mogę przystąpić do PPK?", "oczekiwany": "PPK", "stan": "działa"},
+    {"pytanie": "co to jest PPK?", "oczekiwany": "PPK", "stan": "działa"},
+    {"pytanie": "jak zgłosić zwolnienie lekarskie?", "oczekiwany": "Regulamin Pracy", "stan": "do ustalenia"},
+    {"pytanie": "jak zgłosić L4?", "oczekiwany": "Regulamin Pracy", "stan": "do ustalenia (potoczne)"},
+    {"pytanie": "ile dni urlopu na żądanie mi przysługuje?", "oczekiwany": "Regulamin Pracy", "stan": "do ustalenia"},
+    {"pytanie": "jakie są zasady pracy zdalnej?", "oczekiwany": "", "stan": "do ustalenia"},
+    {"pytanie": "kto zatwierdza wniosek o urlop?", "oczekiwany": "", "stan": "do ustalenia"},
+    {"pytanie": "jak wygląda procedura zgonu pacjenta?", "oczekiwany": "", "stan": "do ustalenia"},
+    {"pytanie": "co to jest gorączka neutropeniczna?", "oczekiwany": "", "stan": "do ustalenia (termin fachowy)"},
+    {"pytanie": "jakie są standardy akredytacyjne dla szpitali?", "oczekiwany": "standardy-akredytacyjne", "stan": "do ustalenia"},
+    {"pytanie": "jakie kwalifikacje musi mieć sanitariusz?", "oczekiwany": "kwalifikacje", "stan": "do ustalenia"},
+    {"pytanie": "ile wynosi kara za spóźnioną ewakuację jednorożca?", "oczekiwany": null, "stan": "poprawna odmowa"},
+    {"pytanie": "jaka jest wysokość dodatku za pracę na Marsie?", "oczekiwany": null, "stan": "poprawna odmowa"},
+    {"pytanie": "co to jest ZCO?", "oczekiwany": null, "stan": "brak w dokumentach, obsługiwane przez skroty.py"}
+  ]
+}

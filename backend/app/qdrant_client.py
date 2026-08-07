@@ -477,6 +477,35 @@ def summary_ids() -> set[int]:
     return ids
 
 
+def summary_payloads() -> dict[int, dict]:
+    """{file_id: payload} wszystkich streszczeń — z treścią opisu.
+
+    `summary_ids()` odpowiada tylko na pytanie „czy streszczenie istnieje", a to
+    za mało, żeby znaleźć streszczenia NIEPEŁNE (bez linii „Inne określenia”).
+    """
+    base = settings.QDRANT_URL.rstrip("/")
+    url = f"{base}/collections/{_kolekcja_streszczen()}/points/scroll"
+    wynik: dict[int, dict] = {}
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            offset = None
+            while True:
+                body = {"limit": 500, "with_payload": True, "with_vector": False}
+                if offset is not None:
+                    body["offset"] = offset
+                resp = client.post(url, json=body)
+                resp.raise_for_status()
+                result = resp.json().get("result", {})
+                for p in result.get("points", []):
+                    wynik[int(p["id"])] = p.get("payload") or {}
+                offset = result.get("next_page_offset")
+                if not offset:
+                    break
+    except Exception as e:
+        logger.warning(f"[QDRANT] Odczyt treści streszczeń nieudany: {e}")
+    return wynik
+
+
 def count_summaries() -> int:
     """Ile dokumentów ma już streszczenie."""
     base = settings.QDRANT_URL.rstrip("/")

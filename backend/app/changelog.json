@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.0.11",
+      "date": "2026-08-07",
+      "title": "Dokumenty odnajdywane potocznym slownictwem",
+      "changes": [
+        "Opis dokumentu tworzony przy jego wgraniu musi zawierac liste potocznych okreslen (np. \"delegacja\" obok \"podroz sluzbowa\"). Gdy model ja pominie, aplikacja powtarza probe. Wczesniej co dziesiaty dokument nie mial jej wcale i przez to nie dawal sie znalezc pytaniem zadanym po ludzku.",
+        "Dodano narzedzie serwisowe do uzupelnienia opisow, ktore powstaly bez tej listy."
+      ]
+    },
+    {
       "version": "1.0.10",
       "date": "2026-08-07",
       "title": "Pytania wymagajace polaczenia dwoch miejsc w dokumencie",

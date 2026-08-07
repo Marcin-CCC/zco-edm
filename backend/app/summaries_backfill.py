@@ -4,10 +4,15 @@ Nowe pliki dostają streszczenie w trakcie parsowania; ten skrypt obsługuje baz
 sprzed wdrożenia tej funkcji.
 
     docker exec <backend> python -m app.summaries_backfill            # tylko brakujące
+    docker exec <backend> python -m app.summaries_backfill --braki    # NIEPEŁNE (bez zamienników)
     docker exec <backend> python -m app.summaries_backfill --nadpisz  # wszystkie od nowa
 
-Idzie po jednym dokumencie (jeden strumień vLLM, ok. 15-20 s na dokument), więc
-uruchamiaj przy pustej kolejce parsowania.
+Tryb `--braki` istnieje, bo domyślny pomija każdy plik, który MA już punkt w kolekcji —
+a streszczenie bez linii „Inne określenia” punkt ma, tylko jest bezużyteczne dla pytań
+zadanych potocznie (zmierzone 2026-08-07: 20 z 188).
+
+Idzie po jednym dokumencie (jeden strumień vLLM, 15-20 s przy wolnym GPU, do ~80 s
+gdy równolegle trwa parsowanie), więc uruchamiaj przy pustej kolejce parsowania.
 """
 
 import asyncio
@@ -16,12 +21,13 @@ import time
 
 from app.database import SessionLocal
 from app.models import DocumentStatus, File as FileModel
-from app.qdrant_client import ensure_summary_collection, summary_ids
-from app.summaries import odswiez_streszczenie
+from app.qdrant_client import ensure_summary_collection, summary_ids, summary_payloads
+from app.summaries import ma_linie_zamiennikow, odswiez_streszczenie
 
 
 async def main() -> int:
     nadpisz = "--nadpisz" in sys.argv
+    tylko_braki = "--braki" in sys.argv
     if not ensure_summary_collection():
         print("Nie udało się przygotować kolekcji streszczeń — przerywam.")
         return 1
@@ -33,9 +39,18 @@ async def main() -> int:
         .order_by(FileModel.id)
         .all()
     )
-    gotowe = set() if nadpisz else summary_ids()
+    if nadpisz:
+        gotowe = set()
+    elif tylko_braki:
+        # „Gotowe" = te, które mają PEŁNE streszczenie. Niepełne wracają do kolejki.
+        gotowe = {fid for fid, p in summary_payloads().items()
+                  if ma_linie_zamiennikow(p.get("opis") or "")}
+    else:
+        gotowe = summary_ids()
     do_zrobienia = [f for f in pliki if f.id not in gotowe]
-    print(f"dokumentów gotowych: {len(pliki)}, ze streszczeniem: {len(gotowe)}, "
+    tryb = "wszystkie od nowa" if nadpisz else ("niepełne" if tylko_braki else "brakujące")
+    print(f"tryb: {tryb}")
+    print(f"dokumentów gotowych: {len(pliki)}, pominiętych: {len(gotowe)}, "
           f"do zrobienia: {len(do_zrobienia)}")
 
     udane = 0
