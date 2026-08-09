@@ -87,9 +87,26 @@ export function OcenaOdpowiedzi({
   // Układ jest KOLUMNOWY, a powody mają własny wiersz. Wcześniej doklejały się do
   // wiersza z ikonami i przy wąskim bąbelku zawijały się po jednym w linii — widoczny
   // był tylko pierwszy, reszta czekała pod krawędzią okna rozmowy.
+  // Komunikaty („Dziękujemy", „możesz zmienić") wiszą w DYMKU nad ikonami, poza
+  // przepływem układu. Wcześniej pojawiały się w tym samym wierszu i ich wejście
+  // rozpychało bąbelek: rozmowa przeskakiwała w dół, a kursor uciekał z ikony,
+  // w którą użytkownik właśnie celował.
+  const komunikat = dziekujemy
+    ? 'Dziękujemy.'
+    : (wybrana ? 'Możesz zmienić — liczy się ostatni wybór' : null);
+
   return (
     <div className="mt-2 text-xs text-gray-500">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="relative flex flex-wrap items-center gap-2">
+        {komunikat && (
+          <span
+            role="status"
+            className="pointer-events-none absolute bottom-full left-0 mb-1 whitespace-nowrap
+                       rounded-md bg-gray-800 px-2 py-1 text-[11px] text-white shadow-sm"
+          >
+            {komunikat}
+          </span>
+        )}
         <span>{wybrana ? 'Twoja ocena:' : 'Jak oceniasz tę odpowiedź?'}</span>
         {OCENY.map((o) => (
           <button
@@ -108,10 +125,6 @@ export function OcenaOdpowiedzi({
             {o.ikona}
           </button>
         ))}
-        {wybrana && !dziekujemy && (
-          <span className="text-gray-400">możesz zmienić — liczy się ostatni wybór</span>
-        )}
-        {dziekujemy && <span className="text-gray-400">Dziękujemy.</span>}
       </div>
 
       {/* Powód pytamy tylko przy ocenie negatywnej i tylko raz */}

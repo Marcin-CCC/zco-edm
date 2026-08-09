@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "1.0.14",
+      "date": "2026-08-09",
+      "title": "Czas w strefie uzytkownika, filtr osoby i klikalne zrodla",
+      "changes": [
+        "Wszystkie daty i godziny w aplikacji pokazuja sie w czasie lokalnym uzytkownika. Wczesniej byly o dwie godziny wczesniejsze, bo aplikacja podawala czas UTC bez oznaczenia strefy - pytanie zadane przed chwila wygladalo na sprzed dwoch godzin.",
+        "Podpowiedz przy ocenianiu odpowiedzi nie przesuwa juz rozmowy: pojawia sie w dymku nad ikonami. Wczesniej jej wejscie rozpychalo widok i kursor uciekal z ikony.",
+        "W rejestrze pytan zrodla sa klikalne - otwieraja dokument tak samo jak lista pod odpowiedzia w Bazie wiedzy.",
+        "Oceny i rejestr pytan mozna zawezic do wybranej osoby."
+      ]
+    },
+    {
       "version": "1.0.13",
       "date": "2026-08-09",
       "title": "Poprawki oceniania i rejestr zadanych pytan",

@@ -9,6 +9,7 @@
  * „streszczenia") mówi, gdzie zaczynać dochodzenie.
  */
 import { useCallback, useEffect, useState } from 'react';
+import { czasLokalny } from '@/lib/czas';
 
 interface Diagnostyka {
   sciezka?: string;
@@ -31,6 +32,7 @@ interface Ocena {
   pytanie?: string | null;
   odpowiedz?: string | null;
   diagnostyka?: Diagnostyka | null;
+  uzytkownik?: string | null;
   created_at?: string;
 }
 
@@ -44,17 +46,42 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+interface Zrodlo {
+  filename?: string | null;
+  page?: number | null;
+  file_id?: number | null;
+  cited?: boolean | null;
+}
+
 interface Pytanie {
   message_id: number;
   pytanie?: string | null;
   odpowiedz?: string | null;
-  zrodla?: string[];
+  zrodla?: Zrodlo[];
   uzytkownik?: string | null;
+  user_id?: number | null;
   rola?: string | null;
   created_at?: string;
   ocena?: string | null;
   powod?: string | null;
   diagnostyka?: Diagnostyka | null;
+}
+
+interface Pytajacy {
+  id: number;
+  nazwa: string;
+  rola?: string | null;
+}
+
+/** Otwarcie dokumentu w nowej karcie — tak samo jak lista źródeł w Bazie wiedzy. */
+async function otworzDokument(fileId: number) {
+  try {
+    const res = await fetch(`/api/files/${fileId}/download`, { headers: authHeaders() });
+    if (!res.ok) throw new Error(`Błąd pobierania (${res.status})`);
+    window.open(URL.createObjectURL(await res.blob()), '_blank');
+  } catch (e: unknown) {
+    alert(e instanceof Error ? e.message : 'Nie udało się otworzyć dokumentu.');
+  }
 }
 
 const ROLE_PL: Record<string, string> = {
@@ -70,16 +97,26 @@ export default function OcenyPage() {
   const [wgRoli, setWgRoli] = useState<Record<string, number>>({});
   const [tylkoNegatywne, setTylkoNegatywne] = useState(false);
   const [tylkoOcenione, setTylkoOcenione] = useState(false);
+  const [pytajacy, setPytajacy] = useState<Pytajacy[]>([]);
+  const [ktoryUzytkownik, setKtoryUzytkownik] = useState<string>('');   // '' = wszyscy
   const [rozwiniete, setRozwiniete] = useState<Record<number, boolean>>({});
   const [blad, setBlad] = useState('');
   const [ladowanie, setLadowanie] = useState(true);
 
+  useEffect(() => {
+    fetch('/api/chat/uzytkownicy-pytajacy', { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setPytajacy(d.uzytkownicy || []))
+      .catch(() => { /* brak listy = filtr po prostu się nie pokaże */ });
+  }, []);
+
   const wczytaj = useCallback(async () => {
     setLadowanie(true);
     try {
+      const osoba = ktoryUzytkownik ? `&user_id=${ktoryUzytkownik}` : '';
       const url = widok === 'oceny'
-        ? `/api/chat/oceny?tylko_negatywne=${tylkoNegatywne}`
-        : `/api/chat/rejestr?tylko_ocenione=${tylkoOcenione}`;
+        ? `/api/chat/oceny?tylko_negatywne=${tylkoNegatywne}${osoba}`
+        : `/api/chat/rejestr?tylko_ocenione=${tylkoOcenione}${osoba}`;
       const res = await fetch(url, { headers: authHeaders() });
       if (!res.ok) throw new Error(res.status === 403 ? 'Tylko dla administratora.' : `Błąd ${res.status}`);
       const d = await res.json();
@@ -96,7 +133,7 @@ export default function OcenyPage() {
     } finally {
       setLadowanie(false);
     }
-  }, [widok, tylkoNegatywne, tylkoOcenione]);
+  }, [widok, tylkoNegatywne, tylkoOcenione, ktoryUzytkownik]);
 
   useEffect(() => { wczytaj(); }, [wczytaj]);
 
@@ -125,6 +162,32 @@ export default function OcenyPage() {
             {etykieta}
           </button>
         ))}
+      </div>
+
+      {/* Filtr osoby dotyczy OBU zakładek — administrator śledzi jedną osobę
+          niezależnie od tego, czy patrzy na oceny, czy na cały ruch. */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <label className="text-sm text-gray-600">Użytkownik:</label>
+        <select
+          value={ktoryUzytkownik}
+          onChange={(e) => setKtoryUzytkownik(e.target.value)}
+          className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+        >
+          <option value="">wszyscy</option>
+          {pytajacy.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.nazwa}{u.rola ? ` — ${ROLE_PL[u.rola] || u.rola}` : ''}
+            </option>
+          ))}
+        </select>
+        {ktoryUzytkownik && (
+          <button
+            onClick={() => setKtoryUzytkownik('')}
+            className="text-sm text-blue-600 hover:underline"
+          >
+            wyczyść
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-4 mb-4">
@@ -196,11 +259,10 @@ export default function OcenyPage() {
                     {p.uzytkownik} · {ROLE_PL[p.rola || ''] || p.rola}
                   </span>
                   <span className="text-xs text-gray-400">
-                    {p.created_at ? new Date(p.created_at).toLocaleString('pl-PL') : ''}
+                    {czasLokalny(p.created_at)}
                   </span>
                 </div>
                 <div className="mt-1 text-xs text-gray-600 flex flex-wrap gap-3">
-                  {!!p.zrodla?.length && <span>źródła: {p.zrodla.join(', ')}</span>}
                   {d.sciezka && <span>ścieżka: <strong>{d.sciezka}</strong></span>}
                   <button
                     onClick={() => setRozwiniete((s) => ({ ...s, [p.message_id]: !otwarte }))}
@@ -209,6 +271,32 @@ export default function OcenyPage() {
                     {otwarte ? 'Zwiń' : 'Pokaż odpowiedź'}
                   </button>
                 </div>
+
+                {/* Źródła klikalne, jak pod odpowiedzią w Bazie wiedzy. Wyszarzone to te,
+                    które model dostał, ale się na nie nie powołał. */}
+                {!!p.zrodla?.length && (
+                  <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
+                    {p.zrodla.map((z, i) => (
+                      <li key={i}>
+                        {z.file_id ? (
+                          <button
+                            onClick={() => otworzDokument(z.file_id!)}
+                            className={`hover:underline text-left ${
+                              z.cited === false ? 'text-gray-400' : 'text-blue-600'
+                            }`}
+                          >
+                            📄 {z.filename}{z.page ? ` (str. ${z.page})` : ''}
+                          </button>
+                        ) : (
+                          <span className="text-gray-500">
+                            📄 {z.filename}{z.page ? ` (str. ${z.page})` : ''}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
                 {otwarte && (
                   <p className="mt-2 border-t border-gray-100 pt-2 text-xs whitespace-pre-wrap text-gray-700">
                     {p.odpowiedz}
@@ -234,9 +322,8 @@ export default function OcenyPage() {
                   </span>
                 )}
                 <strong className="flex-1">{o.pytanie || '(brak zapisanego pytania)'}</strong>
-                <span className="text-xs text-gray-500">
-                  {o.created_at ? new Date(o.created_at).toLocaleString('pl-PL') : ''}
-                </span>
+                {o.uzytkownik && <span className="text-xs text-gray-500">{o.uzytkownik}</span>}
+                <span className="text-xs text-gray-400">{czasLokalny(o.created_at)}</span>
               </div>
 
               <div className="mt-1 text-xs text-gray-600 flex flex-wrap gap-3">

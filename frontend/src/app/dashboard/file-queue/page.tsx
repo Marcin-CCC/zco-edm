@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/store';
 import { docSchemasApi } from '@/lib/api';
+import { czasLokalny } from '@/lib/czas';
 
 interface QueueItem {
   id: number;
@@ -21,17 +22,10 @@ interface QueueItem {
   completed_at: string | null;
 }
 
-// Backend zapisuje czas w UTC bez strefy — dołóż 'Z', by przeglądarka przeliczyła
-// na czas lokalny (inaczej pokazałaby wartość UTC jako lokalną).
-function parseUtc(iso: string): Date {
-  const hasTz = /[zZ]|[+-]\d{2}:?\d{2}$/.test(iso);
-  return new Date(hasTz ? iso : iso + 'Z');
-}
-
-// Data + godzina i minuty (bez sekund)
+// Data + godzina i minuty (bez sekund). Przeliczenie UTC → strefa użytkownika
+// robi wspólny helper (src/lib/czas.ts) — wcześniej mieszkało to tylko tutaj.
 function fmtDateTime(iso: string | null): string {
-  if (!iso) return '—';
-  return parseUtc(iso).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' });
+  return czasLokalny(iso);
 }
 
 // Czas parsowania w formacie "X min Y s" / "Y s"
@@ -513,7 +507,7 @@ export default function FileQueuePage() {
                 <div>
                   <dt className="text-sm text-gray-500">Rozpoczęto</dt>
                   <dd className="text-gray-800">
-                    {new Date(selectedItem.started_at).toLocaleString('pl-PL')}
+                    {czasLokalny(selectedItem.started_at, { dateStyle: 'short', timeStyle: 'medium' })}
                   </dd>
                 </div>
               )}
@@ -521,7 +515,7 @@ export default function FileQueuePage() {
                 <div>
                   <dt className="text-sm text-gray-500">Zakończono</dt>
                   <dd className="text-gray-800">
-                    {new Date(selectedItem.completed_at).toLocaleString('pl-PL')}
+                    {czasLokalny(selectedItem.completed_at, { dateStyle: 'short', timeStyle: 'medium' })}
                   </dd>
                 </div>
               )}

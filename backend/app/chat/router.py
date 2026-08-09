@@ -841,6 +841,7 @@ def zapisz_ocene(
 def rejestr_pytan(
     limit: int = 100,
     tylko_ocenione: bool = False,
+    user_id: int | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -860,14 +861,14 @@ def rejestr_pytan(
 
     limit = max(1, min(limit, 500))
     # Jedno zapytanie zamiast N+1: bierzemy z zapasem, bo tura to dwie wiadomości.
-    wiadomosci = (
+    zapytanie = (
         db.query(Message, Conversation.user_id, User.username, User.full_name, User.role)
         .join(Conversation, Message.conversation_id == Conversation.id)
         .outerjoin(User, Conversation.user_id == User.id)
-        .order_by(Message.id.desc())
-        .limit(limit * 3)
-        .all()
     )
+    if user_id is not None:
+        zapytanie = zapytanie.filter(Conversation.user_id == user_id)
+    wiadomosci = zapytanie.order_by(Message.id.desc()).limit(limit * 3).all()
     # Pytanie to najbliższa POPRZEDZAJĄCA wiadomość użytkownika w tej samej rozmowie.
     pary: list[dict] = []
     for msg, uid, username, full_name, rola in wiadomosci:      # malejąco po id
@@ -897,9 +898,13 @@ def rejestr_pytan(
             "message_id": p["msg"].id,
             "pytanie": p.get("pytanie"),
             "odpowiedz": (p["msg"].content or "")[:600],
-            "zrodla": [s.get("filename") for s in (p["msg"].sources or [])
-                       if isinstance(s, dict)][:5],
+            # Pełne źródła, nie same nazwy — rejestr ma pozwalać OTWORZYĆ dokument,
+            # tak jak lista pod odpowiedzią w Bazie wiedzy. Bez `file_id` nie da się.
+            "zrodla": [{"filename": s.get("filename"), "page": s.get("page"),
+                        "file_id": s.get("file_id"), "cited": s.get("cited")}
+                       for s in (p["msg"].sources or []) if isinstance(s, dict)][:8],
             "uzytkownik": p["full_name"] or p["username"],
+            "user_id": p["user_id"],
             "rola": p["rola"],
             "created_at": p["msg"].created_at,
             "ocena": ocena.ocena if ocena else None,
@@ -922,6 +927,7 @@ def rejestr_pytan(
 def lista_ocen(
     limit: int = 100,
     tylko_negatywne: bool = False,
+    user_id: int | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -931,12 +937,20 @@ def lista_ocen(
     zapytanie = db.query(OcenaOdpowiedzi)
     if tylko_negatywne:
         zapytanie = zapytanie.filter(OcenaOdpowiedzi.ocena == "zla")
+    if user_id is not None:
+        zapytanie = zapytanie.filter(OcenaOdpowiedzi.user_id == user_id)
     wiersze = zapytanie.order_by(OcenaOdpowiedzi.id.desc()).limit(min(limit, 500)).all()
 
+    # Podsumowanie liczy to samo, co pokazuje lista — inaczej po zawężeniu do jednej
+    # osoby licznik nad tabelą mówiłby o kimś innym niż wiersze pod nim.
     podsumowanie: dict[str, int] = {}
-    for o in db.query(OcenaOdpowiedzi.ocena).all():
+    pod_zapytanie = db.query(OcenaOdpowiedzi.ocena)
+    if user_id is not None:
+        pod_zapytanie = pod_zapytanie.filter(OcenaOdpowiedzi.user_id == user_id)
+    for o in pod_zapytanie.all():
         podsumowanie[o[0]] = podsumowanie.get(o[0], 0) + 1
 
+    autorzy = {u.id: (u.full_name or u.username) for u in db.query(User).all()}
     return {
         "podsumowanie": podsumowanie,
         "oceny": [{
@@ -946,9 +960,34 @@ def lista_ocen(
             "pytanie": o.pytanie,
             "odpowiedz": (o.odpowiedz or "")[:400],
             "diagnostyka": o.diagnostyka,
+            "uzytkownik": autorzy.get(o.user_id),
             "created_at": o.created_at,
         } for o in wiersze],
     }
+
+
+@router.get("/uzytkownicy-pytajacy")
+def uzytkownicy_pytajacy(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Osoby, które zadały choć jedno pytanie — do filtra w zestawieniach.
+
+    Bierzemy je z ROZMÓW, a nie z listy wszystkich kont: filtr ma pokazywać tych,
+    dla których w ogóle jest co filtrować.
+    """
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Tylko administrator.")
+    wiersze = (
+        db.query(User.id, User.username, User.full_name, User.role)
+        .join(Conversation, Conversation.user_id == User.id)
+        .distinct()
+        .all()
+    )
+    return {"uzytkownicy": [
+        {"id": i, "nazwa": full or username, "rola": rola.value if rola else None}
+        for i, username, full, rola in sorted(wiersze, key=lambda w: (w[2] or w[1] or "").lower())
+    ]}
 
 
 @router.delete("/conversations/{conv_id}")

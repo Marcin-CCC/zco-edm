@@ -19,13 +19,12 @@ import { useEffect, useState } from 'react';
 import { authApi } from '@/lib/api';
 import { useAuth } from '@/lib/store';
 import { ROLE_LABELS, inicjaly } from '@/lib/user';
+import { czasLokalny } from '@/lib/czas';
 
 const MIN_HASLO = 8;
 
 function dataPl(iso?: string | null): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return isNaN(d.getTime()) ? '—' : d.toLocaleString('pl-PL', { dateStyle: 'long', timeStyle: 'short' });
+  return czasLokalny(iso, { dateStyle: 'long', timeStyle: 'short' });
 }
 
 export default function ProfilPage() {

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { filesApi, foldersApi, settingsApi } from '@/lib/api';
 import { useAuth } from '@/lib/store';
+import { czasLokalny, dataLokalna, godzinaLokalna } from '@/lib/czas';
 
 interface File {
   id: number;
@@ -837,9 +838,9 @@ function FilesPageInner() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {new Date(file.created_at).toLocaleDateString('pl-PL')}
+                        {dataLokalna(file.created_at)}
                         {' '}
-                        {new Date(file.created_at).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                        {godzinaLokalna(file.created_at)}
                       </td>
                       <td className="px-4 py-3">
                         {/* Akcje: ikona NAD podpisem — układ jawny (flex-col), żeby
@@ -1246,7 +1247,7 @@ function FilesPageInner() {
               <div>
                 <dt className="text-sm text-gray-500">Data dodania</dt>
                 <dd className="text-gray-800">
-                  {new Date(selectedFile.created_at).toLocaleString('pl-PL')}
+                  {czasLokalny(selectedFile.created_at, { dateStyle: 'long', timeStyle: 'short' })}
                 </dd>
               </div>
               {selectedFile.folder && (
