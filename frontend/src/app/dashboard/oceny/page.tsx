@@ -22,7 +22,7 @@ interface Diagnostyka {
   search_query?: string | null;
   historia?: boolean;
   wersja?: string;
-  zrodla?: { filename?: string; page?: number; score?: number; cited?: boolean }[];
+  zrodla?: Zrodlo[];
 }
 
 interface Ocena {
@@ -51,6 +51,7 @@ interface Zrodlo {
   page?: number | null;
   file_id?: number | null;
   cited?: boolean | null;
+  score?: number | null;
 }
 
 interface Pytanie {
@@ -82,6 +83,48 @@ async function otworzDokument(fileId: number) {
   } catch (e: unknown) {
     alert(e instanceof Error ? e.message : 'Nie udało się otworzyć dokumentu.');
   }
+}
+
+/**
+ * Lista źródeł — JEDEN komponent dla obu zakładek.
+ *
+ * Powód wydzielenia: źródła przychodzą tu dwiema drogami (z `messages.sources`
+ * w rejestrze i z migawki planu w ocenach) i przy pierwszym podejściu poprawiłem
+ * odnośniki tylko w jednej. Wspólny komponent sprawia, że nie da się poprawić
+ * jednego miejsca, zapominając o drugim.
+ *
+ * Wyszarzone pozycje to fragmenty, które model dostał, ale się na nie nie powołał —
+ * ta sama konwencja co pod odpowiedzią w Bazie wiedzy.
+ */
+function ListaZrodel({ zrodla, uklad = 'pion' }: { zrodla?: Zrodlo[]; uklad?: 'pion' | 'poziom' }) {
+  if (!zrodla?.length) return null;
+  return (
+    <ul className={uklad === 'pion'
+      ? 'mt-2 space-y-0.5 text-xs'
+      : 'mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs'}>
+      {zrodla.map((z, i) => {
+        const etykieta = `${z.filename ?? '(bez nazwy)'}`
+          + (z.page ? ` (str. ${z.page})` : '')
+          + (typeof z.score === 'number' ? ` — ${z.score.toFixed(2)}` : '');
+        const nieuzyte = z.cited === false;
+        return (
+          <li key={i}>
+            {z.file_id ? (
+              <button
+                onClick={() => otworzDokument(z.file_id!)}
+                title="Otwórz dokument"
+                className={`text-left hover:underline ${nieuzyte ? 'text-gray-400' : 'text-blue-600'}`}
+              >
+                📄 {etykieta}
+              </button>
+            ) : (
+              <span className={nieuzyte ? 'text-gray-400' : 'text-gray-600'}>📄 {etykieta}</span>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 const ROLE_PL: Record<string, string> = {
@@ -272,30 +315,7 @@ export default function OcenyPage() {
                   </button>
                 </div>
 
-                {/* Źródła klikalne, jak pod odpowiedzią w Bazie wiedzy. Wyszarzone to te,
-                    które model dostał, ale się na nie nie powołał. */}
-                {!!p.zrodla?.length && (
-                  <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
-                    {p.zrodla.map((z, i) => (
-                      <li key={i}>
-                        {z.file_id ? (
-                          <button
-                            onClick={() => otworzDokument(z.file_id!)}
-                            className={`hover:underline text-left ${
-                              z.cited === false ? 'text-gray-400' : 'text-blue-600'
-                            }`}
-                          >
-                            📄 {z.filename}{z.page ? ` (str. ${z.page})` : ''}
-                          </button>
-                        ) : (
-                          <span className="text-gray-500">
-                            📄 {z.filename}{z.page ? ` (str. ${z.page})` : ''}
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <ListaZrodel zrodla={p.zrodla} uklad="poziom" />
 
                 {otwarte && (
                   <p className="mt-2 border-t border-gray-100 pt-2 text-xs whitespace-pre-wrap text-gray-700">
@@ -350,17 +370,7 @@ export default function OcenyPage() {
                     </p>
                   )}
                   <p className="whitespace-pre-wrap text-gray-700">{o.odpowiedz}</p>
-                  {!!d.zrodla?.length && (
-                    <ul className="mt-2 space-y-0.5">
-                      {d.zrodla.map((z, i) => (
-                        <li key={i} className={z.cited ? 'text-gray-800' : 'text-gray-400'}>
-                          {z.cited ? '📄' : '·'} {z.filename}
-                          {z.page ? ` (str. ${z.page})` : ''}
-                          {typeof z.score === 'number' ? ` — ${z.score.toFixed(2)}` : ''}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  <ListaZrodel zrodla={d.zrodla} />
                 </div>
               )}
             </div>

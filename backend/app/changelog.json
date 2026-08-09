@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "1.0.15",
+      "date": "2026-08-09",
+      "title": "Klikalne zrodla takze w zakladce Oceny",
+      "changes": [
+        "W zakladce Oceny odpowiedzi zrodla sa juz odnosnikami otwierajacymi dokument - wczesniej dzialalo to tylko w rejestrze wszystkich pytan."
+      ]
+    },
+    {
       "version": "1.0.14",
       "date": "2026-08-09",
       "title": "Czas w strefie uzytkownika, filtr osoby i klikalne zrodla",
