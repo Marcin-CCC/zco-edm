@@ -783,25 +783,139 @@ def zapisz_ocene(
         if diagnostyka is not None and zrodla:
             diagnostyka["zrodla"] = zrodla["sources"]
 
-    ocena = OcenaOdpowiedzi(
-        message_id=payload.message_id,
-        user_id=current_user.id,
-        ocena=payload.ocena,
-        powod=powod,
-        # Kopia treści: rozmowę można skasować, a zgłoszenie ma przeżyć i posłużyć
-        # za materiał do zestawu kontrolnego.
-        pytanie=(payload.pytanie or "")[:4000] or None,
-        odpowiedz=(payload.odpowiedz or "")[:8000] or None,
-        diagnostyka=diagnostyka,
-    )
-    db.add(ocena)
+    # JEDNA ocena na odpowiedź: kolejne kliknięcie NADPISUJE poprzednie. Użytkownik
+    # ma prawo zmienić zdanie albo trafić w niewłaściwą ikonę, a zapis każdej próby
+    # zaśmieciłby materiał do analizy ocenami, których nikt nie zamierzał wystawić.
+    # Dopisanie powodu do oceny negatywnej to drugie kliknięcie tej samej oceny —
+    # więc bez nadpisywania każde zgłoszenie liczyłoby się podwójnie.
+    kopia_pytania = (payload.pytanie or "")[:4000] or None
+    zapytanie = db.query(OcenaOdpowiedzi).filter(OcenaOdpowiedzi.user_id == current_user.id)
+    istniejaca = None
+    if payload.message_id is not None:
+        istniejaca = zapytanie.filter(
+            OcenaOdpowiedzi.message_id == payload.message_id).first()
+    if istniejaca is None and kopia_pytania:
+        # Pierwsze kliknięcie potrafi wyprzedzić zapis historii rozmowy, więc ocena
+        # bez `message_id` powstaje WCZEŚNIEJ niż identyfikator, którym dałoby się ją
+        # odnaleźć. Wtedy rozpoznajemy ją po treści pytania tego samego użytkownika.
+        # Ograniczenie: dwa identyczne pytania bez zapisanej historii nadpiszą się
+        # nawzajem — przypadek rzadki i mniej szkodliwy niż mnożenie ocen.
+        istniejaca = (zapytanie
+                      .filter(OcenaOdpowiedzi.message_id.is_(None),
+                              OcenaOdpowiedzi.pytanie == kopia_pytania)
+                      .order_by(OcenaOdpowiedzi.id.desc()).first())
+
+    if istniejaca is not None:
+        istniejaca.ocena = payload.ocena
+        istniejaca.powod = powod
+        if payload.message_id is not None:
+            istniejaca.message_id = payload.message_id   # dopisz, gdy już się pojawił
+        if diagnostyka:
+            istniejaca.diagnostyka = diagnostyka
+        ocena = istniejaca
+        zmiana = "zmieniona"
+    else:
+        ocena = OcenaOdpowiedzi(
+            message_id=payload.message_id,
+            user_id=current_user.id,
+            ocena=payload.ocena,
+            powod=powod,
+            # Kopia treści: rozmowę można skasować, a zgłoszenie ma przeżyć i posłużyć
+            # za materiał do zestawu kontrolnego.
+            pytanie=kopia_pytania,
+            odpowiedz=(payload.odpowiedz or "")[:8000] or None,
+            diagnostyka=diagnostyka,
+        )
+        db.add(ocena)
+        zmiana = "nowa"
     db.commit()
     logger.info(
-        f"[CHAT-OCENA] user={current_user.username} {payload.ocena}"
-        f"{f' ({powod})' if powod else ''} req={payload.request_id or '-'} "
+        f"[CHAT-OCENA] user={current_user.username} {payload.ocena} ({zmiana})"
+        f"{f' powod={powod}' if powod else ''} req={payload.request_id or '-'} "
         f"sciezka={(diagnostyka or {}).get('sciezka', '?')}"
     )
     return {"message": "Dziękujemy za ocenę.", "id": ocena.id}
+
+
+@router.get("/rejestr")
+def rejestr_pytan(
+    limit: int = 100,
+    tylko_ocenione: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Rejestr zadanych pytań wraz z odpowiedziami i ewentualną oceną (administracja).
+
+    Po co, skoro są już oceny: w fazie testów najwięcej mówi to, o co ludzie PYTAJĄ —
+    także wtedy (a może zwłaszcza wtedy), gdy nikt nie kliknął oceny. Rejestr pokazuje
+    pełny ruch, a przełącznik `tylko_ocenione` zawęża go do zgłoszeń.
+
+    Czego tu NIE MA: migawki planu wyszukiwania dla pytań NIEOCENIONYCH. Powstaje ona
+    w pamięci procesu z krótkim czasem życia i trafia do bazy dopiero razem z oceną.
+    Zapisywanie jej dla każdego pytania to osobna decyzja — kosztuje miejsce przy
+    każdej rozmowie, a przydaje się tylko przy tych, które budzą wątpliwość.
+    """
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Tylko administrator.")
+
+    limit = max(1, min(limit, 500))
+    # Jedno zapytanie zamiast N+1: bierzemy z zapasem, bo tura to dwie wiadomości.
+    wiadomosci = (
+        db.query(Message, Conversation.user_id, User.username, User.full_name, User.role)
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .outerjoin(User, Conversation.user_id == User.id)
+        .order_by(Message.id.desc())
+        .limit(limit * 3)
+        .all()
+    )
+    # Pytanie to najbliższa POPRZEDZAJĄCA wiadomość użytkownika w tej samej rozmowie.
+    pary: list[dict] = []
+    for msg, uid, username, full_name, rola in wiadomosci:      # malejąco po id
+        if msg.role == "assistant":
+            pary.append({"msg": msg, "username": username, "full_name": full_name,
+                         "rola": rola.value if rola else None, "user_id": uid})
+        else:
+            # Idziemy od najnowszych, więc pytanie napotykamy PO swojej odpowiedzi.
+            for p in pary:
+                if p["msg"].conversation_id == msg.conversation_id and "pytanie" not in p:
+                    p["pytanie"] = msg.content
+                    break
+
+    oceny_wg_msg = {
+        o.message_id: o for o in
+        db.query(OcenaOdpowiedzi)
+        .filter(OcenaOdpowiedzi.message_id.in_([p["msg"].id for p in pary] or [0]))
+        .all()
+    }
+
+    wynik = []
+    for p in pary:
+        ocena = oceny_wg_msg.get(p["msg"].id)
+        if tylko_ocenione and ocena is None:
+            continue
+        wynik.append({
+            "message_id": p["msg"].id,
+            "pytanie": p.get("pytanie"),
+            "odpowiedz": (p["msg"].content or "")[:600],
+            "zrodla": [s.get("filename") for s in (p["msg"].sources or [])
+                       if isinstance(s, dict)][:5],
+            "uzytkownik": p["full_name"] or p["username"],
+            "rola": p["rola"],
+            "created_at": p["msg"].created_at,
+            "ocena": ocena.ocena if ocena else None,
+            "powod": POWODY.get(ocena.powod, None) if ocena and ocena.powod else None,
+            "diagnostyka": ocena.diagnostyka if ocena else None,
+        })
+        if len(wynik) >= limit:
+            break
+
+    # Ile pytań zadała każda rola — po to, żeby zobaczyć, kto z systemu korzysta.
+    wg_roli: dict[str, int] = {}
+    for p in pary:
+        klucz = p["rola"] or "?"
+        wg_roli[klucz] = wg_roli.get(klucz, 0) + 1
+
+    return {"wg_roli": wg_roli, "pytania": wynik}
 
 
 @router.get("/oceny")

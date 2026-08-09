@@ -14,7 +14,7 @@
  * OPCJONALNE — ocena zapisuje się już przy pierwszym kliknięciu, żeby nikt nie utknął
  * w połowie formularza.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface Powod {
   kod: string;
@@ -44,6 +44,7 @@ export function OcenaOdpowiedzi({
   const [wybrana, setWybrana] = useState<string | null>(null);
   const [powod, setPowod] = useState<string | null>(null);
   const [dziekujemy, setDziekujemy] = useState(false);
+  const wierszPowodow = useRef<HTMLDivElement>(null);
 
   // Podziękowanie znika samo — nie chcemy, żeby zostawało nad kolejnym pytaniem.
   useEffect(() => {
@@ -51,6 +52,15 @@ export function OcenaOdpowiedzi({
     const t = setTimeout(() => setDziekujemy(false), 2500);
     return () => clearTimeout(t);
   }, [dziekujemy]);
+
+  // Powody pojawiają się na samym dole rozmowy, więc bez przewinięcia użytkownik
+  // widzi z nich najwyżej pierwszy i nie wie, że są kolejne. Przy pierwszym renderze
+  // wiersza dosuwamy go do widoku — `block: 'end'` wystarcza, bo to ostatni element.
+  useEffect(() => {
+    if (wybrana === 'zla' && !powod && wierszPowodow.current) {
+      wierszPowodow.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [wybrana, powod]);
 
   const wyslij = async (ocena: string, kodPowodu?: string) => {
     setWybrana(ocena);
@@ -74,45 +84,54 @@ export function OcenaOdpowiedzi({
     }
   };
 
+  // Układ jest KOLUMNOWY, a powody mają własny wiersz. Wcześniej doklejały się do
+  // wiersza z ikonami i przy wąskim bąbelku zawijały się po jednym w linii — widoczny
+  // był tylko pierwszy, reszta czekała pod krawędzią okna rozmowy.
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-      <span>{wybrana ? 'Twoja ocena:' : 'Jak oceniasz tę odpowiedź?'}</span>
-      {OCENY.map((o) => (
-        <button
-          key={o.kod}
-          type="button"
-          title={o.opis}
-          aria-label={o.opis}
-          aria-pressed={wybrana === o.kod}
-          onClick={() => wyslij(o.kod)}
-          className={`rounded-md border px-2 py-1 text-sm transition ${
-            wybrana === o.kod
-              ? 'border-gray-400 bg-gray-100 opacity-100'
-              : 'border-transparent opacity-50 hover:opacity-100 hover:border-gray-300'
-          }`}
-        >
-          {o.ikona}
-        </button>
-      ))}
+    <div className="mt-2 text-xs text-gray-500">
+      <div className="flex flex-wrap items-center gap-2">
+        <span>{wybrana ? 'Twoja ocena:' : 'Jak oceniasz tę odpowiedź?'}</span>
+        {OCENY.map((o) => (
+          <button
+            key={o.kod}
+            type="button"
+            title={o.opis}
+            aria-label={o.opis}
+            aria-pressed={wybrana === o.kod}
+            onClick={() => wyslij(o.kod)}
+            className={`rounded-md border px-2 py-1 text-sm transition ${
+              wybrana === o.kod
+                ? 'border-gray-400 bg-gray-100 opacity-100'
+                : 'border-transparent opacity-50 hover:opacity-100 hover:border-gray-300'
+            }`}
+          >
+            {o.ikona}
+          </button>
+        ))}
+        {wybrana && !dziekujemy && (
+          <span className="text-gray-400">możesz zmienić — liczy się ostatni wybór</span>
+        )}
+        {dziekujemy && <span className="text-gray-400">Dziękujemy.</span>}
+      </div>
 
       {/* Powód pytamy tylko przy ocenie negatywnej i tylko raz */}
       {wybrana === 'zla' && !powod && powody.length > 0 && (
-        <span className="flex flex-wrap items-center gap-1">
-          <span className="ml-1">Co było nie tak?</span>
-          {powody.map((p) => (
-            <button
-              key={p.kod}
-              type="button"
-              onClick={() => wyslij('zla', p.kod)}
-              className="rounded-full border border-gray-300 px-2 py-0.5 hover:bg-gray-100"
-            >
-              {p.etykieta}
-            </button>
-          ))}
-        </span>
+        <div ref={wierszPowodow} className="mt-1.5 rounded-md bg-gray-50 p-2">
+          <span className="mr-1">Co było nie tak?</span>
+          <span className="inline-flex flex-wrap gap-1 align-middle">
+            {powody.map((p) => (
+              <button
+                key={p.kod}
+                type="button"
+                onClick={() => wyslij('zla', p.kod)}
+                className="rounded-full border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-100"
+              >
+                {p.etykieta}
+              </button>
+            ))}
+          </span>
+        </div>
       )}
-
-      {dziekujemy && <span className="text-gray-400">Dziękujemy.</span>}
     </div>
   );
 }

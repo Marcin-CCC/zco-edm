@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "1.0.13",
+      "date": "2026-08-09",
+      "title": "Poprawki oceniania i rejestr zadanych pytan",
+      "changes": [
+        "Po kliknieciu \"nie pomogla\" wszystkie powody sa widoczne od razu, w osobnym wierszu, a widok sam dosuwa je do ekranu. Wczesniej zawijaly sie po jednym i trzeba bylo przewijac rozmowe, zeby je zobaczyc.",
+        "Zapisywana jest tylko OSTATNIA ocena danej odpowiedzi. Zmiana zdania nadal dziala, ale pomylkowe klikniecia nie zostaja juz w danych, a dopisanie powodu nie liczy sie jako druga ocena.",
+        "Nowa zakladka \"Wszystkie pytania\" w Ocenach odpowiedzi: rejestr zadanych pytan wraz z odpowiedziami, osoba i jej rola, z filtrem \"pokaz tylko ocenione\". W fazie testow pokazuje, o co pracownicy faktycznie pytaja."
+      ]
+    },
+    {
       "version": "1.0.12",
       "date": "2026-08-07",
       "title": "Ocena odpowiedzi przez uzytkownika",
