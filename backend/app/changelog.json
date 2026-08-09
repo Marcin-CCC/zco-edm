@@ -1,6 +1,18 @@
 {
   "entries": [
     {
+      "version": "1.0.12",
+      "date": "2026-08-07",
+      "title": "Ocena odpowiedzi przez uzytkownika",
+      "changes": [
+        "Pod kazda odpowiedzia czatu pojawia sie pytanie \"Jak oceniasz te odpowiedz?\" z trzema przyciskami: pomogla, czesciowo pomogla, nie pomogla.",
+        "Przy ocenie negatywnej mozna jednym kliknieciem wskazac powod: nieprawdziwa informacja, nie znalazl a powinien, niepelna odpowiedz, nie o to pytalem. Powod jest nieobowiazkowy - sama ocena zapisuje sie od razu.",
+        "Do oceny zapisywana jest kopia pytania i odpowiedzi oraz informacja o tym, jak aplikacja szukala dokumentow. Dzieki temu zgloszenie da sie przeanalizowac takze pozniej, gdy baza dokumentow juz sie zmieni.",
+        "Administrator ma zestawienie ocen wraz z podsumowaniem liczbowym.",
+        "Mechanizm mozna wylaczyc bez zmiany w programie, jesli okaze sie nieuzywany."
+      ]
+    },
+    {
       "version": "1.0.11",
       "date": "2026-08-07",
       "title": "Dokumenty odnajdywane potocznym slownictwem",

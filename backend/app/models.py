@@ -147,6 +147,39 @@ class Message(Base):
     conversation = relationship("Conversation", back_populates="messages")
 
 
+class OcenaOdpowiedzi(Base):
+    """Ocena odpowiedzi wystawiona przez użytkownika (kciuk w górę / neutralnie / w dół).
+
+    Po co osobna tabela, a nie kolumny w `messages`: schemat powstaje przez
+    `Base.metadata.create_all`, które DODAJE BRAKUJĄCE TABELE, ale nie dodaje kolumn
+    do istniejących. Nowa tabela zakłada się więc sama przy starcie, bez ręcznej
+    migracji na maszynie klienta.
+
+    Dlaczego trzymamy KOPIE pytania i odpowiedzi zamiast samego `message_id`: ocena ma
+    posłużyć za materiał do zestawu kontrolnego (app/retrieval_bench.py), a rozmowy
+    użytkownik może skasować. Stąd też `ondelete="SET NULL"` — usunięcie rozmowy nie
+    może zabrać ze sobą zgłoszenia o błędnej odpowiedzi.
+
+    `diagnostyka` to migawka planu wyszukiwania (ścieżka, zawężenia, wskazane dokumenty,
+    źródła). Bez niej ocena starzeje się w kilka dni: indeks i mechanizmy wyszukiwania
+    się zmieniają, więc bez zapisanego kontekstu nie da się już odtworzyć, CO wtedy
+    zobaczył model.
+    """
+    __tablename__ = "oceny_odpowiedzi"
+
+    id = Column(Integer, primary_key=True, index=True)
+    message_id = Column(Integer, ForeignKey("messages.id", ondelete="SET NULL"),
+                        nullable=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
+                     nullable=True, index=True)
+    ocena = Column(String(12), nullable=False)      # dobra | neutralna | zla
+    powod = Column(String(40), nullable=True)       # tylko przy ocenie negatywnej
+    pytanie = Column(Text, nullable=True)
+    odpowiedz = Column(Text, nullable=True)
+    diagnostyka = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
 # ==================== Future Processing Tables ====================
 # These models correspond to tables created in seed.sql for document processing pipeline.
 # They will be used when the full processing/RAG pipeline is implemented.

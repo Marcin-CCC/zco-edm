@@ -26,11 +26,14 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth.auth import get_current_user
-from app.models import User, File as FileModel, Conversation, Message
+from app.models import (
+    Conversation, File as FileModel, Message, OcenaOdpowiedzi, User, UserRole,
+)
 from app.schemas import (
-    ChatRequest, ChatSourcesPayload,
+    ChatRequest, ChatSourcesPayload, OcenaCreate,
     ConversationCreate, ConversationSummary, ConversationDetail, MessageOut, TurnCreate,
 )
+from app.version import get_version
 from app.chat.definicje import pytanie_definicyjne
 from app.chat.formulka import bez_koncowej_formulki, filtruj_strumien
 from app.settings.router import _load_cache_from_db, get_chat_webhook_url
@@ -57,6 +60,17 @@ def _purge_expired_sources() -> None:
     expired = [k for k, v in _sources_store.items() if now - v["ts"] > _SOURCES_TTL_SECONDS]
     for k in expired:
         _sources_store.pop(k, None)
+    przeterminowane = [k for k, v in _diagnostyka_store.items()
+                       if now - v["ts"] > _SOURCES_TTL_SECONDS]
+    for k in przeterminowane:
+        _diagnostyka_store.pop(k, None)
+
+
+# request_id -> migawka planu wyszukiwania. Odkładamy ją w chwili zadania pytania,
+# żeby ocena wystawiona przez użytkownika niosła kontekst: którą ścieżką poszło
+# wyszukiwanie i co trafiło do modelu. Bez tego zgłoszenie „zła odpowiedź" jest
+# nieanalizowalne kilka dni później, bo indeks w międzyczasie się zmienia.
+_diagnostyka_store: dict[str, dict] = {}
 
 
 # Odpowiedzi, których NIE przenosimy do historii rozmowy (zatruwają kolejne tury:
@@ -323,6 +337,26 @@ async def chat(
         # z pominięciem progu (zob. węzeł „Chunks Filter"). Pusta lista = bez zmian.
         "extraChunks": plan.dobrane,
     }
+    # Migawka planu dla ewentualnej oceny użytkownika (zob. POST /api/chat/ocena)
+    _purge_expired_sources()
+    _diagnostyka_store[request_id] = {"ts": time.time(), "plan": {
+        "sciezka": ("pliki" if payload.file_ids else
+                    "terminy" if plan.terminy else
+                    ("streszczenia" if plan.bez_progu else "uzupelnienie")
+                    if plan.wskazane_streszczeniem else "zwykla"),
+        "terminy": plan.terminy,
+        "wskazane_streszczeniem": plan.wskazane_streszczeniem,
+        "file_ids": payload.file_ids or [],
+        "nad_progiem": sum(1 for t in plan.trafienia if t["score"] >= 0.50),
+        "w_kontekscie": len(plan.w_kontekscie),
+        "dobrane": [{"filename": d.get("filename"), "page": d.get("page")}
+                    for d in plan.dobrane],
+        "scoped_to_files": plan.scoped_to_files,
+        "search_query": search_query if search_query != payload.message else None,
+        "historia": bool(history),
+        "wersja": get_version(),
+    }}
+
     logger.info(
         f"[CHAT] user={current_user.username} role={current_user.role.value} "
         f"session={payload.session_id} req={request_id} "
@@ -678,17 +712,129 @@ def append_turn(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Zapisz jedną turę: pytanie użytkownika + odpowiedź asystenta."""
+    """Zapisz jedną turę: pytanie użytkownika + odpowiedź asystenta.
+
+    Zwraca identyfikatory zapisanych wiadomości — frontend potrzebuje identyfikatora
+    odpowiedzi, żeby przypiąć do niej ocenę użytkownika.
+    """
     conv = _get_owned_conversation(conv_id, current_user, db)
-    db.add(Message(conversation_id=conv.id, role="user", content=payload.user_message))
-    db.add(Message(
+    pytanie = Message(conversation_id=conv.id, role="user", content=payload.user_message)
+    odpowiedz = Message(
         conversation_id=conv.id, role="assistant",
         content=payload.assistant_message, sources=payload.sources or None,
-    ))
+    )
+    db.add(pytanie)
+    db.add(odpowiedz)
     # dotknij updated_at (żeby rozmowa wskoczyła na górę listy)
     conv.updated_at = datetime.utcnow()
     db.commit()
-    return {"message": "Tura zapisana", "conversation_id": conv.id}
+    return {
+        "message": "Tura zapisana",
+        "conversation_id": conv.id,
+        "user_message_id": pytanie.id,
+        "assistant_message_id": odpowiedz.id,
+    }
+
+
+# ==================== Ocena odpowiedzi ====================
+# Po co to istnieje: najgroźniejszy błąd tego systemu jest z danych NIEWIDOCZNY.
+# Odpowiedź może być płynna, powoływać się na prawdziwy fragment prawdziwego dokumentu
+# i mimo to być nieprawdziwa — bo fragment pochodzi z dokumentu o czymś innym (zmierzony
+# przypadek: pytanie o „gruszę" dostało wiek dziecka z polisy ubezpieczeniowej).
+# Automatycznie umiemy wskazać co najwyżej PODEJRZANE odpowiedzi; rozstrzygnąć może
+# tylko ten, kto zna prawidłową odpowiedź.
+OCENY_DOZWOLONE = {"dobra", "neutralna", "zla"}
+
+# Powody podawane jednym kliknięciem przy ocenie negatywnej. Każdy wskazuje inną
+# część systemu, więc samo zliczanie ich mówi, gdzie szukać przyczyny.
+POWODY = {
+    "nieprawda": "nieprawdziwa informacja",        # model albo zły dokument
+    "nie_znalazl": "nie znalazł, a powinien",      # wyszukiwanie
+    "niepelna": "niepełna odpowiedź",              # kontekst przycięty albo prompt
+    "nie_o_to": "nie o to pytałem",                # rozumienie pytania
+}
+
+
+@router.get("/ocena/konfiguracja")
+def ocena_konfiguracja(current_user: User = Depends(get_current_user)):
+    """Czy pokazywać prośbę o ocenę i jakie powody zaproponować."""
+    return {
+        "wlaczone": settings.OCENY_ODPOWIEDZI,
+        "powody": [{"kod": k, "etykieta": v} for k, v in POWODY.items()],
+    }
+
+
+@router.post("/ocena", status_code=201)
+def zapisz_ocene(
+    payload: OcenaCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Zapisz ocenę odpowiedzi wraz z migawką planu wyszukiwania."""
+    if payload.ocena not in OCENY_DOZWOLONE:
+        raise HTTPException(status_code=400, detail=f"Nieznana ocena: {payload.ocena}")
+    powod = payload.powod if payload.powod in POWODY else None
+
+    diagnostyka = None
+    if payload.request_id:
+        wpis = _diagnostyka_store.get(payload.request_id)
+        diagnostyka = dict(wpis["plan"]) if wpis else None
+        zrodla = _sources_store.get(payload.request_id)
+        if diagnostyka is not None and zrodla:
+            diagnostyka["zrodla"] = zrodla["sources"]
+
+    ocena = OcenaOdpowiedzi(
+        message_id=payload.message_id,
+        user_id=current_user.id,
+        ocena=payload.ocena,
+        powod=powod,
+        # Kopia treści: rozmowę można skasować, a zgłoszenie ma przeżyć i posłużyć
+        # za materiał do zestawu kontrolnego.
+        pytanie=(payload.pytanie or "")[:4000] or None,
+        odpowiedz=(payload.odpowiedz or "")[:8000] or None,
+        diagnostyka=diagnostyka,
+    )
+    db.add(ocena)
+    db.commit()
+    logger.info(
+        f"[CHAT-OCENA] user={current_user.username} {payload.ocena}"
+        f"{f' ({powod})' if powod else ''} req={payload.request_id or '-'} "
+        f"sciezka={(diagnostyka or {}).get('sciezka', '?')}"
+    )
+    return {"message": "Dziękujemy za ocenę.", "id": ocena.id}
+
+
+@router.get("/oceny")
+def lista_ocen(
+    limit: int = 100,
+    tylko_negatywne: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Zestawienie ocen dla administratora — materiał na zestaw kontrolny."""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Tylko administrator.")
+    zapytanie = db.query(OcenaOdpowiedzi)
+    if tylko_negatywne:
+        zapytanie = zapytanie.filter(OcenaOdpowiedzi.ocena == "zla")
+    wiersze = zapytanie.order_by(OcenaOdpowiedzi.id.desc()).limit(min(limit, 500)).all()
+
+    podsumowanie: dict[str, int] = {}
+    for o in db.query(OcenaOdpowiedzi.ocena).all():
+        podsumowanie[o[0]] = podsumowanie.get(o[0], 0) + 1
+
+    return {
+        "podsumowanie": podsumowanie,
+        "oceny": [{
+            "id": o.id,
+            "ocena": o.ocena,
+            "powod": POWODY.get(o.powod or "", None),
+            "pytanie": o.pytanie,
+            "odpowiedz": (o.odpowiedz or "")[:400],
+            "diagnostyka": o.diagnostyka,
+            "created_at": o.created_at,
+        } for o in wiersze],
+    }
 
 
 @router.delete("/conversations/{conv_id}")

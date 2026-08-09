@@ -1,0 +1,118 @@
+'use client';
+
+/**
+ * Ocena odpowiedzi pod bąbelkiem czatu: dobra / neutralna / zła.
+ *
+ * Po co: najgroźniejszy błąd tego systemu jest z danych niewidoczny. Odpowiedź bywa
+ * płynna, powołuje się na prawdziwy fragment prawdziwego dokumentu i mimo to jest
+ * nieprawdziwa, bo fragment pochodzi z dokumentu o czymś innym. Rozstrzygnąć może
+ * tylko ten, kto zna prawidłową odpowiedź — stąd pytanie do użytkownika.
+ *
+ * Przy ocenie negatywnej prosimy o powód jednym kliknięciem. Samo „źle" jest trudne
+ * do wykorzystania: nie wiadomo, czy zawiodło wyszukiwanie, model, czy rozumienie
+ * pytania. Cztery gotowe odpowiedzi rozstrzygają to od razu, a kliknięcie powodu jest
+ * OPCJONALNE — ocena zapisuje się już przy pierwszym kliknięciu, żeby nikt nie utknął
+ * w połowie formularza.
+ */
+import { useEffect, useState } from 'react';
+
+interface Powod {
+  kod: string;
+  etykieta: string;
+}
+
+interface Props {
+  /** Identyfikator zapytania — wiąże ocenę z migawką planu wyszukiwania po stronie backendu */
+  requestId?: string;
+  /** Identyfikator zapisanej odpowiedzi (może go nie być, gdy zapis historii się nie udał) */
+  messageId?: number;
+  pytanie: string;
+  odpowiedz: string;
+  powody: Powod[];
+  authHeaders: () => Record<string, string>;
+}
+
+const OCENY = [
+  { kod: 'dobra', ikona: '👍', opis: 'Odpowiedź pomogła' },
+  { kod: 'neutralna', ikona: '😐', opis: 'Częściowo pomogła' },
+  { kod: 'zla', ikona: '👎', opis: 'Odpowiedź nie pomogła' },
+] as const;
+
+export function OcenaOdpowiedzi({
+  requestId, messageId, pytanie, odpowiedz, powody, authHeaders,
+}: Props) {
+  const [wybrana, setWybrana] = useState<string | null>(null);
+  const [powod, setPowod] = useState<string | null>(null);
+  const [dziekujemy, setDziekujemy] = useState(false);
+
+  // Podziękowanie znika samo — nie chcemy, żeby zostawało nad kolejnym pytaniem.
+  useEffect(() => {
+    if (!dziekujemy) return;
+    const t = setTimeout(() => setDziekujemy(false), 2500);
+    return () => clearTimeout(t);
+  }, [dziekujemy]);
+
+  const wyslij = async (ocena: string, kodPowodu?: string) => {
+    setWybrana(ocena);
+    if (kodPowodu) setPowod(kodPowodu);
+    try {
+      await fetch('/api/chat/ocena', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          message_id: messageId ?? null,
+          request_id: requestId ?? null,
+          ocena,
+          powod: kodPowodu ?? null,
+          pytanie,
+          odpowiedz,
+        }),
+      });
+      if (kodPowodu || ocena !== 'zla') setDziekujemy(true);
+    } catch {
+      /* ocena to sygnał, nie transakcja — nie zawracamy użytkownikowi głowy błędem */
+    }
+  };
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+      <span>{wybrana ? 'Twoja ocena:' : 'Jak oceniasz tę odpowiedź?'}</span>
+      {OCENY.map((o) => (
+        <button
+          key={o.kod}
+          type="button"
+          title={o.opis}
+          aria-label={o.opis}
+          aria-pressed={wybrana === o.kod}
+          onClick={() => wyslij(o.kod)}
+          className={`rounded-md border px-2 py-1 text-sm transition ${
+            wybrana === o.kod
+              ? 'border-gray-400 bg-gray-100 opacity-100'
+              : 'border-transparent opacity-50 hover:opacity-100 hover:border-gray-300'
+          }`}
+        >
+          {o.ikona}
+        </button>
+      ))}
+
+      {/* Powód pytamy tylko przy ocenie negatywnej i tylko raz */}
+      {wybrana === 'zla' && !powod && powody.length > 0 && (
+        <span className="flex flex-wrap items-center gap-1">
+          <span className="ml-1">Co było nie tak?</span>
+          {powody.map((p) => (
+            <button
+              key={p.kod}
+              type="button"
+              onClick={() => wyslij('zla', p.kod)}
+              className="rounded-full border border-gray-300 px-2 py-0.5 hover:bg-gray-100"
+            >
+              {p.etykieta}
+            </button>
+          ))}
+        </span>
+      )}
+
+      {dziekujemy && <span className="text-gray-400">Dziękujemy.</span>}
+    </div>
+  );
+}

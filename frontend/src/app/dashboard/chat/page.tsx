@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { DocSearchPanel } from '@/components/doc-search-panel';
+import { OcenaOdpowiedzi } from '@/components/ocena-odpowiedzi';
 import { docSchemasApi, docSearchApi } from '@/lib/api';
 
 // Polska odmiana rzeczownika „dokument" po liczbie
@@ -60,6 +61,13 @@ interface ChatMessage {
   content: string;
   sources?: ChatSource[];
   error?: boolean;
+  /** Ustawiane tylko dla odpowiedzi MODELU — one jedne mają migawkę planu wyszukiwania,
+   *  więc tylko pod nimi prosimy o ocenę (podsumowania list nie mają czego diagnozować). */
+  requestId?: string;
+  /** Identyfikator zapisanej wiadomości; bywa go brak, gdy zapis historii się nie powiódł */
+  messageId?: number;
+  /** Pytanie, na które to jest odpowiedzią — zapisujemy je razem z oceną */
+  pytanie?: string;
 }
 
 interface ConvSummary {
@@ -195,6 +203,11 @@ export default function ChatPage() {
   // Trwa ponowienie pytania bez kontekstu wątku (po zmianie tematu w rozmowie)
   const [bezKontekstu, setBezKontekstu] = useState(false);
   const [typeNames, setTypeNames] = useState<Record<string, string>>({});
+  // Prośba o ocenę odpowiedzi — wyłączalna po stronie backendu jedną zmienną,
+  // gdyby okazało się, że korzysta z niej znikomy procent użytkowników.
+  const [oceny, setOceny] = useState<{ wlaczone: boolean; powody: { kod: string; etykieta: string }[] }>(
+    { wlaczone: false, powody: [] },
+  );
   // Dokumenty wskazane w ostatniej odpowiedzi. Do nich odnoszą się pytania
   // typu „co jest w tym dokumencie" — bez tego zbioru nie ma do czego.
   const [zbiorRoboczy, setZbiorRoboczy] = useState<ChatSource[]>([]);
@@ -207,6 +220,12 @@ export default function ChatPage() {
     docSchemasApi.list(true)
       .then((rows) => setTypeNames(Object.fromEntries(rows.map((s) => [s.slug, s.name]))))
       .catch(() => { /* brak rejestru = pokażemy same nazwy plików */ });
+  }, []);
+  useEffect(() => {
+    fetch('/api/chat/ocena/konfiguracja', { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setOceny({ wlaczone: !!d.wlaczone, powody: d.powody || [] }))
+      .catch(() => { /* brak konfiguracji = nie pytamy o ocenę */ });
   }, []);
   const [conversations, setConversations] = useState<ConvSummary[]>([]);
   const [currentConvId, setCurrentConvId] = useState<number | null>(null);
@@ -356,6 +375,9 @@ export default function ChatPage() {
       .catch(() => { /* komunikat to tylko UX */ });
 
     const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    // Które zapytanie ostatecznie dało odpowiedź — po ponowieniu „na czysto" jest to
+    // druga próba, i to jej migawkę planu ma nieść ewentualna ocena użytkownika.
+    let uzytyRequestId = requestId;
     let assistantText = '';
     // Sama odpowiedź modelu, BEZ naszej adnotacji doklejanej na początku wiadomości
     // („Poniżej odpowiedź na podstawie treści dokumentów:"). Rozpoznanie odmowy musi
@@ -682,6 +704,7 @@ export default function ChatPage() {
         zakresOdcięty = zakresZPoprzednich;
         try {
           await zapytajModel(`${requestId}-r`, false);
+          uzytyRequestId = `${requestId}-r`;   // ocena ma dotyczyć TEJ próby
         } finally {
           setBezKontekstu(false);
         }
@@ -695,7 +718,14 @@ export default function ChatPage() {
         assistantText = prefiks && czystaOdmowa(modelText) ? modelText : prefiks + modelText;
         setMessages((prev) => {
           const next = [...prev];
-          next[next.length - 1] = { ...next[next.length - 1], content: assistantText };
+          next[next.length - 1] = {
+            ...next[next.length - 1],
+            content: assistantText,
+            // Dopiero tutaj odpowiedź jest kompletna i pochodzi od MODELU — tylko takie
+            // pytamy o ocenę, bo tylko one mają po stronie backendu migawkę planu.
+            requestId: uzytyRequestId,
+            pytanie: text,
+          };
           return next;
         });
       }
@@ -710,7 +740,7 @@ export default function ChatPage() {
       // Zapisz turę w historii (pytanie + odpowiedź + źródła)
       if (convId != null && assistantText.trim()) {
         try {
-          await fetch(`/api/chat/conversations/${convId}/turn`, {
+          const zapis = await fetch(`/api/chat/conversations/${convId}/turn`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...authHeaders() },
             body: JSON.stringify({
@@ -722,6 +752,21 @@ export default function ChatPage() {
               sources: finalSources,
             }),
           });
+          // Identyfikator zapisanej odpowiedzi wiąże ocenę z historią rozmowy.
+          // Jego brak niczego nie blokuje — ocena zapisze się z samą treścią.
+          if (zapis.ok) {
+            const dane = await zapis.json().catch(() => null);
+            if (dane?.assistant_message_id) {
+              setMessages((prev) => {
+                const next = [...prev];
+                const ostatni = next[next.length - 1];
+                if (ostatni?.role === 'assistant') {
+                  next[next.length - 1] = { ...ostatni, messageId: dane.assistant_message_id };
+                }
+                return next;
+              });
+            }
+          }
           loadConversations();
         } catch { /* zapis historii nie jest krytyczny dla samej odpowiedzi */ }
       }
@@ -983,6 +1028,21 @@ export default function ChatPage() {
                     </div>
                   );
                 })()}
+
+                {/* Prośba o ocenę — tylko pod kompletną odpowiedzią MODELU (te mają
+                    migawkę planu wyszukiwania), nie pod podsumowaniami list ani błędami. */}
+                {oceny.wlaczone && m.role === 'assistant' && !m.error && m.requestId
+                  && !(streaming && idx === messages.length - 1) && (
+                  <OcenaOdpowiedzi
+                    key={m.requestId}
+                    requestId={m.requestId}
+                    messageId={m.messageId}
+                    pytanie={m.pytanie || ''}
+                    odpowiedz={m.content}
+                    powody={oceny.powody}
+                    authHeaders={authHeaders}
+                  />
+                )}
               </div>
             </div>
           ))}

@@ -61,5 +61,13 @@ class Settings:
         "1", "true", "tak", "yes"
     )
 
+    # Czy pod odpowiedzią czatu prosić użytkownika o ocenę. Domyślnie WŁĄCZONE:
+    # pierwsza grupa użytkowników jest szkolona, żeby oceniać zawsze. We wdrożeniu
+    # docelowym da się to wyłączyć jedną zmienną, jeśli okaże się, że korzysta
+    # z tego znikomy procent osób.
+    OCENY_ODPOWIEDZI: bool = os.getenv("OCENY_ODPOWIEDZI", "1").lower() not in (
+        "0", "false", "nie", "no"
+    )
+
 
 settings = Settings()

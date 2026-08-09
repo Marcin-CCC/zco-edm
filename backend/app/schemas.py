@@ -267,6 +267,20 @@ class TurnCreate(BaseModel):
     sources: Optional[list] = None
 
 
+class OcenaCreate(BaseModel):
+    """Ocena odpowiedzi wystawiona przez użytkownika pod bąbelkiem czatu.
+
+    `request_id` wiąże ocenę z migawką planu wyszukiwania (pamięć procesu, TTL),
+    dzięki czemu zgłoszenie niesie kontekst, a nie samą treść.
+    """
+    message_id: Optional[int] = None
+    request_id: Optional[str] = None
+    ocena: str                      # dobra | neutralna | zla
+    powod: Optional[str] = None     # tylko przy ocenie negatywnej
+    pytanie: Optional[str] = None
+    odpowiedz: Optional[str] = None
+
+
 # ==================== Rejestr schematów typów dokumentów (#7B-2) ====================
 class DocTypeField(BaseModel):
     name: str                       # np. "dostawca"
