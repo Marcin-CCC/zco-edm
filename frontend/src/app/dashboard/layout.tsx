@@ -20,6 +20,7 @@ const ADMIN_SUBMENU: SubMenuItem[] = [
   { label: 'Schematy dokumentów', href: '/dashboard/doc-schemas' },
   { label: 'Kolejka plików', href: '/dashboard/file-queue' },
   { label: 'Ustawienia aplikacji', href: '/dashboard/settings' },
+  { label: 'Oceny odpowiedzi', href: '/dashboard/oceny' },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -27,7 +28,7 @@ function isActive(pathname: string, href: string): boolean {
 }
 
 // Which pages should show tabs
-const PAGES_WITH_TABS: string[] = ['/dashboard/users', '/dashboard/access-list', '/dashboard/doc-schemas', '/dashboard/file-queue', '/dashboard/settings'];
+const PAGES_WITH_TABS: string[] = ['/dashboard/users', '/dashboard/access-list', '/dashboard/doc-schemas', '/dashboard/file-queue', '/dashboard/settings', '/dashboard/oceny'];
 
 export default function DashboardLayout({
   children,
