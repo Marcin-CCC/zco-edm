@@ -19,8 +19,8 @@ const ADMIN_SUBMENU: SubMenuItem[] = [
   { label: 'Lista dostępów', href: '/dashboard/access-list' },
   { label: 'Schematy dokumentów', href: '/dashboard/doc-schemas' },
   { label: 'Kolejka plików', href: '/dashboard/file-queue' },
+  { label: 'Lista odpowiedzi', href: '/dashboard/oceny' },
   { label: 'Ustawienia aplikacji', href: '/dashboard/settings' },
-  { label: 'Oceny odpowiedzi', href: '/dashboard/oceny' },
 ];
 
 function isActive(pathname: string, href: string): boolean {

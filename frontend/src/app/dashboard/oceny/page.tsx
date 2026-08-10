@@ -220,7 +220,7 @@ export default function OcenyPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-1">Oceny odpowiedzi</h1>
+      <h1 className="text-2xl font-semibold mb-1">Lista odpowiedzi</h1>
       <p className="text-sm text-gray-600 mb-4">
         {widok === 'oceny'
           ? 'Materiał do poprawiania wyszukiwania. Przy ocenie negatywnej warto zacząć od pola „ścieżka” — mówi, którym trybem aplikacja szukała dokumentów.'
