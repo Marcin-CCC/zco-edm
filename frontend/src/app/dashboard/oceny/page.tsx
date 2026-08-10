@@ -96,17 +96,30 @@ async function otworzDokument(fileId: number) {
  * Wyszarzone pozycje to fragmenty, które model dostał, ale się na nie nie powołał —
  * ta sama konwencja co pod odpowiedzią w Bazie wiedzy.
  */
-function ListaZrodel({ zrodla, uklad = 'pion' }: { zrodla?: Zrodlo[]; uklad?: 'pion' | 'poziom' }) {
+function ListaZrodel({ zrodla, dobrane = [], uklad = 'pion' }: {
+  zrodla?: Zrodlo[];
+  /** Fragmenty doklejone przez dobór z dokumentu-zwycięzcy (zob. app/chat/dobor.py) */
+  dobrane?: { filename?: string; page?: number }[];
+  uklad?: 'pion' | 'poziom';
+}) {
   if (!zrodla?.length) return null;
+
+  // Fragment dobrany NIE MA trafności — nie przeszedł progu, tylko został wskazany
+  // celowo. W n8n dostaje wartość równą progowi, a na ścieżkach z wyłączonym progiem
+  // jest to zero, więc wyświetlał się jako „0.00" i czytało się to jak „zerowa
+  // trafność". To nieprawda, więc zamiast liczby pokazujemy etykietę.
+  const czyDobrany = (z: Zrodlo) => dobrane.some(
+    (d) => d.filename === z.filename && (d.page ?? null) === (z.page ?? null),
+  );
+
   return (
     <ul className={uklad === 'pion'
       ? 'mt-2 space-y-0.5 text-xs'
       : 'mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs'}>
       {zrodla.map((z, i) => {
-        const etykieta = `${z.filename ?? '(bez nazwy)'}`
-          + (z.page ? ` (str. ${z.page})` : '')
-          + (typeof z.score === 'number' ? ` — ${z.score.toFixed(2)}` : '');
+        const dobrany = czyDobrany(z);
         const nieuzyte = z.cited === false;
+        const nazwa = `${z.filename ?? '(bez nazwy)'}${z.page ? ` (str. ${z.page})` : ''}`;
         return (
           <li key={i}>
             {z.file_id ? (
@@ -115,15 +128,38 @@ function ListaZrodel({ zrodla, uklad = 'pion' }: { zrodla?: Zrodlo[]; uklad?: 'p
                 title="Otwórz dokument"
                 className={`text-left hover:underline ${nieuzyte ? 'text-gray-400' : 'text-blue-600'}`}
               >
-                📄 {etykieta}
+                📄 {nazwa}
               </button>
             ) : (
-              <span className={nieuzyte ? 'text-gray-400' : 'text-gray-600'}>📄 {etykieta}</span>
+              <span className={nieuzyte ? 'text-gray-400' : 'text-gray-600'}>📄 {nazwa}</span>
+            )}
+            {dobrany ? (
+              <span
+                className="ml-1 rounded bg-amber-50 text-amber-700 px-1 py-0.5 text-[10px]"
+                title="Fragment doklejony celowo z rozpoznanego dokumentu — próg trafności go nie dotyczy"
+              >
+                dobrany
+              </span>
+            ) : (
+              typeof z.score === 'number' && z.score > 0 && (
+                <span className="ml-1 text-gray-400">— {z.score.toFixed(2)}</span>
+              )
             )}
           </li>
         );
       })}
     </ul>
+  );
+}
+
+/** Objaśnienie kolorów i etykiet — raz na ekran, nie przy każdym wierszu. */
+function Legenda() {
+  return (
+    <p className="text-xs text-gray-500 mb-3 flex flex-wrap gap-x-4 gap-y-1">
+      <span><span className="text-blue-600">📄 niebieski</span> — model powołał się na ten fragment znacznikiem [Źródło N]</span>
+      <span><span className="text-gray-400">📄 szary</span> — fragment był w kontekście, ale model go nie oznaczył (mógł z niego skorzystać bez znacznika)</span>
+      <span><span className="rounded bg-amber-50 text-amber-700 px-1">dobrany</span> — doklejony celowo z rozpoznanego dokumentu, poza progiem trafności</span>
+    </p>
   );
 }
 
@@ -271,6 +307,8 @@ export default function OcenyPage() {
         )}
       </div>
 
+      <Legenda />
+
       {blad && <p className="text-red-600 text-sm mb-3">{blad}</p>}
       {ladowanie && <p className="text-gray-500 text-sm">Wczytywanie…</p>}
       {!ladowanie && !blad && widok === 'oceny' && oceny.length === 0 && (
@@ -315,7 +353,7 @@ export default function OcenyPage() {
                   </button>
                 </div>
 
-                <ListaZrodel zrodla={p.zrodla} uklad="poziom" />
+                <ListaZrodel zrodla={p.zrodla} dobrane={d.dobrane} uklad="poziom" />
 
                 {otwarte && (
                   <p className="mt-2 border-t border-gray-100 pt-2 text-xs whitespace-pre-wrap text-gray-700">
@@ -370,7 +408,7 @@ export default function OcenyPage() {
                     </p>
                   )}
                   <p className="whitespace-pre-wrap text-gray-700">{o.odpowiedz}</p>
-                  <ListaZrodel zrodla={d.zrodla} />
+                  <ListaZrodel zrodla={d.zrodla} dobrane={d.dobrane} />
                 </div>
               )}
             </div>
