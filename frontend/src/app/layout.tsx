@@ -15,6 +15,11 @@ export function generateMetadata(): Metadata {
   return {
     title: `${marka.nazwa} - System zarządzania dokumentami`,
     description: marka.opis,
+    // Ikona MUSI iść przez metadane, nie przez pliki `app/icon.png` i `app/favicon.ico`.
+    // Te konwencje Next.js wstrzykują jeden, ten sam plik do KAŻDEGO wdrożenia — przez
+    // co demo HiRS pokazywało w karcie przeglądarki ikonę „DM" należącą do ZCO.
+    // Ścieżki przychodzą ze zmiennych środowiskowych, jak reszta marki.
+    icons: { icon: marka.ikona, apple: marka.ikonaApple },
   };
 }
 

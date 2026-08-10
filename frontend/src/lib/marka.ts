@@ -25,6 +25,10 @@ export interface Marka {
   przykladEmail: string;
   /** Kolor nazwy w nagłówku paska bocznego (HiRS: biały, ZCO: turkus marki) */
   naglowek: string;
+  /** Ikona w karcie przeglądarki (ścieżka w `public/`) */
+  ikona: string;
+  /** Ikona dla ekranu głównego iOS — musi być PNG, SVG tam nie działa */
+  ikonaApple: string;
 }
 
 /** Domyślnie demo uniwersalne. Wdrożenia klienckie nadpisują to zmiennymi środowiskowymi. */
@@ -35,6 +39,8 @@ export const MARKA_DOMYSLNA: Marka = {
   akcent: '#1fc8ba',
   przykladEmail: 'admin@firma.pl',
   naglowek: '#ffffff',
+  ikona: '/ikona-hirs.svg',
+  ikonaApple: '/ikona-hirs.png',
 };
 
 /**
@@ -50,5 +56,7 @@ export function markaZeSrodowiska(): Marka {
     akcent: env.BRAND_ACCENT || MARKA_DOMYSLNA.akcent,
     przykladEmail: env.LOGIN_EMAIL_PLACEHOLDER || MARKA_DOMYSLNA.przykladEmail,
     naglowek: env.BRAND_HEADER_TEXT || MARKA_DOMYSLNA.naglowek,
+    ikona: env.BRAND_ICON || MARKA_DOMYSLNA.ikona,
+    ikonaApple: env.BRAND_ICON_APPLE || MARKA_DOMYSLNA.ikonaApple,
   };
 }

@@ -30,6 +30,11 @@ services:
       - BRAND_ACCENT=${BRAND_ACCENT:-#1fc8ba}
       - BRAND_HEADER_TEXT=${BRAND_HEADER_TEXT:-#ffffff}
       - LOGIN_EMAIL_PLACEHOLDER=${LOGIN_EMAIL_PLACEHOLDER:-admin@firma.pl}
+      # Ikona karty przeglądarki — wskazujemy jawnie, choć domyślna w kodzie
+      # jest ta sama. Instancja ma nazywać się i wyglądać sama, bez polegania
+      # na tym, co akurat jest domyślne w obrazie.
+      - BRAND_ICON=${BRAND_ICON:-/ikona-hirs.svg}
+      - BRAND_ICON_APPLE=${BRAND_ICON_APPLE:-/ikona-hirs.png}
     depends_on:
       backend:
         condition: service_started
