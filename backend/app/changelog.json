@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "1.0.19",
+      "date": "2026-08-10",
+      "title": "Pobieranie listy dokumentow do Excela",
+      "changes": [
+        "Pod odpowiedzia, ktora wypisuje dokumenty, pojawil sie odnosnik \"Pobierz te liste w pliku xlsx\". Arkusz ma kolumny wlasciwe dla rodzaju dokumentu - dla zarzadzenia beda to data, numer, tytul i osoba podpisujaca.",
+        "Gdy lista zawiera dokumenty roznych rodzajow, kazdy rodzaj dostaje wlasny arkusz z wlasnymi kolumnami.",
+        "Daty i liczby zapisywane sa jako daty i liczby, wiec sortowanie i filtrowanie w Excelu dziala od razu. Naglowek jest zamrozony, a kolumny maja wlaczony filtr.",
+        "Kolejnosc kolumn ustawia sie w Administracja - Schematy dokumentow, strzalkami przy polach. Ta sama kolejnosc obowiazuje w podgladzie dokumentu."
+      ]
+    },
+    {
       "version": "1.0.18",
       "date": "2026-08-10",
       "title": "Raport parsowania wskazuje system i osobe wgrywajaca",

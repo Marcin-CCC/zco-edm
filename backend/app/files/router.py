@@ -824,3 +824,71 @@ def list_folder_files(folder_id: int, db: Session = Depends(get_db), current_use
 
     return result
 
+
+
+# ==================== Eksport listy do XLSX ====================
+class EksportXlsxRequest(BaseModel):
+    """Lista dokumentów do wyeksportowania — w kolejności, w jakiej widzi ją użytkownik."""
+    file_ids: List[int]
+
+
+@router.post("/eksport-xlsx")
+def eksport_listy_xlsx(
+    payload: EksportXlsxRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Zbuduj arkusz XLSX z listy dokumentów wskazanej przez odpowiedź czatu.
+
+    Kolumny pochodzą z rejestru schematów, jeden arkusz na typ dokumentu —
+    zob. app/eksport.py.
+
+    UPRAWNIENIA: eksport przechodzi przez ten sam filtr, co lista plików. Nie może
+    być furtką do dokumentów spoza uprawnień użytkownika, nawet gdyby ktoś podał
+    identyfikatory ręcznie.
+    """
+    from fastapi.responses import Response
+    from app.doc_schemas.router import get_active_schemas
+    from app.eksport import nazwa_pliku, zbuduj_xlsx
+
+    if not payload.file_ids:
+        raise HTTPException(status_code=400, detail="Pusta lista dokumentów.")
+    if len(payload.file_ids) > 2000:
+        raise HTTPException(status_code=400, detail="Lista jest za długa (maks. 2000).")
+
+    readable = readable_folder_ids(current_user, db)
+    rows = db.query(FileModel).filter(FileModel.id.in_(set(payload.file_ids))).all()
+    dozwolone = {
+        f.id: f for f in rows if can_read_file_folder(f.folder_id, readable)
+    }
+
+    # Kolejność Z EKRANU, nie z bazy: użytkownik widział listę ułożoną w konkretny
+    # sposób (np. najnowsze zarządzenia u góry) i tego samego oczekuje w arkuszu.
+    dokumenty = []
+    for fid in payload.file_ids:
+        f = dozwolone.get(fid)
+        if f is None:
+            continue
+        meta = f.metadata_ if isinstance(f.metadata_, dict) else {}
+        dokumenty.append({
+            "filename": f.filename,
+            "doc_type": meta.get("doc_type"),
+            "doc_fields": meta.get("doc_fields") or {},
+        })
+
+    if not dokumenty:
+        raise HTTPException(status_code=404, detail="Brak dokumentów do wyeksportowania.")
+
+    schematy = {s["slug"]: s for s in get_active_schemas(db)}
+    zawartosc = zbuduj_xlsx(dokumenty, schematy)
+    nazwa = nazwa_pliku(dokumenty, schematy)
+    pominiete = len(set(payload.file_ids)) - len(dozwolone)
+    logger.info(
+        f"[EKSPORT] user={current_user.username} pozycji={len(dokumenty)}"
+        f"{f' (pominieto bez uprawnien: {pominiete})' if pominiete else ''} -> {nazwa}"
+    )
+    return Response(
+        content=zawartosc,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{nazwa}"'},
+    )

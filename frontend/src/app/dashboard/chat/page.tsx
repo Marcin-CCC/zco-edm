@@ -68,6 +68,9 @@ interface ChatMessage {
   messageId?: number;
   /** Pytanie, na które to jest odpowiedzią — zapisujemy je razem z oceną */
   pytanie?: string;
+  /** Odpowiedź typu LISTA (wypis dokumentów) — tylko takie da się wyeksportować
+   *  do arkusza, bo tylko one są zestawieniem, a nie odpowiedzią z treści. */
+  lista?: boolean;
 }
 
 interface ConvSummary {
@@ -492,7 +495,9 @@ export default function ChatPage() {
             : (rejestr?.summary ?? `Znalazłem ${zakres.length} ${pluralDocs(zakres.length)}.`);
           setMessages((prev) => {
             const next = [...prev];
-            next[next.length - 1] = { ...next[next.length - 1], content: summary, sources: zakres! };
+            next[next.length - 1] = {
+              ...next[next.length - 1], content: summary, sources: zakres!, lista: true,
+            };
             return next;
           });
           setZbiorRoboczy(zakres);
@@ -818,6 +823,41 @@ export default function ChatPage() {
     return null;
   };
 
+  // Eksport listy do arkusza. Kolumny i ich kolejność ustala rejestr schematów
+  // (Administracja → Schematy dokumentów), więc tutaj wysyłamy tylko identyfikatory
+  // dokumentów — w kolejności, w jakiej użytkownik widzi je na ekranie.
+  const [eksportTrwa, setEksportTrwa] = useState<number | null>(null);
+
+  const pobierzXlsx = async (idx: number, zrodla: ChatSource[]) => {
+    const ids = zrodla.map((s) => s.file_id).filter((id): id is number => !!id);
+    if (!ids.length) return;
+    setEksportTrwa(idx);
+    try {
+      const res = await fetch('/api/files/eksport-xlsx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ file_ids: ids }),
+      });
+      if (!res.ok) throw new Error(`Nie udało się przygotować arkusza (${res.status}).`);
+      // Nazwę nadaje backend (po typie dokumentów) — bierzemy ją z nagłówka.
+      const naglowek = res.headers.get('content-disposition') || '';
+      const dopasowanie = naglowek.match(/filename="?([^"]+)"?/);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = dopasowanie?.[1] || 'lista-dokumentow.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert(e?.message || 'Nie udało się pobrać arkusza.');
+    } finally {
+      setEksportTrwa(null);
+    }
+  };
+
   const openSource = async (s: ChatSource) => {
     if (s.url) { window.open(s.url, '_blank', 'noopener,noreferrer'); return; }
     if (!s.file_id) return;
@@ -959,6 +999,20 @@ export default function ChatPage() {
                   )
                 ) : (
                   m.content || (streaming && idx === messages.length - 1 ? '…' : '')
+                )}
+
+                {/* Eksport do arkusza — tylko pod odpowiedzią typu LISTA. Odpowiedź
+                    z treści nie jest zestawieniem, więc nie ma czego eksportować. */}
+                {m.lista && m.sources && m.sources.some((s) => s.file_id) && (
+                  <div className="mt-2">
+                    <button
+                      onClick={() => pobierzXlsx(idx, m.sources!)}
+                      disabled={eksportTrwa === idx}
+                      className="text-sm text-blue-600 hover:underline disabled:text-gray-400 disabled:no-underline"
+                    >
+                      📊 {eksportTrwa === idx ? 'Przygotowuję arkusz…' : 'Pobierz tę listę w pliku xlsx'}
+                    </button>
+                  </div>
                 )}
 
                 {m.role === 'assistant' && m.sources && m.sources.length > 0 && (() => {

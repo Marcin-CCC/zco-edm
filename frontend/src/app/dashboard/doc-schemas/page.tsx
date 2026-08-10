@@ -95,6 +95,22 @@ export default function DocSchemasPage() {
   const removeField = (i: number) =>
     setForm((f) => ({ ...f, fields: f.fields.filter((_, idx) => idx !== i) }));
 
+  // Kolejność pól to NIE jest kosmetyka: w tej samej kolejności wychodzą kolumny
+  // w eksporcie listy do XLSX (zob. backend/app/eksport.py). Dzięki temu układ
+  // arkusza ustawia się tam, gdzie i tak definiuje się pola — bez osobnego
+  // kreatora eksportu i bez drugiego miejsca, które trzeba pamiętać.
+  //
+  // Strzałki zamiast przeciągania: pól jest 4–8, więc zysk z przeciągania jest
+  // znikomy, a kosztowałoby obsługę dotyku i dostępności.
+  const moveField = (i: number, kierunek: -1 | 1) =>
+    setForm((f) => {
+      const cel = i + kierunek;
+      if (cel < 0 || cel >= f.fields.length) return f;
+      const fields = [...f.fields];
+      [fields[i], fields[cel]] = [fields[cel], fields[i]];
+      return { ...f, fields };
+    });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -205,7 +221,12 @@ export default function DocSchemasPage() {
             {/* Pola */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-gray-700">Pola nagłówkowe</label>
+                <label className="block text-sm font-medium text-gray-700">
+                  Pola nagłówkowe
+                  <span className="ml-2 font-normal text-xs text-gray-500">
+                    kolejność wyznacza układ kolumn przy pobieraniu listy do Excela
+                  </span>
+                </label>
                 <button
                   type="button"
                   onClick={addField}
@@ -221,6 +242,26 @@ export default function DocSchemasPage() {
                 <div className="space-y-2">
                   {form.fields.map((row, i) => (
                     <div key={i} className="flex flex-wrap items-start gap-2">
+                      <div className="flex flex-col leading-none pt-1">
+                        <button
+                          type="button"
+                          onClick={() => moveField(i, -1)}
+                          disabled={i === 0}
+                          title="W górę (wcześniejsza kolumna w Excelu)"
+                          className="px-1 text-gray-500 hover:text-gray-800 disabled:text-gray-200"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveField(i, 1)}
+                          disabled={i === form.fields.length - 1}
+                          title="W dół (późniejsza kolumna w Excelu)"
+                          className="px-1 text-gray-500 hover:text-gray-800 disabled:text-gray-200"
+                        >
+                          ▼
+                        </button>
+                      </div>
                       <input
                         type="text"
                         value={row.name}
