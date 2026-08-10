@@ -69,14 +69,24 @@ jobs:
   # Wcześniej dwa osobne joby budowały obrazy ARM64 przez emulację QEMU na
   # ubuntu-latest (x86). `npm ci` pod QEMU wywalał się z "illegal instruction"
   # i blokował cały deploy. Runner Sparka jest natywnym aarch64, więc budujemy
-  # bezpośrednio na nim — bez emulacji i bez rundy przez rejestr (obraz
-  # powstaje na tej samej maszynie, na której startuje compose).
+  # bezpośrednio na nim — bez emulacji i bez rundy przez rejestr: WDROŻENIE bierze
+  # obraz z lokalnego demona, na tej samej maszynie, na której startuje compose.
+  #
+  # Do rejestru obraz trafia DOPIERO PO wdrożeniu (krok „Publish images"). Wcześniej
+  # nie trafiał tam wcale, mimo że nazywał się `ghcr.io/...` — była to więc nazwa
+  # myląca: lokalny alias wyglądający jak adres rejestru. Skutek (2026-08-10):
+  # `docker compose pull` na Sparku podmienił dobry lokalny obraz na build z 15
+  # czerwca leżący w rejestrze i cofnął demo z 1.0.9 do 1.0.0. Publikacja usuwa
+  # tę pułapkę u źródła i jest warunkiem instalacji u klienta z rejestru.
   build-deploy:
     name: Build & Deploy on Spark (native ARM64)
     needs: [test-backend]
     runs-on: self-hosted
     if: github.event_name != 'pull_request'
     environment: spark
+    permissions:
+      contents: read
+      packages: write        # wymagane, by GITHUB_TOKEN mógł wypchnąć obraz do ghcr
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -161,6 +171,38 @@ jobs:
           sleep 5
           curl -sf --max-time 10 http://localhost:8083/api/health && echo ' - Backend OK' || echo ' - Backend FAIL'
           curl -sf --max-time 5 http://localhost:3000 > /dev/null && echo ' - Frontend OK' || echo ' - Frontend FAIL'
+
+      # ============================================================
+      # PUBLIKACJA OBRAZÓW DO REJESTRU
+      # ============================================================
+      # Kolejność jest celowa: NAJPIERW wdrożenie, POTEM publikacja. Wdrożenie na
+      # Spark nie może zależeć od dostępności ghcr, a publikacja nie może być cicha —
+      # gdy się nie powiedzie, przebieg ma być czerwony. Milcząca porażka przywróciłaby
+      # dokładnie ten stan, który nas dziś ugryzł: świeży obraz lokalnie, stary
+      # w rejestrze.
+      #
+      # Obok `latest` wypychamy tag z numerem wersji: daje możliwość przypięcia
+      # konkretnego wydania u klienta i powrotu do poprzedniego bez szukania po
+      # identyfikatorach obrazów.
+      - name: Log in to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+
+      - name: Publish images
+        run: |
+          VER="${{ steps.version.outputs.version }}"
+          for OBRAZ in backend frontend; do
+            SCIEZKA="${{ env.REGISTRY }}/marcin-ccc/zco-edm/$OBRAZ"
+            docker tag "$SCIEZKA:latest" "$SCIEZKA:$VER"
+            docker push "$SCIEZKA:$VER"
+            docker push "$SCIEZKA:latest"
+          done
+          echo "Opublikowano wersję $VER (oraz latest)"
+
+      - name: Log out from GHCR
+        if: always()
+        run: docker logout ${{ env.REGISTRY }} || true
 
       - name: Cleanup dangling images
         if: always()
