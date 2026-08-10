@@ -43,15 +43,26 @@ export function OcenaOdpowiedzi({
 }: Props) {
   const [wybrana, setWybrana] = useState<string | null>(null);
   const [powod, setPowod] = useState<string | null>(null);
-  const [dziekujemy, setDziekujemy] = useState(false);
   const wierszPowodow = useRef<HTMLDivElement>(null);
 
-  // Podziękowanie znika samo — nie chcemy, żeby zostawało nad kolejnym pytaniem.
+  // Jeden slot na komunikat, zawsze znikający po 5 sekundach. Wcześniej podpowiedź
+  // „możesz zmienić" wisiała BEZ końca — a że dymek jest nad ikonami, na stałe
+  // zasłaniała odnośniki do źródeł tuż nad nim.
+  // Licznik w kluczu jest po to, żeby powtórzenie tego samego tekstu odnawiało czas:
+  // sam string nie zmieniłby stanu, więc efekt by się nie uruchomił, a dymek zniknąłby
+  // w chwili wyznaczonej przez pierwsze kliknięcie.
+  const [komunikat, setKomunikat] = useState<{ tekst: string; nr: number } | null>(null);
+  const licznik = useRef(0);
+  const pokazKomunikat = (tekst: string) => {
+    licznik.current += 1;
+    setKomunikat({ tekst, nr: licznik.current });
+  };
+
   useEffect(() => {
-    if (!dziekujemy) return;
-    const t = setTimeout(() => setDziekujemy(false), 2500);
+    if (!komunikat) return;
+    const t = setTimeout(() => setKomunikat(null), 5000);
     return () => clearTimeout(t);
-  }, [dziekujemy]);
+  }, [komunikat]);
 
   // Powody pojawiają się na samym dole rozmowy, więc bez przewinięcia użytkownik
   // widzi z nich najwyżej pierwszy i nie wie, że są kolejne. Przy pierwszym renderze
@@ -63,6 +74,7 @@ export function OcenaOdpowiedzi({
   }, [wybrana, powod]);
 
   const wyslij = async (ocena: string, kodPowodu?: string) => {
+    const pierwsza = wybrana === null;
     setWybrana(ocena);
     if (kodPowodu) setPowod(kodPowodu);
     try {
@@ -78,7 +90,13 @@ export function OcenaOdpowiedzi({
           odpowiedz,
         }),
       });
-      if (kodPowodu || ocena !== 'zla') setDziekujemy(true);
+      // Przy ocenie negatywnej BEZ powodu nie dziękujemy jeszcze — pod spodem
+      // wychodzą właśnie przyciski powodu i dymek tylko by je przekrzykiwał.
+      if (kodPowodu || ocena !== 'zla') {
+        pokazKomunikat(pierwsza
+          ? 'Dziękujemy — ocenę możesz jeszcze zmienić'
+          : 'Zapisano — liczy się ostatni wybór');
+      }
     } catch {
       /* ocena to sygnał, nie transakcja — nie zawracamy użytkownikowi głowy błędem */
     }
@@ -87,14 +105,10 @@ export function OcenaOdpowiedzi({
   // Układ jest KOLUMNOWY, a powody mają własny wiersz. Wcześniej doklejały się do
   // wiersza z ikonami i przy wąskim bąbelku zawijały się po jednym w linii — widoczny
   // był tylko pierwszy, reszta czekała pod krawędzią okna rozmowy.
-  // Komunikaty („Dziękujemy", „możesz zmienić") wiszą w DYMKU nad ikonami, poza
-  // przepływem układu. Wcześniej pojawiały się w tym samym wierszu i ich wejście
-  // rozpychało bąbelek: rozmowa przeskakiwała w dół, a kursor uciekał z ikony,
-  // w którą użytkownik właśnie celował.
-  const komunikat = dziekujemy
-    ? 'Dziękujemy.'
-    : (wybrana ? 'Możesz zmienić — liczy się ostatni wybór' : null);
-
+  // Komunikat wisi w DYMKU nad ikonami, poza przepływem układu — dzięki temu jego
+  // wejście nie rozpycha bąbelka i nie przesuwa rozmowy pod kursorem. Cena tego
+  // rozwiązania: dymek nachodzi na to, co jest wyżej (listę źródeł), więc MUSI
+  // znikać sam.
   return (
     <div className="mt-2 text-xs text-gray-500">
       <div className="relative flex flex-wrap items-center gap-2">
@@ -104,7 +118,7 @@ export function OcenaOdpowiedzi({
             className="pointer-events-none absolute bottom-full left-0 mb-1 whitespace-nowrap
                        rounded-md bg-gray-800 px-2 py-1 text-[11px] text-white shadow-sm"
           >
-            {komunikat}
+            {komunikat.tekst}
           </span>
         )}
         <span>{wybrana ? 'Twoja ocena:' : 'Jak oceniasz tę odpowiedź?'}</span>
