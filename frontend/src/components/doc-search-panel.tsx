@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { docSchemasApi, docSearchApi, DocTypeSchema, DocSearchHit } from '@/lib/api';
+import { pobierzListeXlsx } from '@/lib/eksport-xlsx';
 
 const OPS = [
   { value: 'contains', label: 'zawiera' },
@@ -32,6 +33,21 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
   const [error, setError] = useState('');
   const [nlQuery, setNlQuery] = useState('');
   const [nlLoading, setNlLoading] = useState(false);
+  const [eksportTrwa, setEksportTrwa] = useState(false);
+
+  /** Pobierz wyniki jako arkusz. Nazwę pliku buduje backend z pytania po polsku —
+   *  tak samo jak w czacie robi to z pytania użytkownika. */
+  const pobierzXlsx = async () => {
+    if (!hits?.length) return;
+    setEksportTrwa(true);
+    try {
+      await pobierzListeXlsx(hits.map((h) => h.id), nlQuery);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Nie udało się pobrać arkusza.');
+    } finally {
+      setEksportTrwa(false);
+    }
+  };
 
   useEffect(() => {
     docSchemasApi.list().then(setSchemas).catch(() => { /* rejestr może być pusty */ });
@@ -233,7 +249,16 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
           <p className="text-xs text-gray-400 text-center mt-6">Brak dokumentów spełniających kryteria.</p>
         ) : (
           <>
-            <p className="text-xs text-gray-500 mb-2">Znaleziono: {hits.length}</p>
+            <p className="text-xs text-gray-500 mb-1">Znaleziono: {hits.length}</p>
+            {/* Eksport tej samej listy, którą widać niżej — kolumny i kolejność ustala
+                rejestr schematów, nazwa pliku powstaje z pytania po polsku. */}
+            <button
+              onClick={pobierzXlsx}
+              disabled={eksportTrwa}
+              className="mb-2 text-sm text-blue-600 hover:underline disabled:text-gray-400 disabled:no-underline"
+            >
+              📊 {eksportTrwa ? 'Przygotowuję arkusz…' : 'Pobierz tę listę w pliku xlsx'}
+            </button>
             <ul className="space-y-2">
               {hits.map((h) => (
                 <li key={h.id} className="border border-gray-200 rounded-md p-2.5">

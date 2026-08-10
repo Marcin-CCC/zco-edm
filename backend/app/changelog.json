@@ -9,7 +9,8 @@
         "Gdy lista zawiera dokumenty roznych rodzajow, kazdy rodzaj dostaje wlasny arkusz z wlasnymi kolumnami.",
         "Daty i liczby zapisywane sa jako daty i liczby, wiec sortowanie i filtrowanie w Excelu dziala od razu. Naglowek jest zamrozony, a kolumny maja wlaczony filtr.",
         "Kolejnosc kolumn ustawia sie w Administracja - Schematy dokumentow, strzalkami przy polach. Ta sama kolejnosc obowiazuje w podgladzie dokumentu.",
-        "Nazwa pobieranego pliku powstaje z tresci zapytania - dla \"wypisz zarzadzenia 2009\" bedzie to zarzadzenia-2009.xlsx."
+        "Nazwa pobieranego pliku powstaje z tresci zapytania - dla \"wypisz zarzadzenia 2009\" bedzie to zarzadzenia-2009.xlsx.",
+        "Ten sam odnosnik dziala w Wyszukiwarce po polach, pod liczba znalezionych dokumentow. Nazwa pliku powstaje wtedy z pytania wpisanego w pole \"Zapytaj po polsku\"."
       ]
     },
     {

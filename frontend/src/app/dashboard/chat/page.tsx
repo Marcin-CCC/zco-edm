@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import { DocSearchPanel } from '@/components/doc-search-panel';
 import { OcenaOdpowiedzi } from '@/components/ocena-odpowiedzi';
 import { docSchemasApi, docSearchApi } from '@/lib/api';
+import { pobierzListeXlsx } from '@/lib/eksport-xlsx';
 
 // Polska odmiana rzeczownika „dokument" po liczbie
 function pluralDocs(n: number): string {
@@ -829,36 +830,13 @@ export default function ChatPage() {
   // dokumentów — w kolejności, w jakiej użytkownik widzi je na ekranie.
   const [eksportTrwa, setEksportTrwa] = useState<number | null>(null);
 
+  // Eksport listy do arkusza — wspólny z wyszukiwarką po polach (lib/eksport-xlsx.ts).
   const pobierzXlsx = async (idx: number, zrodla: ChatSource[], pytanie?: string) => {
     const ids = zrodla.map((s) => s.file_id).filter((id): id is number => !!id);
     if (!ids.length) return;
     setEksportTrwa(idx);
     try {
-      const res = await fetch('/api/files/eksport-xlsx', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        // Pytanie idzie z listą: z niego backend buduje nazwę pliku
-        // („wypisz zarządzenia 2009" → zarządzenia-2009.xlsx).
-        body: JSON.stringify({ file_ids: ids, pytanie: pytanie || null }),
-      });
-      if (!res.ok) throw new Error(`Nie udało się przygotować arkusza (${res.status}).`);
-      // Nazwę nadaje backend (po typie dokumentów). Nagłówek niesie dwa warianty:
-      // `filename*` w UTF-8 (z polskimi znakami) i `filename` transliterowany na ASCII,
-      // bo nagłówki HTTP są kodowane w latin-1. Bierzemy ładniejszy, gdy jest.
-      const naglowek = res.headers.get('content-disposition') || '';
-      const utf8 = naglowek.match(/filename\*=UTF-8''([^;]+)/i);
-      const dopasowanie = utf8
-        ? [null, decodeURIComponent(utf8[1])]
-        : naglowek.match(/filename="?([^"]+)"?/);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = dopasowanie?.[1] || 'lista-dokumentow.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      await pobierzListeXlsx(ids, pytanie);
     } catch (e: any) {
       alert(e?.message || 'Nie udało się pobrać arkusza.');
     } finally {
