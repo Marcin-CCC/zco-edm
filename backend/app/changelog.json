@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.0.18",
+      "date": "2026-08-10",
+      "title": "Raport parsowania wskazuje system i osobe wgrywajaca",
+      "changes": [
+        "Temat wiadomosci z raportem parsowania zaczyna sie od nazwy systemu w nawiasie kwadratowym. Wczesniej raporty z dwoch roznych wdrozen wygladaly identycznie i nie dalo sie poznac, ktorego dotycza.",
+        "W naglowku raportu, pod nazwa pliku, widnieje osoba, ktora wgrala dokument."
+      ]
+    },
+    {
       "version": "1.0.17",
       "date": "2026-08-10",
       "title": "Dymek przy ocenianiu znika sam",
