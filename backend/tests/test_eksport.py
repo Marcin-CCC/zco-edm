@@ -20,7 +20,9 @@ def jako_data(wartosc):
     assert isinstance(wartosc, (date, datetime)), f"oczekiwano daty, jest {type(wartosc)}"
     return wartosc.date() if isinstance(wartosc, datetime) else wartosc
 
-from app.eksport import etykieta_pola, nazwa_arkusza, nazwa_pliku, zbuduj_xlsx
+from app.eksport import (
+    etykieta_pola, naglowek_pobierania, nazwa_arkusza, nazwa_pliku, zbuduj_xlsx,
+)
 
 SCHEMATY = {
     "zarzadzenie": {
@@ -150,3 +152,27 @@ class TestNazw:
     def test_nazwa_pliku_ogolna_gdy_typy_mieszane(self):
         aneks = {"filename": "a.pdf", "doc_type": "aneks", "doc_fields": {}}
         assert nazwa_pliku([ZARZADZENIE, aneks], SCHEMATY).startswith("lista-dokumentow-")
+
+
+class TestNaglowkaPobierania:
+    """Regresja z 2026-08-10: pierwszy eksport zwrocil 500. Arkusz budowal sie dobrze,
+    ale nazwa „zarządzenie-….xlsx" nie przechodzila przez naglowek HTTP — te sa kodowane
+    w latin-1 i „ą" wywracalo cala odpowiedz. Test pilnuje warunku, ktorego wczesniej
+    nie sprawdzalem: czy naglowek DA SIE WYSLAC."""
+
+    @pytest.mark.parametrize("nazwa", [
+        "zarządzenie-2026-08-10.xlsx",
+        "lista-dokumentow-2026-08-10.xlsx",
+        "źdźbło-ćma-ĄĘŁŃÓŚŻ.xlsx",
+    ])
+    def test_naglowek_da_sie_zakodowac_w_latin1(self, nazwa):
+        naglowek_pobierania(nazwa).encode("latin-1")      # rzuci, gdy wroci regresja
+
+    def test_zawiera_oba_warianty_nazwy(self):
+        n = naglowek_pobierania("zarządzenie-2026.xlsx")
+        assert 'filename="zarzadzenie-2026.xlsx"' in n     # awaryjny, transliterowany
+        assert "filename*=UTF-8''" in n                    # pelna nazwa dla przegladarki
+
+    def test_nazwa_bez_ani_jednego_znaku_ascii(self):
+        """Sama transliteracja moglaby dac pusty napis — wtedy potrzebny jest zapas."""
+        assert 'filename="lista-dokumentow.xlsx"' in naglowek_pobierania("日本語.xlsx")

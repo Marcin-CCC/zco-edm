@@ -849,7 +849,7 @@ def eksport_listy_xlsx(
     """
     from fastapi.responses import Response
     from app.doc_schemas.router import get_active_schemas
-    from app.eksport import nazwa_pliku, zbuduj_xlsx
+    from app.eksport import naglowek_pobierania, nazwa_pliku, zbuduj_xlsx
 
     if not payload.file_ids:
         raise HTTPException(status_code=400, detail="Pusta lista dokumentów.")
@@ -890,5 +890,5 @@ def eksport_listy_xlsx(
     return Response(
         content=zawartosc,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{nazwa}"'},
+        headers={"Content-Disposition": naglowek_pobierania(nazwa)},
     )

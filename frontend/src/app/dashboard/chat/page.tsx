@@ -839,9 +839,14 @@ export default function ChatPage() {
         body: JSON.stringify({ file_ids: ids }),
       });
       if (!res.ok) throw new Error(`Nie udało się przygotować arkusza (${res.status}).`);
-      // Nazwę nadaje backend (po typie dokumentów) — bierzemy ją z nagłówka.
+      // Nazwę nadaje backend (po typie dokumentów). Nagłówek niesie dwa warianty:
+      // `filename*` w UTF-8 (z polskimi znakami) i `filename` transliterowany na ASCII,
+      // bo nagłówki HTTP są kodowane w latin-1. Bierzemy ładniejszy, gdy jest.
       const naglowek = res.headers.get('content-disposition') || '';
-      const dopasowanie = naglowek.match(/filename="?([^"]+)"?/);
+      const utf8 = naglowek.match(/filename\*=UTF-8''([^;]+)/i);
+      const dopasowanie = utf8
+        ? [null, decodeURIComponent(utf8[1])]
+        : naglowek.match(/filename="?([^"]+)"?/);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');

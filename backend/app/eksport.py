@@ -21,6 +21,7 @@ którego ktoś woli xlsx od przepisywania z ekranu.
 import io
 import re
 from datetime import date, datetime
+from urllib.parse import quote
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -154,6 +155,29 @@ def zbuduj_xlsx(dokumenty: list[dict], schematy: dict[str, dict]) -> bytes:
     bufor = io.BytesIO()
     wb.save(bufor)
     return bufor.getvalue()
+
+
+# Polskie znaki na ASCII — do awaryjnej nazwy pliku w nagłówku HTTP.
+_TRANSLITERACJA = str.maketrans("ąćęłńóśźżĄĆĘŁŃÓŚŹŻ", "acelnoszzACELNOSZZ")
+
+
+def naglowek_pobierania(nazwa: str) -> str:
+    """Wartość nagłówka `Content-Disposition` dla nazwy z polskimi znakami.
+
+    Nagłówki HTTP kodowane są w latin-1, więc nazwa z „ą" przewraca CAŁĄ odpowiedź
+    (`UnicodeEncodeError`). Zmierzone boleśnie: pierwszy eksport zwrócił 500, choć sam
+    arkusz budował się poprawnie — błąd wyszedł dopiero przy wysyłaniu nagłówka.
+
+    Dajemy dwa warianty naraz, zgodnie z RFC 6266: `filename` z transliteracją jako
+    awaryjny i `filename*` w UTF-8 dla przeglądarek, które umieją pokazać ogonki.
+    """
+    awaryjna = nazwa.translate(_TRANSLITERACJA).encode("ascii", "ignore").decode()
+    # Sprawdzamy TRZON, nie całość: dla nazwy bez znaków ASCII zostaje samo „.xlsx",
+    # co jest niepustym napisem, ale bezużyteczną nazwą pliku.
+    trzon = awaryjna.rsplit(".", 1)[0] if "." in awaryjna else awaryjna
+    if not trzon.strip(" -_"):
+        awaryjna = "lista-dokumentow.xlsx"
+    return f"attachment; filename=\"{awaryjna}\"; filename*=UTF-8''{quote(nazwa)}"
 
 
 def nazwa_pliku(dokumenty: list[dict], schematy: dict[str, dict]) -> str:
