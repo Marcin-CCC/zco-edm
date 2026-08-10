@@ -20,7 +20,7 @@ którego ktoś woli xlsx od przepisywania z ekranu.
 
 import io
 import re
-from datetime import date, datetime
+from datetime import datetime
 from urllib.parse import quote
 
 from openpyxl import Workbook
@@ -180,14 +180,47 @@ def naglowek_pobierania(nazwa: str) -> str:
     return f"attachment; filename=\"{awaryjna}\"; filename*=UTF-8''{quote(nazwa)}"
 
 
-def nazwa_pliku(dokumenty: list[dict], schematy: dict[str, dict]) -> str:
-    """Nazwa pobieranego pliku — po typie, gdy lista jest jednorodna."""
+# Polecenia otwierające pytanie („wypisz zarządzenia 2009"). W nazwie pliku są
+# szumem — opisują, o co użytkownik prosił, a nie CO dostał.
+_POLECENIA = {
+    "wypisz", "pokaz", "wymien", "znajdz", "wyszukaj", "wylistuj", "podaj", "daj",
+    "otworz", "przeslij", "eksportuj", "lista", "liste", "wszystkie", "prosze",
+}
+_SLOWO_NAZWY = re.compile(r"[0-9A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]+")
+MAX_DLUGOSC_NAZWY = 60
+
+
+def slug_z_pytania(pytanie: str | None) -> str:
+    """„wypisz zarządzenia 2009" → „zarządzenia-2009".
+
+    Nazwa pliku ma mówić, CO jest w środku. Data pobrania tego nie mówi — mówi tylko,
+    kiedy ktoś kliknął, a to widać w systemie plików.
+
+    Polecenia z początku odcinamy, bo w nazwie są szumem. Nie tłumaczymy ani nie
+    poprawiamy pisowni: nazwa ma odwzorowywać pytanie, więc kto napisał „zarzadzenia",
+    dostanie „zarzadzenia".
+    """
+    slowa = _SLOWO_NAZWY.findall(pytanie or "")
+    while slowa and slowa[0].lower().translate(_TRANSLITERACJA) in _POLECENIA:
+        slowa.pop(0)
+    slug = "-".join(slowa).lower()
+    if len(slug) > MAX_DLUGOSC_NAZWY:
+        # Tniemy na granicy słowa, żeby nazwa nie kończyła się w połowie wyrazu.
+        slug = slug[:MAX_DLUGOSC_NAZWY].rsplit("-", 1)[0]
+    return slug.strip("-")
+
+
+def nazwa_pliku(dokumenty: list[dict], schematy: dict[str, dict],
+                pytanie: str | None = None) -> str:
+    """Nazwa pobieranego pliku: z treści pytania, a gdy się nie da — z typu."""
+    slug = slug_z_pytania(pytanie)
+    if slug:
+        return f"{slug}.xlsx"
+
     typy = {d.get("doc_type") for d in dokumenty}
-    dzis = date.today().isoformat()
     if len(typy) == 1:
-        slug = typy.pop()
-        schemat = schematy.get(slug or "")
+        schemat = schematy.get(typy.pop() or "")
         if schemat:
             czysty = re.sub(r"[^\w-]+", "-", schemat["name"].lower(), flags=re.UNICODE)
-            return f"{czysty}-{dzis}.xlsx"
-    return f"lista-dokumentow-{dzis}.xlsx"
+            return f"{czysty.strip('-')}.xlsx"
+    return "lista-dokumentow.xlsx"

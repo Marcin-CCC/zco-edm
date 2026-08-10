@@ -497,6 +497,7 @@ export default function ChatPage() {
             const next = [...prev];
             next[next.length - 1] = {
               ...next[next.length - 1], content: summary, sources: zakres!, lista: true,
+              pytanie: text,
             };
             return next;
           });
@@ -828,7 +829,7 @@ export default function ChatPage() {
   // dokumentów — w kolejności, w jakiej użytkownik widzi je na ekranie.
   const [eksportTrwa, setEksportTrwa] = useState<number | null>(null);
 
-  const pobierzXlsx = async (idx: number, zrodla: ChatSource[]) => {
+  const pobierzXlsx = async (idx: number, zrodla: ChatSource[], pytanie?: string) => {
     const ids = zrodla.map((s) => s.file_id).filter((id): id is number => !!id);
     if (!ids.length) return;
     setEksportTrwa(idx);
@@ -836,7 +837,9 @@ export default function ChatPage() {
       const res = await fetch('/api/files/eksport-xlsx', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ file_ids: ids }),
+        // Pytanie idzie z listą: z niego backend buduje nazwę pliku
+        // („wypisz zarządzenia 2009" → zarządzenia-2009.xlsx).
+        body: JSON.stringify({ file_ids: ids, pytanie: pytanie || null }),
       });
       if (!res.ok) throw new Error(`Nie udało się przygotować arkusza (${res.status}).`);
       // Nazwę nadaje backend (po typie dokumentów). Nagłówek niesie dwa warianty:
@@ -1011,7 +1014,7 @@ export default function ChatPage() {
                 {m.lista && m.sources && m.sources.some((s) => s.file_id) && (
                   <div className="mt-2">
                     <button
-                      onClick={() => pobierzXlsx(idx, m.sources!)}
+                      onClick={() => pobierzXlsx(idx, m.sources!, m.pytanie)}
                       disabled={eksportTrwa === idx}
                       className="text-sm text-blue-600 hover:underline disabled:text-gray-400 disabled:no-underline"
                     >

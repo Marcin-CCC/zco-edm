@@ -830,6 +830,8 @@ def list_folder_files(folder_id: int, db: Session = Depends(get_db), current_use
 class EksportXlsxRequest(BaseModel):
     """Lista dokumentów do wyeksportowania — w kolejności, w jakiej widzi ją użytkownik."""
     file_ids: List[int]
+    # Treść pytania — z niej powstaje nazwa pliku („zarządzenia 2009" → zarzadzenia-2009.xlsx)
+    pytanie: Optional[str] = None
 
 
 @router.post("/eksport-xlsx")
@@ -881,7 +883,7 @@ def eksport_listy_xlsx(
 
     schematy = {s["slug"]: s for s in get_active_schemas(db)}
     zawartosc = zbuduj_xlsx(dokumenty, schematy)
-    nazwa = nazwa_pliku(dokumenty, schematy)
+    nazwa = nazwa_pliku(dokumenty, schematy, payload.pytanie)
     pominiete = len(set(payload.file_ids)) - len(dozwolone)
     logger.info(
         f"[EKSPORT] user={current_user.username} pozycji={len(dokumenty)}"

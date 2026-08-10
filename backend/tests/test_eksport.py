@@ -21,7 +21,8 @@ def jako_data(wartosc):
     return wartosc.date() if isinstance(wartosc, datetime) else wartosc
 
 from app.eksport import (
-    etykieta_pola, naglowek_pobierania, nazwa_arkusza, nazwa_pliku, zbuduj_xlsx,
+    etykieta_pola, naglowek_pobierania, nazwa_arkusza, nazwa_pliku, slug_z_pytania,
+    zbuduj_xlsx,
 )
 
 SCHEMATY = {
@@ -146,12 +147,32 @@ class TestNazw:
         assert nazwa_arkusza("Umowa", zajete) == "Umowa"
         assert nazwa_arkusza("Umowa", zajete) == "Umowa (2)"
 
-    def test_nazwa_pliku_po_typie_gdy_lista_jednorodna(self):
-        assert nazwa_pliku([ZARZADZENIE], SCHEMATY).startswith("zarządzenie-")
+    def test_nazwa_pliku_z_pytania(self):
+        """Nazwa ma mowic, CO jest w srodku. Data pobrania tego nie mowi."""
+        assert nazwa_pliku([ZARZADZENIE], SCHEMATY, "wypisz zarządzenia 2009") ==             "zarządzenia-2009.xlsx"
 
-    def test_nazwa_pliku_ogolna_gdy_typy_mieszane(self):
+    @pytest.mark.parametrize("pytanie,oczekiwana", [
+        ("wypisz zarządzenia 2009", "zarządzenia-2009"),
+        ("Pokaż wszystkie umowy z 2023", "umowy-z-2023"),
+        ("zarzadzenia 2009", "zarzadzenia-2009"),          # bez ogonkow, jak wpisano
+        ("wymień instrukcje", "instrukcje"),
+        ("", ""),
+        ("wypisz", ""),                                     # samo polecenie = brak nazwy
+    ])
+    def test_slug_z_pytania(self, pytanie, oczekiwana):
+        assert slug_z_pytania(pytanie) == oczekiwana
+
+    def test_dlugie_pytanie_przyciete_na_granicy_slowa(self):
+        slug = slug_z_pytania("wypisz " + " ".join(["zarzadzenie"] * 12))
+        assert len(slug) <= 60 and not slug.endswith("-") and "zarzadzenie" in slug
+        assert slug.split("-")[-1] == "zarzadzenie"          # nie ucieta w polowie
+
+    def test_bez_pytania_nazwa_po_typie(self):
+        assert nazwa_pliku([ZARZADZENIE], SCHEMATY) == "zarządzenie.xlsx"
+
+    def test_bez_pytania_i_przy_typach_mieszanych_nazwa_ogolna(self):
         aneks = {"filename": "a.pdf", "doc_type": "aneks", "doc_fields": {}}
-        assert nazwa_pliku([ZARZADZENIE, aneks], SCHEMATY).startswith("lista-dokumentow-")
+        assert nazwa_pliku([ZARZADZENIE, aneks], SCHEMATY) == "lista-dokumentow.xlsx"
 
 
 class TestNaglowkaPobierania:
