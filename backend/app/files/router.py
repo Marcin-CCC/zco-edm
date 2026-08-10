@@ -42,11 +42,14 @@ STORAGE_DIR = settings.STORAGE_PATH or _PROJECT_ROOT_SHARED
 BACKEND_CALLBACK_URL = os.getenv("BACKEND_CALLBACK_URL", "http://192.168.1.34:8083").rstrip("/")
 
 
-def build_webhook_payload(file_id: int, file_path: str, folder_id: int | None = None) -> dict:
+def build_webhook_payload(file_id: int, file_path: str, folder_id: int | None = None,
+                          uzytkownik: str | None = None) -> dict:
     """Zbuduj payload webhooka dla n8n z gotowym URL-em do aktualizacji statusu.
 
     `folder_id` trafia do payloadu Qdranta (Default Data Loader) i służy do
     filtrowania RBAC w czacie (Faza C). None = plik w katalogu głównym.
+
+    `uzytkownik` — kto wgrał plik; idzie wyłącznie do raportu e-mail z parsowania.
     """
     return {
         "file_id": file_id,
@@ -56,6 +59,11 @@ def build_webhook_payload(file_id: int, file_path: str, folder_id: int | None = 
         # Kolekcja TEJ instancji. Jeden workflow n8n obsługuje wiele wdrożeń — bez tego
         # dokumenty demo trafiłyby do indeksu klienta (nazwa kolekcji była w n8n stałą).
         "collection": settings.QDRANT_COLLECTION,
+        # Dane do raportu e-mail o parsowaniu. Ten sam workflow wysyła raporty z OBU
+        # wdrożeń, więc bez nazwy instancji raport z demo wyglądał jak raport z systemu
+        # klienta — zdarzyło się 2026-08-10 i kosztowało szukanie pliku w złej bazie.
+        "instancja": settings.APP_NAME,
+        "uzytkownik": uzytkownik or "nieznany",
     }
 
 

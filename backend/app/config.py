@@ -37,6 +37,11 @@ class Settings:
         os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "shared_docs")
     )
 
+    # Nazwa TEJ instancji („ZCO DM", „HiRS"). Backend potrzebuje jej, bo jeden
+    # workflow n8n obsługuje oba wdrożenia i raporty e-mail z obu wyglądały
+    # identycznie — nie dało się poznać, z którego systemu przyszedł raport.
+    APP_NAME: str = os.getenv("APP_NAME", "HiRS")
+
     # External services
     QDRANT_URL: str = os.getenv("QDRANT_URL", "http://192.168.1.34:6333")
     # Kolekcja Qdrant, do której n8n zapisuje wektory (do usuwania po file_id).

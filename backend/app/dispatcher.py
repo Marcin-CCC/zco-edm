@@ -94,7 +94,12 @@ def _get_webhook_url(db: Session) -> str | None:
 
 def _build_payload(file: FileModel) -> dict:
     from app.files.router import build_webhook_payload
-    return build_webhook_payload(file.id, file.file_path, file.folder_id)
+    # Osoba, która wgrała plik — do raportu e-mail. Nazwa wyświetlana, a gdy jej brak,
+    # login; nie e-mail, bo raport bywa przekazywany dalej.
+    kto = None
+    if file.uploader is not None:
+        kto = file.uploader.full_name or file.uploader.username
+    return build_webhook_payload(file.id, file.file_path, file.folder_id, uzytkownik=kto)
 
 
 def _reap_stale_processing(db: Session) -> None:
