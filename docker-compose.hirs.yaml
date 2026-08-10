@@ -1,5 +1,5 @@
 # ============================================================
-# HIRS — demo uniwersalne (druga instancja tej samej aplikacji)
+# HiRS — demo uniwersalne (druga instancja tej samej aplikacji)
 # ============================================================
 # Ten sam obraz co wdrożenie klienckie; różnice są WYŁĄCZNIE tutaj:
 #   - marka (nazwa, kolory) — zob. frontend/src/lib/marka.ts,
@@ -24,7 +24,7 @@ services:
       - NEXT_PUBLIC_API_URL=http://hirs-backend:8000
       # Marka demo uniwersalnego (wartości domyślne w kodzie są takie same,
       # ale wpisujemy je jawnie — instancja ma się nazywać sama).
-      - APP_NAME=${APP_NAME:-HIRS}
+      - APP_NAME=${APP_NAME:-HiRS}
       - APP_DESCRIPTION=${APP_DESCRIPTION:-Hospital Information Retrieval System}
       - BRAND_PRIMARY=${BRAND_PRIMARY:-#1d2a4d}
       - BRAND_ACCENT=${BRAND_ACCENT:-#1fc8ba}
@@ -67,7 +67,7 @@ services:
       - N8N_AUTH_VALUE=${N8N_AUTH_VALUE:-}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-720}
-      - APP_NAME=${APP_NAME:-HIRS}
+      - APP_NAME=${APP_NAME:-HiRS}
     volumes:
       # Własny wolumen dokumentów, montowany także w n8n pod TĄ SAMĄ ścieżką —
       # inaczej parsowanie nie zobaczy wgranych plików.

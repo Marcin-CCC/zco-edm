@@ -1,7 +1,7 @@
 /**
  * Marka instancji — nazwa i kolory czytane z konfiguracji, nie wpisane w kod.
  *
- * Jeden obraz obsługuje wiele wdrożeń: demo uniwersalne (HIRS) i wdrożenia klienckie
+ * Jeden obraz obsługuje wiele wdrożeń: demo uniwersalne (HiRS) i wdrożenia klienckie
  * (np. „ZCO DM") różnią się WYŁĄCZNIE zmiennymi środowiskowymi, więc rozwój dzieje się
  * raz, a każda instancja dostaje tę samą zmianę. Bez tego każda nazwa i każdy kolor
  * oznaczałyby osobną gałąź kodu do utrzymania.
@@ -23,13 +23,13 @@ export interface Marka {
   akcent: string;
   /** Przykład w polu adresu e-mail na logowaniu */
   przykladEmail: string;
-  /** Kolor nazwy w nagłówku paska bocznego (HIRS: biały, ZCO: turkus marki) */
+  /** Kolor nazwy w nagłówku paska bocznego (HiRS: biały, ZCO: turkus marki) */
   naglowek: string;
 }
 
 /** Domyślnie demo uniwersalne. Wdrożenia klienckie nadpisują to zmiennymi środowiskowymi. */
 export const MARKA_DOMYSLNA: Marka = {
-  nazwa: 'HIRS',
+  nazwa: 'HiRS',
   opis: 'Hospital Information Retrieval System',
   tlo: '#1d2a4d',
   akcent: '#1fc8ba',
