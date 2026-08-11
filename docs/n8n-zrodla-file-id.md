@@ -77,6 +77,49 @@ Zmiany są dwie i obie są potrzebne:
    nazwie i tej samej stronie nadal scalałyby się w jedną pozycję listy źródeł.
    To ten sam błąd, tylko o poziom wcześniej.
 
+
+## UWAGA — dwie dalsze zmiany, bez których pierwsza nic nie daje
+
+Sprawdzenie na opublikowanym przepływie (2026-08-11) pokazało, że sam „Chunks Filter"
+nie wystarczy. Poniższe dwie poprawki są konieczne.
+
+### A. Węzeł „Sources Gate" GUBI `file_id`
+
+Ten węzeł przepisuje źródła pole po polu i `file_id` w tej liście nie ma — więc do
+backendu nadal nie dociera nic poza nazwą. Dopisz jedną linię:
+
+```javascript
+  .map((id) => ({
+    filename: sourceById[id].filename,
+    page: sourceById[id].page,
+    file_id: sourceById[id].file_id,      // <-- DOPISAĆ
+    score: sourceById[id].score,
+    cited: cytowane.has(String(id)),
+  }));
+```
+
+### B. Fragmenty DOBRANE też potrzebują `file_id`
+
+W sekcji **1b** węzła „Chunks Filter" fragmenty z `extraChunks` dostają metadane bez
+identyfikatora. Backend wysyła je od wersji 1.0.21; wystarczy przekazać dalej:
+
+```javascript
+  dobrane.push({
+    score: scoreThreshold,
+    text,
+    md: { filename: e.filename, page: e.page, file_id: e.file_id ?? null },
+  });
+```
+
+Bez tego fragment doklejony przez dobór z dokumentu-zwycięzcy nadal byłby
+rozpoznawany po nazwie — czyli dokładnie tak, jak przed całą poprawką.
+
+### Kosmetyka (nieobowiązkowe)
+
+W sekcji 4 komentarz nagłówkowy mówi jeszcze „unikalne po filename|page", choć klucz
+jest już po `file_id`. Warto poprawić, bo w tym przepływie komentarze są instrukcją
+obsługi, a nie ozdobą.
+
 ## Po edycji
 
 Kliknij **Publish** (od n8n 2.34 sam zapis nie wchodzi do ruchu).

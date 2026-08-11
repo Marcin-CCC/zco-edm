@@ -209,8 +209,12 @@ async def dobierz_fragmenty(
             f"[CHAT-DOBOR] {zapytanie!r} → doklejam {len(dobrane)} fragm. z pliku {file_id}: "
             f"str. {[d.get('page') for d in dobrane]}"
         )
+    # `file_id` jedzie razem z fragmentem: nazwa pliku nie identyfikuje dokumentu
+    # (w bazie ZCO 9 nazw powtarza się i obejmuje 18 plików), więc bez tego pola
+    # cytowanie fragmentu dobranego mogłoby wskazać inny dokument o tej samej nazwie.
     return [
-        {"text": d.get("content") or "", "filename": d.get("filename"), "page": d.get("page")}
+        {"text": d.get("content") or "", "filename": d.get("filename"),
+         "page": d.get("page"), "file_id": d.get("file_id")}
         for d in dobrane
         if (d.get("content") or "").strip()
     ]

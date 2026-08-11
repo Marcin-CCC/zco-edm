@@ -167,6 +167,9 @@ class TestDobierzFragmenty:
 
         assert [d["page"] for d in wynik] == [4]
         assert wynik[0]["text"] == "dzieci od 5 roku życia do 18 lat"
+        # `file_id` MUSI jechać z fragmentem: nazwa pliku nie identyfikuje dokumentu,
+        # więc bez tego pola cytowanie mogłoby wskazać inny plik o tej samej nazwie.
+        assert wynik[0]["file_id"] == 203
         # filtr uprawnień musi przetrwać, a warunek na plik tylko się dokłada
         assert rbac["must"][0] in uzyty_filtr["must"]
         assert {"key": "metadata.file_id", "match": {"value": 203}} in uzyty_filtr["must"]
