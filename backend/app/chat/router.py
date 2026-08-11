@@ -162,21 +162,56 @@ def build_history(db: Session, user: User, session_id: str) -> str:
 
 
 def _enrich_with_file_ids(sources: list[dict], db: Session) -> list[dict]:
-    """Dopasuj file_id po nazwie pliku (link do pobrania) + dołóż typ dokumentu.
+    """Dołóż do źródeł identyfikator pliku, typ dokumentu i kluczowe pola.
 
-    Faza B (#7): źródła pokazują też rozpoznany typ i kluczowe pola (numer/data),
-    więc zamiast samej nazwy pliku użytkownik widzi np. „Zarządzenie nr 8/2023".
-    Dane bierzemy z `files.metadata_` (Postgres) — bez zmian w n8n.
+    Faza B (#7): źródła pokazują rozpoznany typ i numer/datę, więc zamiast samej
+    nazwy pliku użytkownik widzi np. „Zarządzenie nr 8/2023".
+
+    IDENTYFIKACJA PO `file_id`, NIE PO NAZWIE. Nazwa pliku nie jest unikalna:
+    zmierzone na bazie ZCO (2026-08-10) — 9 nazw powtarza się, obejmując 18
+    dokumentów. Dwa różne zarządzenia leżą pod nazwą „1.pdf" (1/2009 i 1/2010).
+    Dopasowanie po nazwie sklejało je w jedno: odpowiedź pochodziła ze strony 4
+    dokumentu 1/2010, a etykieta i odnośnik prowadziły do 1/2009 — dokumentu,
+    który ma jedną stronę. Klikając cytowanie, użytkownik pobierał NIE TEN plik.
+
+    Nazwy używamy więc tylko awaryjnie i tylko wtedy, gdy wskazuje dokładnie jeden
+    dokument. Przy nazwie niejednoznacznej zostawiamy źródło bez `file_id`: lepiej
+    pokazać samą nazwę bez odnośnika niż odesłać do niewłaściwego dokumentu.
     """
-    filenames = {s.get("filename") for s in sources if s.get("filename")}
-    if not filenames:
+    from collections import Counter
+
+    # 1) Droga pewna: n8n przysłał `file_id` (payload Qdranta go niesie).
+    po_id: dict[int, tuple[int, dict]] = {}
+    identyfikatory = {s["file_id"] for s in sources if s.get("file_id")}
+    if identyfikatory:
+        for fid, _fn, meta in (
+            db.query(FileModel.id, FileModel.filename, FileModel.metadata_)
+            .filter(FileModel.id.in_(identyfikatory)).all()
+        ):
+            po_id[fid] = (fid, meta)
+
+    # 2) Droga awaryjna: po nazwie, ale WYŁĄCZNIE gdy jest jednoznaczna.
+    by_name: dict[str, tuple[int, dict]] = {}
+    filenames = {s.get("filename") for s in sources
+                 if s.get("filename") and not s.get("file_id")}
+    if filenames:
+        rows = (
+            db.query(FileModel.id, FileModel.filename, FileModel.metadata_)
+            .filter(FileModel.filename.in_(filenames))
+            .all()
+        )
+        ile_o_nazwie = Counter(filename for _fid, filename, _meta in rows)
+        by_name = {filename: (fid, meta) for fid, filename, meta in rows
+                   if ile_o_nazwie[filename] == 1}
+        niejednoznaczne = sorted(n for n, ile in ile_o_nazwie.items() if ile > 1)
+        if niejednoznaczne:
+            logger.warning(
+                f"[CHAT] Nazwa pliku nie wskazuje jednego dokumentu: {niejednoznaczne} — "
+                f"źródła zostają bez odnośnika. Trwałe rozwiązanie: n8n ma przysyłać "
+                f"file_id w źródłach (zob. docs/n8n-zrodla-file-id.md)."
+            )
+    if not po_id and not by_name:
         return sources
-    rows = (
-        db.query(FileModel.id, FileModel.filename, FileModel.metadata_)
-        .filter(FileModel.filename.in_(filenames))
-        .all()
-    )
-    by_name = {filename: (fid, meta) for fid, filename, meta in rows}
 
     # Nazwy typów z rejestru (slug → czytelna nazwa)
     type_names: dict[str, str] = {}
@@ -203,7 +238,10 @@ def _enrich_with_file_ids(sources: list[dict], db: Session) -> list[dict]:
         return tekst
 
     for s in sources:
-        entry = by_name.get(s.get("filename"))
+        # Najpierw po identyfikatorze, potem po jednoznacznej nazwie. Źródło, którego
+        # nie da się przypisać pewnie, zostaje bez `file_id` — frontend pokaże wtedy
+        # samą nazwę, bez klikalnego odnośnika.
+        entry = po_id.get(s.get("file_id")) or by_name.get(s.get("filename"))
         if not entry:
             continue
         fid, meta = entry

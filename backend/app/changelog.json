@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.0.20",
+      "date": "2026-08-10",
+      "title": "Poprawne odnosniki do zrodel przy powtarzajacych sie nazwach plikow",
+      "changes": [
+        "Odnosnik pod odpowiedzia prowadzi do wlasciwego dokumentu takze wtedy, gdy dwa dokumenty maja te sama nazwe pliku. Wczesniej cytowanie moglo wskazac inny dokument o tej samej nazwie - w bazie ZCO dotyczy to 18 dokumentow.",
+        "Gdy nie da sie jednoznacznie ustalic, o ktory dokument chodzi, zrodlo pokazuje sama nazwe bez odnosnika. Lepszy brak odnosnika niz odnosnik do niewlasciwego pliku."
+      ]
+    },
+    {
       "version": "1.0.19",
       "date": "2026-08-10",
       "title": "Pobieranie listy dokumentow do Excela",
