@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/store';
 import { docSchemasApi } from '@/lib/api';
 import { czasLokalny } from '@/lib/czas';
+import { isAdmin as czyAdmin } from '@/lib/roles';
 
 interface QueueItem {
   id: number;
@@ -39,7 +40,7 @@ function fmtDuration(sec: number | null | undefined): string {
 
 export default function FileQueuePage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = czyAdmin(user);
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('');

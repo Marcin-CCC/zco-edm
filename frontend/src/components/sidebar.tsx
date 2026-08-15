@@ -3,6 +3,7 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/store';
 import { versionApi } from '@/lib/api';
 import { useMarka } from '@/components/marka-provider';
+import { isAdmin as czyAdmin } from '@/lib/roles';
 import { useEffect, useState } from 'react';
 
 interface SidebarProps {
@@ -13,15 +14,18 @@ interface SidebarProps {
 interface NavItem {
   label: string;
   href: string;
-  roles: string[];
+  // Widoczność opisujemy WYJĄTKIEM, nie listą dozwolonych ról. Przy liście rola
+  // założona przez administratora nie byłaby na niej wymieniona i użytkownik
+  // zobaczyłby puste menu — bez Dashboardu, Plików i Bazy wiedzy.
+  adminOnly?: boolean;
   exact?: boolean;
   children?: string[];
 }
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', roles: ['admin', 'doctor', 'medical_staff', 'technician', 'office_staff', 'guest'], exact: true },
-  { label: 'Pliki', href: '/dashboard/files', roles: ['admin', 'doctor', 'medical_staff', 'technician', 'office_staff', 'guest'], exact: true },
-  { label: 'Baza wiedzy', href: '/dashboard/chat', roles: ['admin', 'doctor', 'medical_staff', 'technician', 'office_staff', 'guest'], exact: true },
-  { label: 'Administracja', href: '/dashboard/users', roles: ['admin'], children: ['/dashboard/users', '/dashboard/access-list', '/dashboard/doc-schemas', '/dashboard/file-queue', '/dashboard/settings', '/dashboard/oceny'] },
+  { label: 'Dashboard', href: '/dashboard', exact: true },
+  { label: 'Pliki', href: '/dashboard/files', exact: true },
+  { label: 'Baza wiedzy', href: '/dashboard/chat', exact: true },
+  { label: 'Administracja', href: '/dashboard/users', adminOnly: true, children: ['/dashboard/users', '/dashboard/access-list', '/dashboard/doc-schemas', '/dashboard/file-queue', '/dashboard/settings', '/dashboard/oceny'] },
 ];
 
 function isActive(pathname: string, item: NavItem): boolean {
@@ -42,7 +46,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useAuth();
   const marka = useMarka();
-  const userRole = user?.role || '';
   const [version, setVersion] = useState('');
 
   useEffect(() => {
@@ -55,7 +58,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     });
   }, []);
 
-  const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(userRole));
+  const visibleItems = NAV_ITEMS.filter((item) => !item.adminOnly || czyAdmin(user));
 
   return (
     <>

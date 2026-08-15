@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, date
 from app.database import get_db
 from app.schemas import DashboardStats
 from app.auth.auth import get_current_user
-from app.models import User, File, Folder, DocumentStatus, Conversation, Message, UserRole
+from app.models import User, File, Folder, DocumentStatus, Conversation, Message
 from app.rbac import readable_folder_ids
 
 router = APIRouter(tags=["Dashboard"])
@@ -61,7 +61,7 @@ def get_activity(
     Dni bez zdarzeń zwracamy jako zera — wykres ma mieć ciągłą oś czasu, a nie
     tylko dni, w których coś się wydarzyło.
     """
-    is_admin = current_user.role == UserRole.ADMIN
+    is_admin = current_user.is_admin
     today = datetime.utcnow().date()
     start_day = today - timedelta(days=days - 1)
     dni = [start_day + timedelta(days=i) for i in range(days)]
@@ -122,7 +122,7 @@ def get_activity_by_user(
     zadanych bazie wiedzy w ostatnich N dniach. Konta bez aktywności też są na liście:
     brak słupka jest tu informacją, a nie luką.
     """
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator widzi podział na użytkowników.")
 
     today = datetime.utcnow().date()

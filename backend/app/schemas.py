@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
-from app.models import UserRole, DocumentStatus, AccessLevel
+from app.models import ROLE_GUEST, DocumentStatus, AccessLevel
 
 
 # ==================== User ====================
@@ -9,7 +9,7 @@ class UserBase(BaseModel):
     email: str
     username: str
     full_name: Optional[str] = None
-    role: UserRole = UserRole.GUEST
+    role: str = ROLE_GUEST
     is_active: bool = True
 
 
@@ -21,7 +21,7 @@ class UserUpdate(BaseModel):
     email: Optional[str] = None
     username: Optional[str] = None
     full_name: Optional[str] = None
-    role: Optional[UserRole] = None
+    role: Optional[str] = None
     is_active: Optional[bool] = None
     password: Optional[str] = None  # nowe hasło (opcjonalnie; puste = bez zmiany)
 
@@ -140,7 +140,9 @@ class FolderTreeResponse(FolderResponse):
 
 # ==================== FolderPermission ====================
 class FolderPermissionBase(BaseModel):
-    role: UserRole
+    # Kod roli, nie enum: słownik ról jest w bazie, a poprawność kodu sprawdza
+    # warstwa routera (rola musi istnieć w tabeli `roles`).
+    role: str
     access_level: AccessLevel
 
 
@@ -151,7 +153,7 @@ class FolderPermissionCreate(FolderPermissionBase):
 class FolderPermissionResponse(BaseModel):
     id: int
     folder_id: int
-    role: UserRole
+    role: str
     access_level: AccessLevel
 
     model_config = {"from_attributes": True}
@@ -300,3 +302,28 @@ class DocTypeSchemaResponse(DocTypeSchemaBase):
     id: int
 
     model_config = {"from_attributes": True}
+
+
+# ==================== Role ====================
+class RoleResponse(BaseModel):
+    """Rola widziana przez interfejs. `users_count` i `permissions_count` jadą razem
+    ze słownikiem, bo okno usuwania roli musi pokazać skutki, zanim ktoś kliknie."""
+    code: str
+    name: str
+    is_system: bool
+    sort_order: int
+    users_count: int = 0
+    permissions_count: int = 0
+
+
+class RoleCreate(BaseModel):
+    name: str
+    # Kod roli, z której skopiować uprawnienia do folderów. Bez tego nowa rola
+    # nie ma dostępu do niczego.
+    copy_permissions_from: Optional[str] = None
+
+
+class RoleRename(BaseModel):
+    """Zmieniamy wyłącznie etykietę — kod roli jest niezmienny."""
+    name: str
+

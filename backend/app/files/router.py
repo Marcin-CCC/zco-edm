@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 
 from app.database import get_db
-from app.models import File as FileModel, Folder, FolderPermission, User, DocumentStatus, UserRole, DocTypeSchema
+from app.models import File as FileModel, Folder, FolderPermission, User, DocumentStatus, DocTypeSchema
 from app.schemas import FileResponse as FileResponseSchema, FileCreate, FileUpdate
 from app.auth.auth import get_current_user
 from app.config import settings
@@ -488,7 +488,7 @@ async def override_doc_type(
     jej nie nadpisze). Dla typu innego niż „inny" wyciąga pola dla nowego typu jednym
     wywołaniem modelu (tekst z Qdranta; respektuje arbitraż modelu). Tylko admin.
     """
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator może zmieniać kategorię.")
 
     file = db.query(FileModel).filter(FileModel.id == file_id).first()
@@ -554,7 +554,7 @@ def get_file_status_summary(
     """
     # Admin sees all files; other users only their own
     query = db.query(FileModel)
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         query = query.filter(FileModel.uploaded_by == current_user.id)
 
     # Group by status and count
@@ -719,7 +719,7 @@ def update_file(
     current_user: User = Depends(get_current_user),
 ):
     """Update file metadata (status, folder). Admin only."""
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator może aktualizować pliki.")
 
     file_obj = db.query(FileModel).filter(FileModel.id == file_id).first()

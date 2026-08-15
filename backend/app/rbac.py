@@ -16,7 +16,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.models import Folder, FolderPermission, AccessLevel, User, UserRole
+from app.models import ROLE_ADMIN, Folder, FolderPermission, AccessLevel, Role, User
 
 
 def _is_under(path: str, root: str) -> bool:
@@ -33,7 +33,7 @@ def readable_folder_ids(user: User, db: Session) -> Optional[set[int]]:
     - ``set[int]`` — dozwolone id folderów (rola ma uprawnienie do folderu lub
       któregoś z jego przodków); pusty zbiór = brak dostępu do czegokolwiek.
     """
-    if user.role == UserRole.ADMIN:
+    if user.is_admin:
         return None
 
     perms = db.query(FolderPermission).filter(FolderPermission.role == user.role).all()
@@ -59,7 +59,7 @@ def writable_folder_ids(user: User, db: Session) -> Optional[set[int]]:
     Liczy tylko uprawnienia o poziomie ``write`` (z dziedziczeniem po ścieżce).
     ``None`` = admin (bez ograniczeń); pusty zbiór = brak prawa zapisu gdziekolwiek.
     """
-    if user.role == UserRole.ADMIN:
+    if user.is_admin:
         return None
 
     from app.models import AccessLevel
@@ -101,7 +101,7 @@ def effective_permissions(folder_id: int, db: Session) -> list[dict]:
 
     Używane m.in. do pokazania, jakie role odziedziczy NOWY podfolder danego
     folderu (jego efektywny zestaw = to, co dziedziczą dzieci).
-    Zwraca listę: ``[{"role": "doctor", "access_level": "write"}, ...]``.
+    Zwraca listę: ``[{"role": "DOCTOR", "access_level": "write"}, ...]``.
     """
     by_id = {f.id: f for f in db.query(Folder).all()}
     chain_ids: list[int] = []
@@ -154,8 +154,14 @@ def access_overview(db: Session) -> dict:
     for p in perms:
         direct.setdefault(p.folder_id, {})[p.role] = p.access_level
 
-    roles = [r for r in UserRole if r != UserRole.ADMIN]
-    result: dict = {r.value: [] for r in roles}
+    # Role bierzemy ze słownika w bazie, nie z listy w kodzie: administrator
+    # zakłada własne. Admina pomijamy — ma pełny dostęp z definicji, więc jego
+    # zestawienie zawsze byłoby spisem wszystkich folderów.
+    roles = [
+        r.code for r in db.query(Role).filter(Role.code != ROLE_ADMIN)
+        .order_by(Role.sort_order, Role.name).all()
+    ]
+    result: dict = {code: [] for code in roles}
 
     for f in folders:
         # łańcuch przodków (bez samego f)
@@ -176,7 +182,7 @@ def access_overview(db: Session) -> dict:
                 continue
             eff = own if _rank(own) >= _rank(inh) else inh
             source = "direct" if (own is not None and _rank(own) > _rank(inh)) else "inherited"
-            result[role.value].append({
+            result[role].append({
                 "folder_id": f.id,
                 "name": f.name,
                 "path": f.path,

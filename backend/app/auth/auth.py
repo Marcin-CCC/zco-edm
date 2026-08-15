@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request, Body
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import User, UserRole
+from app.models import ROLE_ADMIN, User
+from app.roles.service import ensure_role_exists
 from app.schemas import PasswordChange, ProfileUpdate, UserCreate, UserInDB, UserUpdate
 from app.auth.jwt_handler import hash_password, verify_password, create_access_token, get_current_user
 from app.config import settings
@@ -19,7 +20,7 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 @router.post("/register", response_model=UserInDB, status_code=status.HTTP_201_CREATED)
 async def register_user(user_data: UserCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Rejestracja nowego uzytkownika. Tylko admin."""
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Brak uprawnien")
 
     existing = db.query(User).filter(
@@ -28,6 +29,8 @@ async def register_user(user_data: UserCreate, db: Session = Depends(get_db), cu
 
     if existing:
         raise HTTPException(status_code=400, detail="Uzytkownik z podanym emailem lub nazwa istnieje")
+
+    ensure_role_exists(db, user_data.role)
 
     new_user = User(
         email=user_data.email,
@@ -53,15 +56,17 @@ async def register_setup_user(
     This endpoint allows creating the first admin account without authentication.
     """
     # Check if any admin user already exists
-    existing_admins = db.query(User).filter(User.role == UserRole.ADMIN).all()
+    existing_admins = db.query(User).filter(User.role == ROLE_ADMIN).all()
     if existing_admins:
         raise HTTPException(
             status_code=400,
             detail="Admin user already exists. Use /api/auth/register with admin token."
         )
     
-    # Enforce admin role for setup
-    if user_data.role != UserRole.ADMIN:
+    # Enforce admin role for setup.
+    # UWAGA: `user_data` to schemat pydantic, a nie model User — nie ma własności
+    # `is_admin`, więc porównujemy kod roli wprost.
+    if user_data.role != ROLE_ADMIN:
         raise HTTPException(
             status_code=400,
             detail="Setup registration must create an admin user."
@@ -148,7 +153,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
     access_token = create_access_token({
         "sub": str(user.id),
         "username": user.username,
-        "role": user.role.value
+        "role": user.role
     })
 
     return {
@@ -158,8 +163,8 @@ async def login(request: Request, db: Session = Depends(get_db)):
         "email": user.email,
         "username": user.username,
         "full_name": user.full_name,
-        "is_admin": user.role == UserRole.ADMIN,
-        "role": user.role.value,
+        "is_admin": user.is_admin,
+        "role": user.role,
         "is_active": user.is_active,
         "last_login": user.last_login.isoformat() if user.last_login else None
     }
@@ -277,14 +282,14 @@ async def check_user(username: str, db: Session = Depends(get_db)):
     """Sprawdza czy uzytkownik istnieje."""
     user = db.query(User).filter(User.username == username).first()
     if user:
-        return {"exists": True, "user_id": user.id, "email": user.email, "role": user.role.value}
+        return {"exists": True, "user_id": user.id, "email": user.email, "role": user.role}
     return {"exists": False}
 
 
 @router.get("/users", response_model=list[UserInDB])
 async def list_users(skip: int = 0, limit: int = 50, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Lista wszystkich uzytkownikow. Tylko admin."""
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Brak uprawnien")
     return db.query(User).offset(skip).limit(limit).all()
 
@@ -292,7 +297,7 @@ async def list_users(skip: int = 0, limit: int = 50, current_user: User = Depend
 @router.get("/users/{user_id}", response_model=UserInDB)
 async def get_user(user_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Pobranie danych uzytkownika."""
-    if current_user.role != UserRole.ADMIN and current_user.id != user_id:
+    if not current_user.is_admin and current_user.id != user_id:
         raise HTTPException(status_code=403, detail="Brak uprawnien")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -303,7 +308,7 @@ async def get_user(user_id: int, current_user: User = Depends(get_current_user),
 @router.put("/users/{user_id}", response_model=UserInDB)
 async def update_user(user_id: int, user_update: UserUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Edycja uzytkownika. Tylko admin."""
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Brak uprawnien")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -321,6 +326,7 @@ async def update_user(user_id: int, user_update: UserUpdate, current_user: User 
     if user_update.full_name is not None:
         user.full_name = user_update.full_name
     if user_update.role is not None:
+        ensure_role_exists(db, user_update.role)
         user.role = user_update.role
     if user_update.is_active is not None:
         user.is_active = user_update.is_active
@@ -335,7 +341,7 @@ async def update_user(user_id: int, user_update: UserUpdate, current_user: User 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(user_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Usunięcie uzytkownika. Tylko admin."""
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Brak uprawnien")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:

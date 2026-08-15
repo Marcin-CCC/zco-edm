@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import File as FileModel, DocumentStatus, User, UserRole
+from app.models import ROLE_ADMIN, File as FileModel, DocumentStatus, User
 from app.files.router import get_mime_type
 from app.webhook_auth import verify_webhook_secret
 
@@ -72,7 +72,7 @@ def _get_system_user_id(db: Session) -> int:
     if user:
         return user.id
     # Fallback: first admin account
-    admin = db.query(User).filter(User.role == UserRole.ADMIN).first()
+    admin = db.query(User).filter(User.role == ROLE_ADMIN).first()
     if admin:
         return admin.id
     raise HTTPException(

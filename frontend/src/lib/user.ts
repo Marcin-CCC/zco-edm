@@ -12,11 +12,6 @@ export function inicjaly(fullName?: string | null, username?: string | null): st
   return litery.toUpperCase();
 }
 
-export const ROLE_LABELS: Record<string, string> = {
-  admin: 'Administrator',
-  doctor: 'Lekarz',
-  medical_staff: 'Personel medyczny',
-  technician: 'Technik',
-  office_staff: 'Personel biurowy',
-  guest: 'Gość',
-};
+// Etykiety ról NIE są już tutaj — słownik ról trzyma baza, a front czyta go
+// przez `useRoles()` z `@/lib/roles`. Lista w kodzie byłaby nieaktualna w chwili,
+// gdy administrator założy własną rolę.

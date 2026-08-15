@@ -7,7 +7,7 @@ from typing import List, Optional
 import httpx
 
 from app.database import get_db
-from app.models import ProcessingQueue, Document, File as FileModel, DocumentStatus, UserRole
+from app.models import ProcessingQueue, Document, File as FileModel, DocumentStatus
 from app.auth.auth import get_current_user
 from app.config import settings
 from app.settings.router import get_webhook_url, _load_cache_from_db
@@ -138,7 +138,7 @@ async def reparse_file(
 
     Docelowo do usunięcia — przycisk włączony tylko na czas testów klasyfikacji.
     """
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator.")
 
     file = db.query(FileModel).filter(FileModel.id == file_id).first()

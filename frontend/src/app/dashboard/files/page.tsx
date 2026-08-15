@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { filesApi, foldersApi, settingsApi } from '@/lib/api';
 import { useAuth } from '@/lib/store';
 import { czasLokalny, dataLokalna, godzinaLokalna } from '@/lib/czas';
+import { ROLE_ADMIN, isAdmin as czyAdmin, roleLabel, useRoles } from '@/lib/roles';
 
 interface File {
   id: number;
@@ -54,17 +55,6 @@ function findFolder(list: Folder[], id: number | null): Folder | null {
 
 type ViewMode = 'list' | 'grid';
 
-// Role przypisywalne do folderów (admin ma pełny dostęp, więc go nie ma na liście)
-const ASSIGNABLE_ROLES: { value: string; label: string }[] = [
-  { value: 'doctor', label: 'Lekarz' },
-  { value: 'medical_staff', label: 'Personel medyczny' },
-  { value: 'technician', label: 'Technik' },
-  { value: 'office_staff', label: 'Personel biurowy' },
-  { value: 'guest', label: 'Gość' },
-];
-const ROLE_LABELS: Record<string, string> = Object.fromEntries(
-  ASSIGNABLE_ROLES.map((r) => [r.value, r.label])
-);
 const ACCESS_LABELS: Record<string, string> = {
   read: 'Odczyt',
   write: 'Zapis',
@@ -106,7 +96,14 @@ function getFileColor(mimeType: string | null): string {
 
 function FilesPageInner() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = czyAdmin(user);
+  // Role przypisywalne do folderów. Administrator ma pełny dostęp z definicji,
+  // więc nadawanie mu uprawnień nic by nie zmieniło.
+  const { roles } = useRoles();
+  const assignableRoles = useMemo(
+    () => roles.filter((r) => r.code !== ROLE_ADMIN).map((r) => ({ value: r.code, label: r.name })),
+    [roles],
+  );
   const searchParams = useSearchParams();
   const deepLinkDone = useRef(false); // deep-link ?folder=<id> stosujemy raz
   const [files, setFiles] = useState<File[]>([]);
@@ -160,7 +157,8 @@ function FilesPageInner() {
   // co realnie przepuszcza backend. Wartość startowa służy tylko do czasu odpowiedzi.
   const [allowedExts, setAllowedExts] = useState<string[]>(['pdf', 'docx', 'xlsx']);
   const [moving, setMoving] = useState(false);
-  const [newPermRole, setNewPermRole] = useState('doctor');
+  // Pusty początek: właściwą rolę ustawia efekt, gdy dojedzie słownik ról.
+  const [newPermRole, setNewPermRole] = useState('');
   const [newPermAccess, setNewPermAccess] = useState('read');
 
   // Load folders tree
@@ -553,7 +551,7 @@ function FilesPageInner() {
   useEffect(() => {
     const effByRole: Record<string, string> = {};
     permEffective.forEach((p) => { effByRole[p.role] = p.access_level; });
-    const avail = ASSIGNABLE_ROLES.filter((r) => accessRank(effByRole[r.value]) < 2);
+    const avail = assignableRoles.filter((r) => accessRank(effByRole[r.value]) < 2);
     if (avail.length === 0) return;
     let role = newPermRole;
     if (!avail.some((r) => r.value === role)) {
@@ -563,7 +561,7 @@ function FilesPageInner() {
     if (accessRank(effByRole[role]) === 1 && newPermAccess !== 'write') {
       setNewPermAccess('write');
     }
-  }, [permEffective, newPermRole, newPermAccess]);
+  }, [permEffective, newPermRole, newPermAccess, assignableRoles]);
 
   // Top folders (root or current folder children)
   // Foldery pokazujemy alfabetycznie. localeCompare z 'pl' układa polskie znaki
@@ -591,7 +589,7 @@ function FilesPageInner() {
   permEffective.forEach((p) => { permEffByRole[p.role] = p.access_level; });
   // Formularz „Dodaj": tylko role/poziomy, które realnie coś zmienią.
   // Rola z efektywnym Zapisem (max) znika; rola z Odczytem może iść tylko do Zapisu.
-  const permAvailableRoles = ASSIGNABLE_ROLES.filter(
+  const permAvailableRoles = assignableRoles.filter(
     (r) => accessRank(permEffByRole[r.value]) < 2
   );
   const permAvailableLevels =
@@ -980,7 +978,7 @@ function FilesPageInner() {
                   <ul className="text-sm text-gray-700 border border-gray-200 rounded-md divide-y divide-gray-100">
                     {inheritedPerms.map((p) => (
                       <li key={p.role} className="px-3 py-1.5">
-                        {ROLE_LABELS[p.role] || p.role}
+                        {roleLabel(roles, p.role)}
                         <span className="text-gray-400"> · </span>
                         <span className="text-gray-600">
                           {ACCESS_LABELS[p.access_level] || p.access_level}
@@ -1058,7 +1056,7 @@ function FilesPageInner() {
                     return (
                       <li key={eff.role} className="flex items-center justify-between px-3 py-2 text-sm">
                         <span className="text-gray-800">
-                          {ROLE_LABELS[eff.role] || eff.role}
+                          {roleLabel(roles, eff.role)}
                           <span className="text-gray-400"> · </span>
                           <span className="text-gray-600">
                             {ACCESS_LABELS[eff.access_level] || eff.access_level}

@@ -14,7 +14,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.chat.router import _enrich_with_file_ids
 from app.database import Base
-from app.models import File as FileModel, DocumentStatus, User, UserRole
+from app.models import ROLE_ADMIN, File as FileModel, DocumentStatus, User
 
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def db():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
     Base.metadata.create_all(engine)
     sesja = sessionmaker(bind=engine)()
-    u = User(email="a@b.pl", username="t", hashed_password="x", role=UserRole.ADMIN)
+    u = User(email="a@b.pl", username="t", hashed_password="x", role=ROLE_ADMIN)
     sesja.add(u)
     sesja.commit()
     # Dwa RÓŻNE dokumenty o tej samej nazwie — sedno regresji.

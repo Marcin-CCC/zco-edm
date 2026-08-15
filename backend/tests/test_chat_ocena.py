@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.chat.router import OCENY_DOZWOLONE, POWODY, zapisz_ocene
 from app.database import Base
-from app.models import OcenaOdpowiedzi, User, UserRole
+from app.models import ROLE_GUEST, OcenaOdpowiedzi, User
 from app.schemas import OcenaCreate
 
 
@@ -28,7 +28,7 @@ def db():
 
 @pytest.fixture
 def uzytkownik(db):
-    u = User(email="a@b.pl", username="tester", hashed_password="x", role=UserRole.GUEST)
+    u = User(email="a@b.pl", username="tester", hashed_password="x", role=ROLE_GUEST)
     db.add(u)
     db.commit()
     return u

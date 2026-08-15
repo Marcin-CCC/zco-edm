@@ -38,7 +38,10 @@ class TestHealthCheck:
         response = client.get("/")
         assert response.status_code == 200
         data = response.json()
-        assert data["message"] == "EDM ZCO API dziala poprawnie."
+        # Nazwa instancji pochodzi z konfiguracji (APP_NAME) — jeden obraz obsługuje
+        # ZCO DM i HiRS, więc test nie może zakładać żadnej z nich.
+        from app.main import NAZWA_APLIKACJI
+        assert data["message"] == f"{NAZWA_APLIKACJI} API dziala poprawnie."
         assert data["version"] == "1.0.0"
         assert data["docs"] == "/docs"
 

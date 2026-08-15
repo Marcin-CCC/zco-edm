@@ -1,3 +1,5 @@
+import type { Role } from '@/lib/roles';
+
 const API_BASE = '';
 
 export async function apiRequest<T>(
@@ -262,6 +264,32 @@ export const foldersApi = {
       method: 'DELETE',
       token: getAuthToken(),
     }),
+};
+
+// Słownik ról. Odczyt dla każdego zalogowanego (front potrzebuje etykiet),
+// zmiany tylko dla administratora — pilnuje tego backend.
+export const rolesApi = {
+  list: () =>
+    apiRequest<Role[]>('/api/roles', { method: 'GET', token: getAuthToken() }),
+  create: (data: { name: string; copy_permissions_from?: string | null }) =>
+    apiRequest<Role>('/api/roles', { method: 'POST', body: data, token: getAuthToken() }),
+  rename: (code: string, name: string) =>
+    apiRequest<Role>(`/api/roles/${encodeURIComponent(code)}`, {
+      method: 'PATCH',
+      body: { name },
+      token: getAuthToken(),
+    }),
+  remove: (code: string, reassignTo?: string | null) =>
+    apiRequest<{
+      deleted: string;
+      users_moved: number;
+      moved_to: string | null;
+      permissions_removed: number;
+    }>(
+      `/api/roles/${encodeURIComponent(code)}` +
+        (reassignTo ? `?reassign_to=${encodeURIComponent(reassignTo)}` : ''),
+      { method: 'DELETE', token: getAuthToken() }
+    ),
 };
 
 // Dashboard stats endpoints

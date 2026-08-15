@@ -18,7 +18,8 @@ import { useEffect, useState } from 'react';
 
 import { authApi } from '@/lib/api';
 import { useAuth } from '@/lib/store';
-import { ROLE_LABELS, inicjaly } from '@/lib/user';
+import { inicjaly } from '@/lib/user';
+import { roleLabel, useRoles } from '@/lib/roles';
 import { czasLokalny } from '@/lib/czas';
 
 const MIN_HASLO = 8;
@@ -28,6 +29,7 @@ function dataPl(iso?: string | null): string {
 }
 
 export default function ProfilPage() {
+  const { roles } = useRoles();
   const router = useRouter();
   const { user, setUser, logout } = useAuth();
 
@@ -227,7 +229,7 @@ export default function ProfilPage() {
             <div>
               <dt className="text-sm text-gray-500">Rola</dt>
               <dd className="text-gray-800 font-medium">
-                {ROLE_LABELS[user.role] || user.role}
+                {roleLabel(roles, user.role)}
                 <span className="ml-2 text-xs text-gray-500">(zmienia administrator)</span>
               </dd>
             </div>

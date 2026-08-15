@@ -57,6 +57,10 @@ services:
       - "${BACKEND_PORT:-8083}:8000"
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://postgres:tajne_haslo@edm-zco-postgres:5432/edmdatabase}
+      # To JEST produkcja — bezpiecznik w app/config.py przepuszcza zdalną
+      # bazę tylko przy tej wartości. Zmienna musi istnieć w TRZECH miejscach:
+      # tu, w compose drugiej instancji i w .env pisanym przez CI.
+      - APP_ENV=${APP_ENV:-production}
       - SECRET_KEY=${SECRET_KEY:-zco-edm-secret-key-change-in-production}
       - QDRANT_URL=${QDRANT_URL:-http://192.168.1.34:6333}
       - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://192.168.1.34:5678/webhook/document-uploaded}

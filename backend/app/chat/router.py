@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.auth.auth import get_current_user
 from app.models import (
-    Conversation, File as FileModel, Message, OcenaOdpowiedzi, User, UserRole,
+    Conversation, File as FileModel, Message, OcenaOdpowiedzi, User,
 )
 from app.schemas import (
     ChatRequest, ChatSourcesPayload, OcenaCreate,
@@ -396,7 +396,7 @@ async def chat(
     }}
 
     logger.info(
-        f"[CHAT] user={current_user.username} role={current_user.role.value} "
+        f"[CHAT] user={current_user.username} role={current_user.role} "
         f"session={payload.session_id} req={request_id} "
         f"folderFilter={folder_filter_enabled} allowed={allowed_folder_ids} "
         f"fileIds={payload.file_ids or '-'} terminy={plan.terminy or '-'} "
@@ -894,7 +894,7 @@ def rejestr_pytan(
     Zapisywanie jej dla każdego pytania to osobna decyzja — kosztuje miejsce przy
     każdej rozmowie, a przydaje się tylko przy tych, które budzą wątpliwość.
     """
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator.")
 
     limit = max(1, min(limit, 500))
@@ -970,7 +970,7 @@ def lista_ocen(
     current_user: User = Depends(get_current_user),
 ):
     """Zestawienie ocen dla administratora — materiał na zestaw kontrolny."""
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator.")
     zapytanie = db.query(OcenaOdpowiedzi)
     if tylko_negatywne:
@@ -1014,7 +1014,7 @@ def uzytkownicy_pytajacy(
     Bierzemy je z ROZMÓW, a nie z listy wszystkich kont: filtr ma pokazywać tych,
     dla których w ogóle jest co filtrować.
     """
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator.")
     wiersze = (
         db.query(User.id, User.username, User.full_name, User.role)

@@ -5,6 +5,7 @@ import { Sidebar } from '@/components/sidebar';
 import { inicjaly } from '@/lib/user';
 import { useAuth } from '@/lib/store';
 import { settingsApi } from '@/lib/api';
+import { isAdmin as czyAdmin } from '@/lib/roles';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 
@@ -42,7 +43,7 @@ export default function DashboardLayout({
   const { user, logout, isAuthenticated } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = czyAdmin(user);
 
   // Show tabs only on specific admin pages
   const showTabs = isAdmin && PAGES_WITH_TABS.some((p) => pathname === p || pathname.startsWith(p + '/'));

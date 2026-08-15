@@ -47,12 +47,15 @@ jobs:
           flake8 app/ --count --max-complexity=10 --max-line-length=127 --statistics
         continue-on-error: true
 
+      # Czerwony test BLOKUJE wdrożenie. Do 2026-08-15 stało tu `|| true` razem
+      # z `continue-on-error`, więc cały pakiet mógł się wywalić, a wdrożenie i tak
+      # szło dalej — dwie nieaktualne asercje przeleżały tak tygodnie. Siatka
+      # bezpieczeństwa, która nie zatrzymuje upadku, nie jest siatką.
       - name: Run tests with pytest
         working-directory: ./backend
         run: |
           pip install pytest pytest-cov
-          pytest tests/ -v --tb=short --cov=app --cov-report=term-missing || true
-        continue-on-error: true
+          pytest tests/ -v --tb=short --cov=app --cov-report=term-missing
 
   # ============================================================
   # WERSJONOWANIE — ręczne, świadome (nie auto-bump).
@@ -90,6 +93,22 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Brakujący sekret nie może objawić się dopiero kontenerem w pętli restartów.
+      # `docker compose up -d` kończy się sukcesem także wtedy, gdy aplikacja zaraz
+      # potem odmawia startu — więc sprawdzamy komplet ZANIM cokolwiek ruszymy.
+      - name: Check required secrets
+        run: |
+          BRAKI=""
+          [ -z "${{ secrets.SECRET_KEY }}" ]     && BRAKI="$BRAKI SECRET_KEY"
+          [ -z "${{ secrets.WEBHOOK_SECRET }}" ] && BRAKI="$BRAKI WEBHOOK_SECRET"
+          [ -z "${{ secrets.N8N_AUTH_VALUE }}" ] && BRAKI="$BRAKI N8N_AUTH_VALUE"
+          if [ -n "$BRAKI" ]; then
+            echo "Brakuje sekretów w repozytorium:$BRAKI"
+            echo "Ustaw je: gh secret set <NAZWA>"
+            exit 1
+          fi
+          echo "Komplet sekretów obecny."
 
       - name: Read version
         id: version
@@ -143,6 +162,14 @@ jobs:
           echo "N8N_AUTH_HEADER=X-N8N-Webhook-Secret" >> .env
           echo "N8N_AUTH_VALUE=${{ secrets.N8N_AUTH_VALUE }}" >> .env
           echo "LOG_LEVEL=INFO" >> .env
+          # Bez tego backend odmówi startu: bezpiecznik uznaje brak APP_ENV
+          # za środowisko deweloperskie i nie pozwala mu tknąć zdalnej bazy.
+          echo "APP_ENV=production" >> .env
+          # Klucz podpisujący tokeny sesji. Do 2026-08-15 NIE był tu zapisywany,
+          # więc compose podstawiał domyślkę leżącą w repozytorium — każdy, kto ją
+          # znał, mógł wystawić sobie token administratora. Backend odmawia teraz
+          # startu z taką wartością, więc brak tego sekretu zatrzyma wdrożenie.
+          echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
           # Absolutny backstop sesji (JWT). Główne wylogowanie = bezczynność (frontend).
           echo "ACCESS_TOKEN_EXPIRE_MINUTES=720" >> .env
 

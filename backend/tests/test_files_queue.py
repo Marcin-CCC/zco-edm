@@ -100,7 +100,7 @@ class TestDocumentStatusEnum:
         """Test wartosci enum DocumentStatus."""
         from app.models import DocumentStatus
         
-        assert DocumentStatus.PENDING.value == "W kolejce (n8n)"
+        assert DocumentStatus.PENDING.value == "W kolejce"
         assert DocumentStatus.PROCESSING.value == "Przetwarzanie"
         assert DocumentStatus.READY.value == "Przetworzono"
         assert DocumentStatus.ERROR.value == "Błąd przetwarzania"

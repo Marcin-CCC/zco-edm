@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 
 from app.database import get_db
-from app.models import Folder, FolderPermission, File as FileModel, User, UserRole
+from app.models import Folder, FolderPermission, File as FileModel, User
+from app.roles.service import ensure_role_exists
 from app.schemas import FolderResponse, FolderCreate, FolderPermissionResponse, FolderPermissionBase, FolderPermissionCreate, FolderTreeResponse
 from datetime import datetime
 from app.auth.auth import get_current_user
@@ -65,7 +66,7 @@ def create_folder(
     current_user: User = Depends(get_current_user),
 ):
     """Create a new folder (admin only)."""
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator moze tworzyc foldery.")
 
     # Check if folder with same path already exists
@@ -124,7 +125,7 @@ def get_access_overview(
 
     Trasa MUSI być przed '/{folder_id}', inaczej złapałby ją parametr int.
     """
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator może przeglądać listę dostępów.")
     return access_overview(db)
 
@@ -185,7 +186,7 @@ def rename_folder(
     Nie rusza dysku: przynależność pliku do folderu jest informacją w bazie
     (`files.folder_id`), a fizyczna ścieżka pliku jest od niej niezależna.
     """
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator może zmieniać nazwę folderu.")
 
     folder = db.query(Folder).filter(Folder.id == folder_id).first()
@@ -248,7 +249,7 @@ def delete_folder(
     current_user: User = Depends(get_current_user),
 ):
     """Delete a folder (admin only)."""
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator moze usuwac foldery.")
 
     folder = db.query(Folder).filter(Folder.id == folder_id).first()
@@ -275,12 +276,14 @@ def add_folder_permission(
 ):
     """Ustaw uprawnienie roli na folderze (admin). Upsert: gdy rola ma już
     uprawnienie na tym folderze, podmienia poziom zamiast zwracać błąd."""
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator może ustawiać uprawnienia.")
 
     folder = db.query(Folder).filter(Folder.id == folder_id).first()
     if not folder:
         raise HTTPException(status_code=404, detail="Folder nie istnieje.")
+
+    ensure_role_exists(db, perm_data.role)
 
     existing = db.query(FolderPermission).filter(
         FolderPermission.folder_id == folder_id,
@@ -316,7 +319,7 @@ def get_effective_permissions(
     Służy do pokazania w popupie 'Nowy folder', jakie role odziedziczy nowy
     podfolder tego folderu. Tylko admin (jak pozostałe zarządzanie uprawnieniami).
     """
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator może zarządzać uprawnieniami.")
     folder = db.query(Folder).filter(Folder.id == folder_id).first()
     if not folder:
@@ -331,7 +334,7 @@ def list_folder_permissions(
     current_user: User = Depends(get_current_user),
 ):
     """List permissions for a folder (admin only)."""
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator może zarządzać uprawnieniami.")
 
     folder = db.query(Folder).filter(Folder.id == folder_id).first()
@@ -350,7 +353,7 @@ def delete_folder_permission(
     current_user: User = Depends(get_current_user),
 ):
     """Delete a folder permission (admin only)."""
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator może usuwać uprawnienia.")
 
     perm = db.query(FolderPermission).filter(

@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth.auth import get_current_user
-from app.models import User, UserRole, DocTypeSchema
+from app.models import User, DocTypeSchema
 from app.schemas import DocTypeSchemaBase, DocTypeSchemaResponse
 
 logger = logging.getLogger(__name__)
@@ -76,7 +76,7 @@ def upsert_schema(
 
     Dzięki upsertowi zatwierdzone schematy dodaje się/aktualizuje bez deployu.
     """
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator może zarządzać schematami.")
 
     slug = (payload.slug or "").strip().lower()
@@ -114,7 +114,7 @@ def delete_schema(
     current_user: User = Depends(get_current_user),
 ):
     """Usuń schemat (po slugu). Tylko admin."""
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator może zarządzać schematami.")
     row = db.query(DocTypeSchema).filter(DocTypeSchema.slug == slug.strip().lower()).first()
     if not row:

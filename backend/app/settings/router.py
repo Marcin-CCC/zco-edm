@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth.auth import get_current_user
-from app.models import User, UserRole, Setting
+from app.models import User, Setting
 from app.schemas import SettingsResponse, SettingsUpdate
 from app.config import settings as app_settings
 
@@ -140,7 +140,7 @@ def update_setting(
     """Update a setting value. Tylko administrator."""
     global _settings_cache, _cache_loaded
 
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator może zmieniać ustawienia.")
 
     if key not in _UPDATABLE_KEYS:

@@ -10,6 +10,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { czasLokalny } from '@/lib/czas';
+import { roleLabel, useRoles } from '@/lib/roles';
 
 interface Diagnostyka {
   sciezka?: string;
@@ -163,12 +164,9 @@ function Legenda() {
   );
 }
 
-const ROLE_PL: Record<string, string> = {
-  admin: 'administrator', doctor: 'lekarz', medical_staff: 'personel medyczny',
-  technician: 'technik', office_staff: 'administracja', guest: 'gość',
-};
 
 export default function OcenyPage() {
+  const { roles } = useRoles();
   const [widok, setWidok] = useState<'oceny' | 'rejestr'>('oceny');
   const [oceny, setOceny] = useState<Ocena[]>([]);
   const [podsumowanie, setPodsumowanie] = useState<Record<string, number>>({});
@@ -255,7 +253,7 @@ export default function OcenyPage() {
           <option value="">wszyscy</option>
           {pytajacy.map((u) => (
             <option key={u.id} value={u.id}>
-              {u.nazwa}{u.rola ? ` — ${ROLE_PL[u.rola] || u.rola}` : ''}
+              {u.nazwa}{u.rola ? ` — ${roleLabel(roles, u.rola).toLowerCase()}` : ''}
             </option>
           ))}
         </select>
@@ -292,7 +290,7 @@ export default function OcenyPage() {
           <>
             {Object.entries(wgRoli).map(([rola, ile]) => (
               <span key={rola} className="text-sm text-gray-600">
-                {ROLE_PL[rola] || rola}: <strong>{ile}</strong>
+                {roleLabel(roles, rola).toLowerCase()}: <strong>{ile}</strong>
               </span>
             ))}
             <label className="text-sm flex items-center gap-2 ml-auto">
@@ -337,7 +335,7 @@ export default function OcenyPage() {
                   )}
                   <strong className="flex-1">{p.pytanie || '(brak pytania w historii)'}</strong>
                   <span className="text-xs text-gray-500">
-                    {p.uzytkownik} · {ROLE_PL[p.rola || ''] || p.rola}
+                    {p.uzytkownik} · {roleLabel(roles, p.rola).toLowerCase()}
                   </span>
                   <span className="text-xs text-gray-400">
                     {czasLokalny(p.created_at)}

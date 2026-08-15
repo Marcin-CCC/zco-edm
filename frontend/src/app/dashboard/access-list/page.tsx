@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { foldersApi } from '@/lib/api';
 import { useAuth } from '@/lib/store';
+import { ROLE_ADMIN, isAdmin as czyAdmin, roleLabel, useRoles, type Role } from '@/lib/roles';
+import { RoleDialog, type RoleDialogMode } from '@/components/role-dialogs';
 
 interface AccessItem {
   folder_id: number;
@@ -13,26 +15,20 @@ interface AccessItem {
   source: string; // 'direct' | 'inherited'
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  doctor: 'Lekarz',
-  medical_staff: 'Personel medyczny',
-  technician: 'Technik',
-  office_staff: 'Personel biurowy',
-  guest: 'Gość',
-};
-// Kolejność wyświetlania ról
-const ROLE_ORDER = ['doctor', 'medical_staff', 'technician', 'office_staff', 'guest'];
 
 const ACCESS_LABELS: Record<string, string> = { read: 'Odczyt', write: 'Zapis' };
 
 export default function AccessListPage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = czyAdmin(user);
+  const { roles, refresh: odswiezRole } = useRoles();
   const [data, setData] = useState<Record<string, AccessItem[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [okno, setOkno] = useState<{ mode: RoleDialogMode; role?: Role } | null>(null);
+  const [komunikat, setKomunikat] = useState('');
 
-  useEffect(() => {
+  const wczytajDostepy = useCallback(() => {
     if (!isAdmin) {
       setLoading(false);
       return;
@@ -44,6 +40,20 @@ export default function AccessListPage() {
       .finally(() => setLoading(false));
   }, [isAdmin]);
 
+  useEffect(() => {
+    wczytajDostepy();
+  }, [wczytajDostepy]);
+
+  // Po każdej zmianie w słowniku odświeżamy TAKŻE zestawienie dostępów: utworzenie
+  // roli z kopią uprawnień i usunięcie roli zmieniają je natychmiast, a tabela
+  // pokazująca stan sprzed operacji byłaby myląca akurat tam, gdzie chodzi o audyt.
+  const poZmianie = (tekst: string) => {
+    setOkno(null);
+    setKomunikat(tekst);
+    odswiezRole();
+    wczytajDostepy();
+  };
+
   if (!isAdmin) {
     return (
       <div className="text-sm text-gray-600">
@@ -52,21 +62,38 @@ export default function AccessListPage() {
     );
   }
 
-  // Role do pokazania: znane w kolejności + ewentualne nieznane z odpowiedzi
-  const roles = [
-    ...ROLE_ORDER.filter((r) => r in data),
-    ...Object.keys(data).filter((r) => !ROLE_ORDER.includes(r)),
+  // Kolejność ze słownika ról; administratora pomijamy, bo ma pełny dostęp
+  // z definicji. Kody obecne w odpowiedzi, a nieznane słownikowi, dokładamy na
+  // koniec — lepiej pokazać rolę bez etykiety niż ukryć jej dostępy.
+  const kodyZeSlownika = roles.filter((r) => r.code !== ROLE_ADMIN).map((r) => r.code);
+  const kody = [
+    ...kodyZeSlownika,
+    ...Object.keys(data).filter((r) => !kodyZeSlownika.includes(r)),
   ];
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Lista dostępów</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Dostęp efektywny każdej roli do folderów (z uwzględnieniem dziedziczenia).
-          Administrator ma zawsze pełny dostęp do wszystkiego.
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Lista dostępów</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Dostęp efektywny każdej roli do folderów (z uwzględnieniem dziedziczenia).
+            Administrator ma zawsze pełny dostęp do wszystkiego.
+          </p>
+        </div>
+        <button
+          onClick={() => { setKomunikat(''); setOkno({ mode: 'create' }); }}
+          className="shrink-0 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
+          + Dodaj rolę
+        </button>
       </div>
+
+      {komunikat && (
+        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          {komunikat}
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
@@ -78,17 +105,47 @@ export default function AccessListPage() {
         <div className="text-center py-8 text-gray-500">Ładowanie...</div>
       ) : (
         <div className="space-y-6">
-          {roles.map((role) => {
-            const items = data[role] || [];
+          {kody.map((kod) => {
+            const items = data[kod] || [];
+            const rola = roles.find((r) => r.code === kod);
             return (
-              <div key={role} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                  <h2 className="font-semibold text-gray-800">
-                    {ROLE_LABELS[role] || role}
-                  </h2>
-                  <span className="text-xs text-gray-400">
-                    {items.length === 0 ? 'brak dostępu' : `folderów: ${items.length}`}
-                  </span>
+              <div key={kod} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-semibold text-gray-800">{roleLabel(roles, kod)}</h2>
+                    {rola?.is_system && (
+                      <span
+                        className="rounded-full border border-gray-300 px-2 py-0.5 text-[11px] text-gray-500"
+                        title="Rola wbudowana — aplikacja się do niej odwołuje, więc nie można jej usunąć"
+                      >
+                        rola systemowa
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-400">
+                      {items.length === 0 ? 'brak dostępu' : `folderów: ${items.length}`}
+                      {rola ? ` · użytkowników: ${rola.users_count}` : ''}
+                    </span>
+                  </div>
+                  {rola && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => { setKomunikat(''); setOkno({ mode: 'rename', role: rola }); }}
+                        className="rounded-md border border-gray-300 px-2.5 py-1 text-xs text-gray-700 hover:bg-white"
+                      >
+                        Zmień nazwę
+                      </button>
+                      {rola.is_system ? (
+                        <span className="px-2.5 py-1 text-xs text-gray-400">bez usuwania</span>
+                      ) : (
+                        <button
+                          onClick={() => { setKomunikat(''); setOkno({ mode: 'delete', role: rola }); }}
+                          className="rounded-md border border-red-200 px-2.5 py-1 text-xs text-red-600 hover:bg-red-50"
+                        >
+                          Usuń
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {items.length === 0 ? (
                   <div className="px-4 py-4 text-sm text-gray-500">
@@ -141,6 +198,16 @@ export default function AccessListPage() {
             );
           })}
         </div>
+      )}
+
+      {okno && (
+        <RoleDialog
+          mode={okno.mode}
+          role={okno.role}
+          roles={roles}
+          onClose={() => setOkno(null)}
+          onDone={poZmianie}
+        />
       )}
     </div>
   );

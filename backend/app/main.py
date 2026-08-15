@@ -34,9 +34,15 @@ from app.settings.router import router as settings_router
 from app.chat.router import router as chat_router
 from app.doc_schemas import router as doc_schemas_router
 from app.doc_search import router as doc_search_router
+from app.roles.router import router as roles_router
+from app.schema_upgrade import run_startup_upgrades
 
 # Tworzenie tabel w bazie danych
 Base.metadata.create_all(bind=engine)
+
+# To, czego `create_all` nie potrafi: zmiana typu istniejących kolumn i zasianie
+# słownika ról. Wykonuje się przy każdym starcie i jest idempotentne.
+run_startup_upgrades(engine)
 
 # ============ APLIKACJA FASTAPI ============
 # Nazwa instancji pochodzi z konfiguracji — jeden obraz obsługuje demo uniwersalne
@@ -113,6 +119,7 @@ app.include_router(settings_router)
 app.include_router(chat_router)
 app.include_router(doc_schemas_router)
 app.include_router(doc_search_router)
+app.include_router(roles_router)
 
 
 # ============ HEALTH CHECK ============

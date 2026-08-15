@@ -3,18 +3,13 @@
 import { useState, useEffect } from 'react';
 import { usersApi } from '@/lib/api';
 import { useAuth } from '@/lib/store';
+import { ROLE_GUEST, roleLabel, useRoles } from '@/lib/roles';
 
-const ROLES = [
-  { value: 'admin', label: 'Administrator' },
-  { value: 'doctor', label: 'Lekarz' },
-  { value: 'medical_staff', label: 'Personel medyczny' },
-  { value: 'technician', label: 'Technik' },
-  { value: 'office_staff', label: 'Personel biurowy' },
-  { value: 'guest', label: 'Gość' },
-];
 
 export default function UsersPage() {
   const { token, user } = useAuth();
+  // Role z bazy — także te założone przez administratora.
+  const { roles } = useRoles();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -25,7 +20,7 @@ export default function UsersPage() {
     username: '',
     password: '',
     full_name: '',
-    role: 'guest',
+    role: ROLE_GUEST,
     is_active: true,
   });
 
@@ -45,7 +40,7 @@ export default function UsersPage() {
   }, []);
 
   const resetForm = () => {
-    setForm({ email: '', username: '', password: '', full_name: '', role: 'guest', is_active: true });
+    setForm({ email: '', username: '', password: '', full_name: '', role: ROLE_GUEST, is_active: true });
     setShowForm(false);
     setEditingId(null);
   };
@@ -56,7 +51,7 @@ export default function UsersPage() {
       username: u.username || '',
       password: '',
       full_name: u.full_name || '',
-      role: u.role || 'guest',
+      role: u.role || ROLE_GUEST,
       is_active: u.is_active,
     });
     setEditingId(u.id);
@@ -94,9 +89,7 @@ export default function UsersPage() {
     }
   };
 
-  const getRoleLabel = (role: string) => {
-    return ROLES.find((r) => r.value === role)?.label || role;
-  };
+  const getRoleLabel = (role: string) => roleLabel(roles, role);
 
   return (
     <div>
@@ -173,8 +166,8 @@ export default function UsersPage() {
                 onChange={(e) => setForm({ ...form, role: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                {ROLES.map((r) => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
+                {roles.map((r) => (
+                  <option key={r.code} value={r.code}>{r.name}</option>
                 ))}
               </select>
             </div>

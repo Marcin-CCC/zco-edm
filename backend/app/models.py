@@ -5,14 +5,46 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 
 
-class UserRole(str, enum.Enum):
-    """Enum ról użytkowników."""
-    ADMIN = "admin"
-    DOCTOR = "doctor"
-    MEDICAL_STAFF = "medical_staff"
-    TECHNICIAN = "technician"
-    OFFICE_STAFF = "office_staff"
-    GUEST = "guest"
+# ==================== Role użytkowników ====================
+# Rola NIE jest enumem w kodzie — administrator zakłada własne role w interfejsie,
+# więc słownik ról to dane (tabela `roles`), a `users.role` i `folder_permissions.role`
+# trzymają jego `code`. Wcześniej rola była enumem Pythona odwzorowanym na natywny typ
+# `userrole` w Postgresie; z takiego typu nie da się usunąć wartości, więc każda
+# skasowana rola zostawiałaby po sobie martwą etykietę w schemacie na zawsze.
+#
+# Kody zapisane w bazie są WIELKIMI literami ("ADMIN", "DOCTOR"), bo tak zapisywał je
+# SQLAlchemy dla enuma (nazwa elementu, nie wartość). Zostawiamy je bez zmian:
+# przepisanie ich na małe litery zabrałoby możliwość powrotu do poprzedniej wersji
+# aplikacji, która potrafi czytać wyłącznie stare kody.
+ROLE_ADMIN = "ADMIN"
+ROLE_GUEST = "GUEST"
+
+# Role zakładane przy pierwszym starcie. `is_system` = rola, której nie wolno usunąć:
+# ADMIN jest wpisany w każdą kontrolę uprawnień, a GUEST jest rolą domyślną nowego
+# użytkownika — bez nich aplikacja nie ma się do czego odwołać.
+BUILT_IN_ROLES: list[dict] = [
+    {"code": ROLE_ADMIN, "name": "Administrator", "is_system": True, "sort_order": 10},
+    {"code": "DOCTOR", "name": "Lekarz", "is_system": False, "sort_order": 20},
+    {"code": "MEDICAL_STAFF", "name": "Personel medyczny", "is_system": False, "sort_order": 30},
+    {"code": "TECHNICIAN", "name": "Technik", "is_system": False, "sort_order": 40},
+    {"code": "OFFICE_STAFF", "name": "Personel biurowy", "is_system": False, "sort_order": 50},
+    {"code": ROLE_GUEST, "name": "Gość", "is_system": True, "sort_order": 60},
+]
+
+
+class Role(Base):
+    """Słownik ról. Kod (`code`) jest identyfikatorem trwałym — to on leży w
+    `users.role` i `folder_permissions.role` — więc po utworzeniu roli już się nie
+    zmienia. Edytowalna jest wyłącznie `name`, czyli etykieta w interfejsie.
+    """
+    __tablename__ = "roles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), unique=True, index=True, nullable=False)
+    name = Column(String(100), nullable=False)
+    is_system = Column(Boolean, default=False, nullable=False)
+    sort_order = Column(Integer, default=100, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class DocumentStatus(str, enum.Enum):
@@ -48,7 +80,7 @@ class User(Base):
     username = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(200), nullable=True)
-    role = Column(Enum(UserRole), default=UserRole.GUEST, nullable=False)
+    role = Column(String(50), default=ROLE_GUEST, nullable=False, index=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -56,6 +88,16 @@ class User(Base):
 
     # Relacje
     uploaded_files = relationship("File", foreign_keys="File.uploaded_by", back_populates="uploader")
+
+    @property
+    def is_admin(self) -> bool:
+        """Jedyne miejsce w kodzie, które rozstrzyga „czy administrator".
+
+        Porównanie do stałej, a nie do elementu enuma: po zniknięciu `UserRole`
+        każde przeoczone `user.role != UserRole.ADMIN` wysypie się przy imporcie
+        modułu, zamiast po cichu odmówić administratorowi dostępu na produkcji.
+        """
+        return self.role == ROLE_ADMIN
 
 
 class Folder(Base):
@@ -83,7 +125,7 @@ class FolderPermission(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     folder_id = Column(Integer, ForeignKey("folders.id"), nullable=False)
-    role = Column(Enum(UserRole), nullable=False)
+    role = Column(String(50), nullable=False)
     access_level = Column(Enum(AccessLevel), nullable=False)
 
     # Relacje

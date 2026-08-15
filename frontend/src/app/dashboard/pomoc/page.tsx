@@ -13,6 +13,7 @@
 import { useRef } from 'react';
 
 import { useAuth } from '@/lib/store';
+import { isAdmin as czyAdmin } from '@/lib/roles';
 
 const WYDANIA = {
   admin: {
@@ -31,7 +32,7 @@ const WYDANIA = {
 
 export default function PomocPage() {
   const { user } = useAuth();
-  const wydanie = user?.role === 'admin' ? WYDANIA.admin : WYDANIA.user;
+  const wydanie = czyAdmin(user) ? WYDANIA.admin : WYDANIA.user;
   const ramka = useRef<HTMLIFrameElement>(null);
 
   /**

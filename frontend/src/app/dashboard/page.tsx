@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/store';
 import { dashboardApi } from '@/lib/api';
+import { isAdmin as czyAdmin } from '@/lib/roles';
 import { BarChart, BarChartPoint } from '@/components/bar-chart';
 import { HBarChart } from '@/components/bar-chart-h';
 
@@ -79,7 +80,7 @@ export default function DashboardPage() {
     fetchStats();
   }, []);
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = czyAdmin(user);
 
   // Kafelek bez `href` jest tylko liczbą — nie udaje odnośnika (brak kursora
   // i reakcji na najechanie). Kolejka plików leży w Administracji, więc kafelek
