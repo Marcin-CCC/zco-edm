@@ -1013,7 +1013,11 @@ function FilesPageInner() {
               <button
                 key={file.id}
                 onClick={() => setSelectedFile(file)}
-                className="rounded-card border border-app-line bg-white p-4 text-left transition-shadow hover:shadow-card"
+                // `flex h-full flex-col` nie jest ozdobą: przeglądarka centruje
+                // pionowo zawartość przycisku, a siatka rozciąga kafelki do wysokości
+                // najwyższego w rzędzie — przez co ikona i nazwa w krótszych kafelkach
+                // zjeżdżały na środek i cały rząd wyglądał na rozstrojony.
+                className="flex h-full flex-col items-start rounded-card border border-app-line bg-white p-4 text-left transition-shadow hover:shadow-card"
               >
                 <FileTypeIcon filename={file.filename} size={44} className="mb-3" />
                 <span className="block break-words text-[13px] font-bold text-app-text">{file.filename}</span>

@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "1.5.3",
+      "date": "2026-08-16",
+      "title": "Wyrownanie kafelkow plikow",
+      "changes": [
+        "Ikony i nazwy w kafelkach plikow trzymaja sie gory kafelka. Wczesniej zjezdzaly na srodek w zaleznosci od dlugosci nazwy sasiada: przegladarka centruje pionowo zawartosc przycisku, a siatka rozciaga wszystkie kafelki w rzedzie do wysokosci najwyzszego."
+      ]
+    },
+    {
       "version": "1.5.2",
       "date": "2026-08-16",
       "title": "Foldery jako lista, poprawiony pasek nad plikami",
