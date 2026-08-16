@@ -4,7 +4,10 @@ import Link from 'next/link';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 
-import { FileTypeIcon } from '@/components/file-type-icon';
+import {
+  KEY_FIELDS, PozycjaDokumentu, etykietaDokumentu, zHitow,
+  type DokumentPozycja,
+} from '@/components/pozycja-dokumentu';
 import {
   IconChat, IconChevronRight, IconClose, IconDownload, IconPlus, IconSearch,
   IconSend, IconSparkle, IconStop,
@@ -29,9 +32,6 @@ function sprawdzoneOpis(n: number): string {
   return `Sprawdzono też ${n} ${pluralDocs(n)}, które nie zostały wykorzystane.`;
 }
 
-// Pole najlepiej identyfikujące dokument na liście (pierwsze pasujące)
-const KEY_FIELDS = ['numer_dokumentu', 'numer', 'numer_aneksu', 'numer_zalacznika', 'data'];
-
 
 const OP_LABELS: Record<string, string> = {
   eq: '=', contains: 'zawiera', gte: 'od', lte: 'do', gt: 'po', lt: 'przed',
@@ -51,18 +51,10 @@ function describeFilter(
   return parts.join(', ');
 }
 
-interface ChatSource {
-  filename?: string;
-  file_id?: number;
-  url?: string;
-  page?: number;
-  doc_type?: string;
-  doc_type_name?: string;
-  doc_key?: string;
-  // Czy model przywołał ten fragment znacznikiem w treści. Fragmenty bez znacznika
-  // też pokazujemy — bez nich nie da się sprawdzić, na czym oparta jest odpowiedź.
-  cited?: boolean;
-}
+// Zrodlo pod odpowiedzia i wynik wyszukiwarki po polach to ta sama rzecz —
+// dokument z rejestru pol opisowych. Typ i wyglad mieszkaja w jednym module,
+// zeby oba ekrany nie rozjechaly sie przy pierwszej korekcie.
+type ChatSource = DokumentPozycja;
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -314,17 +306,7 @@ export default function ChatPage() {
   const szukajWRejestrze = async (pytanie: string) => {
     const listRes = await docSearchApi.nl(pytanie);
     const hits = listRes.hits || [];
-    const docs: ChatSource[] = hits.map((h) => {
-      const f = h.fields || {};
-      const key = KEY_FIELDS.map((k) => f[k]).find((v) => !!v);
-      return {
-        filename: h.filename,
-        file_id: h.id,
-        doc_type: h.doc_type || undefined,
-        doc_type_name: h.doc_type ? (typeNames[h.doc_type] || h.doc_type) : undefined,
-        doc_key: key || undefined,
-      };
-    });
+    const docs: ChatSource[] = zHitow(hits, typeNames);
     const slug = listRes.filter?.doc_type;
     const typeName = slug ? (typeNames[slug] || slug) : null;
     return {
@@ -809,19 +791,10 @@ export default function ChatPage() {
     }
   };
 
-  // Etykieta źródła: gdy znamy typ dokumentu, pokaż go zamiast samej nazwy pliku
-  // (np. „Zarządzenie nr 8/2023"), nazwa pliku ląduje wtedy w drugiej linii.
-  const renderSourceLabel = (s: ChatSource, i: number) => {
-    if (s.doc_type_name) {
-      return s.doc_key ? `${s.doc_type_name} ${s.doc_key}` : s.doc_type_name;
-    }
-    return s.filename || s.url || `Dokument ${i + 1}`;
-  };
-
   // Opis do dymka przy cytowaniu: etykieta + STRONA + nazwa pliku. Bez strony dwa
   // fragmenty tego samego dokumentu dawały identyczny dymek (np. „Załącznik 2").
   const sourceTitle = (s: ChatSource, i: number) => {
-    const parts = [renderSourceLabel(s, i)];
+    const parts = [etykietaDokumentu(s, i)];
     if (s.page) parts.push(`str. ${s.page}`);
     if (s.doc_type_name && s.filename) parts.push(s.filename);
     return parts.join(' · ');
@@ -1068,12 +1041,10 @@ export default function ChatPage() {
                             )}
                             <div className="grid gap-2">
                               {przywolane.map((p) => (
-                                <Zrodlo
+                                <PozycjaDokumentu
                                   key={p.numer}
-                                  s={p.s}
+                                  d={p.s}
                                   numer={p.numer}
-                                  uzyty
-                                  etykieta={renderSourceLabel(p.s, p.numer - 1)}
                                   otworz={sourceHref(p.s) ? () => openSource(p.s) : undefined}
                                 />
                               ))}
@@ -1096,12 +1067,11 @@ export default function ChatPage() {
                             {otwarte && (
                               <div className="mt-2.5 grid gap-2">
                                 {pozostale.map((p) => (
-                                  <Zrodlo
+                                  <PozycjaDokumentu
                                     key={p.numer}
-                                    s={p.s}
+                                    d={p.s}
                                     numer={p.numer}
                                     uzyty={false}
-                                    etykieta={renderSourceLabel(p.s, p.numer - 1)}
                                     otworz={sourceHref(p.s) ? () => openSource(p.s) : undefined}
                                   />
                                 ))}
@@ -1188,54 +1158,5 @@ export default function ChatPage() {
         </Link>
       </div>
     </div>
-  );
-}
-
-/** Jedno źródło pod odpowiedzią: numer odsyłacza, typ pliku, rodzaj, strona i nazwa.
- *
- * Numer musi odpowiadać znacznikowi w treści, więc po ukryciu części pozycji
- * w numeracji zostają dziury. Dlatego numer nosi tę samą plakietkę co odsyłacz
- * w tekście — czyta się ją jak etykietę odsyłacza, a nie jak kolejność na liście.
- */
-function Zrodlo({
-  s, numer, uzyty, etykieta, otworz,
-}: {
-  s: ChatSource;
-  numer: number;
-  uzyty: boolean;
-  etykieta: string;
-  otworz?: () => void;
-}) {
-  const tresc = (
-    <>
-      <span
-        className={`grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full text-[11px] font-bold ${
-          uzyty ? 'bg-[#eaf1ff] text-[#2455cc]' : 'bg-app-bg text-app-muted'
-        }`}
-      >
-        {numer}
-      </span>
-      {s.filename && <FileTypeIcon filename={s.filename} size={28} />}
-      <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-baseline gap-x-2 text-[11px] text-app-muted">
-          {s.doc_type_name && <span className="font-bold uppercase tracking-[.02em]">{s.doc_type_name}</span>}
-          {s.page && <span>str. {s.page}</span>}
-        </span>
-        <span className="block break-words text-[12px] font-bold text-app-text">{etykieta}</span>
-        {s.filename && s.filename !== etykieta && (
-          <span className="block break-all text-[11px] text-app-muted">{s.filename}</span>
-        )}
-      </span>
-      {otworz && <span className="shrink-0 text-app-muted"><IconChevronRight size={16} /></span>}
-    </>
-  );
-
-  const klasy = 'flex w-full items-center gap-2.5 rounded-ctl border border-app-line bg-white px-2.5 py-2 text-left';
-  return otworz ? (
-    <button onClick={otworz} className={`${klasy} transition-colors hover:bg-app-hover`} title="Otwórz dokument">
-      {tresc}
-    </button>
-  ) : (
-    <div className={klasy}>{tresc}</div>
   );
 }

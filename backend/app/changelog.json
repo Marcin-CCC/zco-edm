@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.5.7",
+      "date": "2026-08-16",
+      "title": "Jednolity format listy dokumentow",
+      "changes": [
+        "Wyniki wyszukiwania po polach wygladaja tak samo jak lista dokumentow pod odpowiedzia czatu: numer, ikona typu pliku, kategoria, nazwa dokumentu i pod nia nazwa pliku. To ten sam rodzaj wyniku z tej samej sciezki, wiec nie ma powodu, zeby wygladal inaczej na dwoch ekranach.",
+        "Pola opisowe znikly z kafelka wyniku — numer albo data i tak trafia do etykiety, a reszta rozsadzala liste tym bardziej, im bogatszy schemat dokumentu. Pelny zestaw pol daje eksport do arkusza, ktory jest tuz obok."
+      ]
+    },
+    {
       "version": "1.5.6",
       "date": "2026-08-16",
       "title": "Menu na nizszych i wezszych ekranach",

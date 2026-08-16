@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { IconDownload } from '@/components/icons';
+import { PozycjaDokumentu, zHitow } from '@/components/pozycja-dokumentu';
+import { Button } from '@/components/ui/primitives';
 import { docSchemasApi, docSearchApi, DocTypeSchema, DocSearchHit } from '@/lib/api';
 import { pobierzListeXlsx } from '@/lib/eksport-xlsx';
 
@@ -12,6 +15,14 @@ const OPS = [
   { value: 'gt', label: '> (po)' },
   { value: 'lt', label: '< (przed)' },
 ];
+
+/** 1 dokument, 2 dokumenty, 5 dokumentów. */
+function odmianaDokumentow(n: number): string {
+  if (n === 1) return 'dokument';
+  const ost = n % 10;
+  const dwie = n % 100;
+  return ost >= 2 && ost <= 4 && (dwie < 10 || dwie >= 20) ? 'dokumenty' : 'dokumentów';
+}
 
 interface FilterRow {
   field: string;
@@ -115,8 +126,8 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
     }
   };
 
-  const typeLabel = (slug?: string | null) =>
-    schemas.find((s) => s.slug === slug)?.name || slug || '—';
+  // slug → nazwa czytelna; wspólna konwersja wyników oczekuje słownika
+  const nazwyTypow = Object.fromEntries(schemas.map((sch) => [sch.slug, sch.name]));
 
   return (
     <div className="hidden lg:flex flex-1 min-w-[320px] flex-col bg-white rounded-lg shadow border border-gray-200">
@@ -249,44 +260,32 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
           <p className="text-xs text-gray-400 text-center mt-6">Brak dokumentów spełniających kryteria.</p>
         ) : (
           <>
-            <p className="text-xs text-gray-500 mb-1">Znaleziono: {hits.length}</p>
-            {/* Eksport tej samej listy, którą widać niżej — kolumny i kolejność ustala
-                rejestr schematów, nazwa pliku powstaje z pytania po polsku. */}
-            <button
-              onClick={pobierzXlsx}
-              disabled={eksportTrwa}
-              className="mb-2 text-sm text-blue-600 hover:underline disabled:text-gray-400 disabled:no-underline"
-            >
-              📊 {eksportTrwa ? 'Przygotowuję arkusz…' : 'Pobierz tę listę w pliku xlsx'}
-            </button>
-            <ul className="space-y-2">
-              {hits.map((h) => (
-                <li key={h.id} className="border border-gray-200 rounded-md p-2.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <button
-                      onClick={() => download(h.id, h.filename)}
-                      className="text-sm text-blue-600 hover:underline text-left break-all"
-                    >
-                      📄 {h.filename}
-                    </button>
-                    {h.doc_type && (
-                      <span className="shrink-0 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
-                        {typeLabel(h.doc_type)}
-                      </span>
-                    )}
-                  </div>
-                  {h.fields && Object.keys(h.fields).length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {Object.entries(h.fields).map(([k, v]) => (
-                        <span key={k} className="text-xs bg-gray-100 text-gray-700 rounded px-1.5 py-0.5">
-                          <span className="text-gray-500">{k}:</span> {v}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </li>
+            <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[12px] text-app-muted">
+                Znaleziono {hits.length} {odmianaDokumentow(hits.length)}.
+              </p>
+              {/* Eksport tej samej listy, którą widać niżej — kolumny i kolejność ustala
+                  rejestr schematów, nazwa pliku powstaje z pytania po polsku. */}
+              <Button small onClick={pobierzXlsx} disabled={eksportTrwa}>
+                <IconDownload size={15} />
+                {eksportTrwa ? 'Przygotowuję arkusz…' : 'Pobierz tę listę w pliku XLSX'}
+              </Button>
+            </div>
+            {/* Ten sam format co lista dokumentów pod odpowiedzią czatu — bo to ten
+                sam rodzaj wyniku z tej samej ścieżki (`/api/doc-search`). Pola
+                opisowe zniknęły z kafelka: numer albo data i tak trafia do etykiety,
+                a reszta rozsadzała listę tym bardziej, im bogatszy schemat. Pełny
+                zestaw pól daje eksport do arkusza. */}
+            <div className="grid gap-2">
+              {zHitow(hits, nazwyTypow).map((d, i) => (
+                <PozycjaDokumentu
+                  key={d.file_id ?? i}
+                  d={d}
+                  numer={i + 1}
+                  otworz={d.file_id ? () => download(d.file_id!, d.filename || '') : undefined}
+                />
               ))}
-            </ul>
+            </div>
           </>
         )}
       </div>
