@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { IconDownload } from '@/components/icons';
 import { PozycjaDokumentu, zHitow } from '@/components/pozycja-dokumentu';
 import { Button } from '@/components/ui/primitives';
@@ -45,6 +45,14 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
   const [nlQuery, setNlQuery] = useState('');
   const [nlLoading, setNlLoading] = useState(false);
   const [eksportTrwa, setEksportTrwa] = useState(false);
+
+  // Kursor od razu w polu pytania — tak samo jak w czacie. Ten ekran ma dokladnie
+  // jeden punkt wejscia i wymuszanie klikniecia w niego byloby pustym krokiem.
+  // `preventScroll`, bo bez tego ustawienie kursora przewija strone do pola.
+  const poleNl = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!nlLoading) poleNl.current?.focus({ preventScroll: true });
+  }, [nlLoading]);
 
   /** Pobierz wyniki jako arkusz. Nazwę pliku buduje backend z pytania po polsku —
    *  tak samo jak w czacie robi to z pytania użytkownika. */
@@ -130,7 +138,11 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
   const nazwyTypow = Object.fromEntries(schemas.map((sch) => [sch.slug, sch.name]));
 
   return (
-    <div className="hidden lg:flex flex-1 min-w-[320px] flex-col bg-white rounded-lg shadow border border-gray-200">
+    // Bez `hidden lg:flex`: panel mieszkał kiedyś OBOK czatu i na wąskim ekranie
+    // musiał ustąpić rozmowie. Od layoutu 1.5 jest treścią własnego ekranu, więc
+    // ta reguła chowała całą stronę Wyszukiwanie poniżej 1024 px — zostawał sam
+    // nagłówek nad pustym miejscem.
+    <div className="flex min-w-0 flex-1 flex-col rounded-lg border border-gray-200 bg-white shadow">
       <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-800">Wyszukiwarka po polach</h2>
         {onClose && (
@@ -157,6 +169,7 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
           <label className="block text-xs font-medium text-gray-600 mb-1">Zapytaj po polsku</label>
           <div className="flex gap-1.5">
             <input
+              ref={poleNl}
               type="text"
               value={nlQuery}
               onChange={(e) => setNlQuery(e.target.value)}

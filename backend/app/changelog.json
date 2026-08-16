@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.5.8",
+      "date": "2026-08-16",
+      "title": "Wyszukiwanie: kursor w polu pytania, widocznosc na wezszym ekranie",
+      "changes": [
+        "Po wejsciu na ekran Wyszukiwanie kursor stoi od razu w polu pytania — tak samo jak w czacie. Wraca tam takze po zakonczeniu wyszukiwania, wiec pytanie da sie od razu poprawic.",
+        "Ekran Wyszukiwanie ponizej 1024 px szerokosci byl calkiem pusty: zostawal sam naglowek nad pustym miejscem. Wyszukiwarka mieszkala kiedys OBOK czatu i na waskim ekranie musiala ustepowac rozmowie — od layoutu 1.5 jest trescia wlasnego ekranu, wiec ta regula nie miala juz racji bytu."
+      ]
+    },
+    {
       "version": "1.5.7",
       "date": "2026-08-16",
       "title": "Jednolity format listy dokumentow",
