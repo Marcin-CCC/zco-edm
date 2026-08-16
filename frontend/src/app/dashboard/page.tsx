@@ -191,7 +191,12 @@ export default function DashboardPage() {
 
       {/* Kafelki. Trend pokazujemy tylko wtedy, gdy backend go policzył — przy zbyt
           małej podstawie zwraca `null`, bo procent liczony od jedynki nie jest
-          informacją (zob. MIN_PODSTAWA_TRENDU w dashboard/router.py). */}
+          informacją (zob. MIN_PODSTAWA_TRENDU w dashboard/router.py).
+
+          Dlatego kafelki wyrównujemy do GÓRY, a nie do środka: bez trendu kafelek
+          jest niższy od sąsiadów, a siatka rozciąga wszystkie do wysokości
+          najwyższego. Przy wyśrodkowaniu ikona i podpis takiego kafelka zjeżdżały
+          w dół i rząd wyglądał na rozstrojony. */}
       <div className={`mb-[18px] grid grid-cols-1 gap-[18px] md:grid-cols-2 ${kafelki.length === 4 ? 'xl:grid-cols-4' : 'xl:grid-cols-3'}`}>
         {kafelki.map((k) => {
           const ton = TONY[k.ton];
@@ -225,12 +230,12 @@ export default function DashboardPage() {
             <Link
               key={k.label}
               href={k.href}
-              className="flex items-center gap-3.5 rounded-card border border-app-line bg-white p-[18px] shadow-card transition-colors hover:bg-app-hover"
+              className="flex items-start gap-3.5 rounded-card border border-app-line bg-white p-[18px] shadow-card transition-colors hover:bg-app-hover"
             >
               {tresc}
             </Link>
           ) : (
-            <Card key={k.label} className="flex items-center gap-3.5 p-[18px]">{tresc}</Card>
+            <Card key={k.label} className="flex items-start gap-3.5 p-[18px]">{tresc}</Card>
           );
         })}
       </div>

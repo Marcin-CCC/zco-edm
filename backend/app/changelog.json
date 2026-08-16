@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "1.5.10",
+      "date": "2026-08-16",
+      "title": "Wyrownanie kafelkow statystyk",
+      "changes": [
+        "Ikony i podpisy w kafelkach statystyk na Dashboardzie trzymaja sie gornej krawedzi. Kafelek bez linijki trendu jest nizszy od sasiadow (przy malej podstawie procent nie jest liczony), a siatka rozciaga wszystkie do wysokosci najwyzszego — przy wysrodkowaniu tresc takiego kafelka zjezdzala w dol. Najlepiej bylo to widac po przelaczeniu zakresu na 7 dni."
+      ]
+    },
+    {
       "version": "1.5.9",
       "date": "2026-08-16",
       "title": "Alfabetyczna lista folderow, jednolita ramka pola pytania",
