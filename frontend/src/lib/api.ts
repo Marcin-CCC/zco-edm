@@ -1,5 +1,14 @@
 import type { Role } from '@/lib/roles';
 
+/** Jedna pozycja podglądu nadawania nazw. `proponowana` puste = `problem` mówi dlaczego. */
+export interface RenameProposal {
+  file_id: number;
+  filename: string;
+  doc_type: string | null;
+  proponowana: string | null;
+  problem: string | null;
+}
+
 const API_BASE = '';
 
 export async function apiRequest<T>(
@@ -203,6 +212,18 @@ export const filesApi = {
     apiRequest<any[]>('/api/files/categories', { method: 'GET', token: getAuthToken() }),
   folderFiles: (folderId: number) =>
     apiRequest<any[]>(`/api/files/folder/${folderId}/files`, { method: 'GET', token: getAuthToken() }),
+  // Podgląd nadania nazw z pól dokumentu — NIC nie zmienia.
+  renamePreview: (fileIds: number[]) =>
+    apiRequest<{ pozycje: RenameProposal[] }>('/api/files/rename-preview', {
+      method: 'POST', body: { file_ids: fileIds }, token: getAuthToken(),
+    }),
+  // Wykonanie: nazwy z podglądu albo poprawione ręcznie przez administratora.
+  rename: (items: { file_id: number; filename: string }[]) =>
+    apiRequest<{
+      zmienione: { file_id: number; z: string; na: string; na_dysku: boolean }[];
+      pominiete: { file_id: number; powod: string }[];
+    }>('/api/files/rename', { method: 'POST', body: { items }, token: getAuthToken() }),
+
   // Przeniesienie plików (jeden lub wiele) do innego folderu.
   // Backend aktualizuje też metadata.folder_id w bazie wektorowej.
   move: (fileIds: number[], folderId: number | null) =>
@@ -378,6 +399,8 @@ export interface DocTypeSchema {
   name: string;
   criteria?: string | null;
   fields: DocTypeField[];
+  /** Wzorzec nazwy pliku dla tego typu, np. „{typ}-nr-{numer}-{data}". */
+  name_pattern?: string | null;
   active: boolean;
 }
 

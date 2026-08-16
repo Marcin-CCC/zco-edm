@@ -23,6 +23,7 @@ const EMPTY_FORM = {
   slug: '',
   name: '',
   criteria: '',
+  name_pattern: '',
   active: true,
   fields: [] as FieldRow[],
 };
@@ -75,6 +76,7 @@ export default function DocSchemasPage() {
       slug: s.slug,
       name: s.name || '',
       criteria: s.criteria || '',
+      name_pattern: s.name_pattern || '',
       active: s.active,
       fields: (s.fields || []).map((f) => {
         const { baseType, enumValues } = parseType(f.type);
@@ -118,6 +120,7 @@ export default function DocSchemasPage() {
       slug: form.slug.trim().toLowerCase(),
       name: form.name.trim(),
       criteria: form.criteria.trim() || null,
+      name_pattern: form.name_pattern.trim() || null,
       active: form.active,
       fields: form.fields
         .filter((f) => f.name.trim())
@@ -216,6 +219,23 @@ export default function DocSchemasPage() {
                 placeholder="Jak rozpoznać ten typ dokumentu (wskazówki dla klasyfikatora)."
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Wzorzec nazwy pliku <span className="text-gray-400 font-normal">(opcjonalnie)</span>
+              </label>
+              <input
+                value={form.name_pattern}
+                onChange={(e) => setForm({ ...form, name_pattern: e.target.value })}
+                placeholder="{typ}-nr-{numer}-{data}"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                W nawiasach klamrowych nazwy pól nagłówkowych tego typu oraz <code>{'{typ}'}</code>.
+                Polskie znaki, spacje i znaki zakazane w nazwach plików zamieniamy na myślnik,
+                rozszerzenie dokładamy z oryginału. Puste = dla tej kategorii nie proponujemy nazw.
+              </p>
             </div>
 
             {/* Pola */}

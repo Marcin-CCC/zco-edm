@@ -231,6 +231,8 @@ async def upload_file(
         "size": db_file.size,
         "folder_id": db_file.folder_id,
         "uploaded_by": db_file.uploaded_by,
+        "doc_type": db_file.doc_type,
+        "original_filename": db_file.original_filename,
         "status": db_file.status,
         "created_at": db_file.created_at,
         "updated_at": db_file.updated_at,
@@ -310,6 +312,8 @@ def list_files(
             "size": f.size,
             "folder_id": f.folder_id,
             "uploaded_by": f.uploaded_by,
+            "doc_type": f.doc_type,
+            "original_filename": f.original_filename,
             "status": f.status,
             "created_at": f.created_at,
             "updated_at": f.updated_at,
@@ -398,6 +402,190 @@ def list_file_queue(
         })
     
     return result
+
+
+class RenamePreviewRequest(BaseModel):
+    file_ids: list[int]
+
+
+class RenameItem(BaseModel):
+    file_id: int
+    filename: str          # nazwa docelowa (z podglądu albo wpisana ręcznie)
+
+
+class RenameRequest(BaseModel):
+    items: list[RenameItem]
+
+
+def _rozszerzenie(nazwa: str) -> str:
+    return os.path.splitext(nazwa or "")[1].lstrip(".").lower()
+
+
+def _propozycje_nazw(pliki: list[FileModel], db: Session) -> list[dict]:
+    """Dla każdego pliku: nazwa proponowana albo powód, dla którego jej nie ma.
+
+    Kolizje rozstrzygamy wobec WSZYSTKICH nazw w bazie oraz wobec propozycji już
+    wydanych w tej partii — inaczej dwa zarządzenia o tym samym numerze dostałyby
+    identyczną nazwę i funkcja tworzyłaby problem, który ma leczyć.
+    """
+    from app.files.naming import build_filename, unique_filename
+
+    wzorce = {
+        sch.slug: (sch.name_pattern or "")
+        for sch in db.query(DocTypeSchema).all()
+    }
+    zajete = {
+        n for (n,) in db.query(FileModel.filename).all() if n
+    } - {p.filename for p in pliki}
+
+    wynik = []
+    for f in pliki:
+        meta = f.metadata_ if isinstance(f.metadata_, dict) else {}
+        doc_type = meta.get("doc_type")
+        pozycja = {
+            "file_id": f.id,
+            "filename": f.filename,
+            "doc_type": doc_type,
+            "proponowana": None,
+            "problem": None,
+        }
+        if not doc_type or doc_type == "inny":
+            pozycja["problem"] = "dokument nie ma rozpoznanej kategorii"
+        elif not wzorce.get(doc_type):
+            pozycja["problem"] = f"kategoria „{doc_type}” nie ma wzorca nazwy"
+        else:
+            nazwa, braki = build_filename(
+                wzorce[doc_type], doc_type, meta.get("doc_fields") or {},
+                _rozszerzenie(f.filename),
+            )
+            if nazwa is None:
+                pozycja["problem"] = "brak pól: " + ", ".join(braki)
+            else:
+                nazwa = unique_filename(nazwa, zajete)
+                zajete.add(nazwa)
+                pozycja["proponowana"] = nazwa
+        wynik.append(pozycja)
+    return wynik
+
+
+@router.post("/rename-preview")
+def rename_preview(
+    payload: RenamePreviewRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Co się stanie po nadaniu nazw — BEZ wykonywania czegokolwiek.
+
+    Operacja dotyka kilkudziesięciu plików naraz i zmienia to, pod czym ludzie
+    znają dokumenty. Bez listy „stara nazwa → nowa nazwa" nikt nie odważy się jej
+    kliknąć, i słusznie.
+    """
+    if not payload.file_ids:
+        raise HTTPException(status_code=400, detail="Nie wskazano plików.")
+    pliki = db.query(FileModel).filter(FileModel.id.in_(payload.file_ids)).all()
+    return {"pozycje": _propozycje_nazw(pliki, db)}
+
+
+@router.post("/rename")
+def rename_files(
+    payload: RenameRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Nadaj plikom nowe nazwy (z podglądu albo wpisane ręcznie).
+
+    Nazwa żyje w czterech miejscach i wszystkie trzeba ruszyć razem: kolumna
+    w bazie, plik na dysku, `file_path` (to jego dostaje n8n) oraz
+    `metadata.filename` w chunkach i streszczeniu w Qdrancie — bo to stamtąd
+    bierze się nazwa pokazywana pod odpowiedzią czatu.
+
+    Oryginalną nazwę zapamiętujemy przy pierwszej zmianie: pozwala cofnąć operację
+    i nie gubi tego, pod czym użytkownik pamięta dokument.
+    """
+    from app.files.naming import unique_filename
+    from app.qdrant_client import set_filename, set_summary_filename
+    from app.text_utils import slugify
+
+    if not payload.items:
+        raise HTTPException(status_code=400, detail="Nie wskazano plików.")
+
+    writable = writable_folder_ids(current_user, db)
+    zajete = {n for (n,) in db.query(FileModel.filename).all() if n}
+
+    zmienione, pominiete = [], []
+    for item in payload.items:
+        f = db.query(FileModel).filter(FileModel.id == item.file_id).first()
+        if not f:
+            pominiete.append({"file_id": item.file_id, "powod": "plik nie istnieje"})
+            continue
+        if writable is not None and (f.folder_id is None or f.folder_id not in writable):
+            pominiete.append({"file_id": f.id, "powod": "brak prawa zapisu w folderze"})
+            continue
+        if f.status in (DocumentStatus.PENDING, DocumentStatus.PROCESSING):
+            pominiete.append({"file_id": f.id, "powod": "plik jest w trakcie przetwarzania"})
+            continue
+
+        # Nazwę wpisaną ręcznie czyścimy tak samo jak generowaną — cały sens
+        # operacji to JEDEN spójny system nazw, a nie druga furtka na spacje
+        # i znaki zakazane w systemie plików.
+        ext = _rozszerzenie(item.filename) or _rozszerzenie(f.filename)
+        rdzen = slugify(os.path.splitext(item.filename or "")[0], max_length=120)
+        if not rdzen:
+            pominiete.append({"file_id": f.id, "powod": "pusta nazwa"})
+            continue
+        nowa = f"{rdzen}.{ext}" if ext else rdzen
+        if nowa == f.filename:
+            continue
+        nowa = unique_filename(nowa, zajete - {f.filename})
+        zajete.add(nowa)
+
+        stara = f.filename
+        sciezka = _zmien_nazwe_na_dysku(f.file_path, nowa)
+        if sciezka:
+            f.file_path = sciezka
+        if not f.original_filename:
+            f.original_filename = stara
+        f.filename = nowa
+        zmienione.append({"file_id": f.id, "z": stara, "na": nowa, "na_dysku": bool(sciezka)})
+
+    db.commit()
+
+    for z in zmienione:                       # Qdrant dopiero po zatwierdzeniu w bazie
+        set_filename(z["file_id"], z["na"])
+        set_summary_filename(z["file_id"], z["na"])
+
+    logger.info(
+        f"[RENAME] {current_user.username}: zmieniono nazwę {len(zmienione)} plik(ów); "
+        f"pominięto {len(pominiete)}"
+    )
+    return {"zmienione": zmienione, "pominiete": pominiete}
+
+
+def _zmien_nazwe_na_dysku(sciezka: str | None, nowa_nazwa: str) -> str | None:
+    """Zmienia nazwę pliku i jego konwersji; zwraca nową ścieżkę albo None.
+
+    None oznacza, że pliku nie ma na tej maszynie — tak jest w środowisku
+    deweloperskim, gdzie dokumenty leżą na Sparku. Zmieniamy wtedy tylko nazwę
+    widoczną w aplikacji, a `file_path` zostawiamy wskazujący na realny plik.
+    """
+    if not sciezka or not os.path.exists(sciezka):
+        return None
+    katalog = os.path.dirname(sciezka)
+    stary_rdzen = os.path.splitext(os.path.basename(sciezka))[0]
+    nowy_rdzen = os.path.splitext(nowa_nazwa)[0]
+    docelowa = os.path.join(katalog, nowa_nazwa)
+    try:
+        os.rename(sciezka, docelowa)
+        # Konwersje (odt → docx → pdf) leżą obok pod tym samym rdzeniem; gdyby
+        # zostały ze starą nazwą, podgląd przestałby je znajdować.
+        for plik in os.listdir(katalog):
+            rdzen, ext = os.path.splitext(plik)
+            if rdzen == stary_rdzen and plik != nowa_nazwa:
+                os.rename(os.path.join(katalog, plik), os.path.join(katalog, nowy_rdzen + ext))
+    except OSError as e:
+        logger.warning(f"[RENAME] Zmiana nazwy na dysku nieudana ({sciezka}): {e}")
+        return None
+    return docelowa
 
 
 class MoveFilesRequest(BaseModel):
@@ -600,6 +788,8 @@ def get_file(file_id: int, db: Session = Depends(get_db), current_user: User = D
         "size": file_obj.size,
         "folder_id": file_obj.folder_id,
         "uploaded_by": file_obj.uploaded_by,
+        "doc_type": file_obj.doc_type,
+        "original_filename": file_obj.original_filename,
         "status": file_obj.status,
         "created_at": file_obj.created_at,
         "updated_at": file_obj.updated_at,
@@ -757,6 +947,8 @@ def update_file(
         "size": file_obj.size,
         "folder_id": file_obj.folder_id,
         "uploaded_by": file_obj.uploaded_by,
+        "doc_type": file_obj.doc_type,
+        "original_filename": file_obj.original_filename,
         "status": file_obj.status,
         "created_at": file_obj.created_at,
         "updated_at": file_obj.updated_at,
@@ -815,6 +1007,8 @@ def list_folder_files(folder_id: int, db: Session = Depends(get_db), current_use
             "size": f.size,
             "folder_id": f.folder_id,
             "uploaded_by": f.uploaded_by,
+            "doc_type": f.doc_type,
+            "original_filename": f.original_filename,
             "status": f.status,
             "created_at": f.created_at,
             "updated_at": f.updated_at,

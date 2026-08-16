@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { filesApi, foldersApi, settingsApi } from '@/lib/api';
+import { docSchemasApi, filesApi, foldersApi, settingsApi } from '@/lib/api';
+import { RenameDialog } from '@/components/rename-dialog';
 import { useAuth } from '@/lib/store';
 import { czasLokalny, dataLokalna, godzinaLokalna } from '@/lib/czas';
 import { ROLE_ADMIN, isAdmin as czyAdmin, roleLabel, useRoles } from '@/lib/roles';
@@ -16,6 +17,8 @@ interface File {
   folder_id: number | null;
   uploaded_by: number;
   status: string;
+  doc_type?: string | null;
+  original_filename?: string | null;
   created_at: string;
   updated_at: string;
   folder?: { id: number; name: string; path: string } | null;
@@ -151,6 +154,12 @@ function FilesPageInner() {
   const [renaming, setRenaming] = useState(false);
   // Zaznaczanie i przenoszenie plików
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  // Słownik kategorii: kolumna KATEGORIA i okno nadawania nazw pokazują nazwę
+  // czytelną („Zarządzenie"), a nie slug z rejestru („zarzadzenie").
+  const [kategorie, setKategorie] = useState<Record<string, string>>({});
+  const [oknoAkcji, setOknoAkcji] = useState(false);
+  const [komunikat, setKomunikat] = useState('');
+  const [renameTarget, setRenameTarget] = useState<number[] | null>(null);
   const [moveTarget, setMoveTarget] = useState<number[] | null>(null);  // pliki do przeniesienia
   const [moveFolderId, setMoveFolderId] = useState<string>('');
   // Rozszerzenia z ustawień administratora — okno wysyłki musi pokazywać to samo,
@@ -563,6 +572,21 @@ function FilesPageInner() {
     }
   }, [permEffective, newPermRole, newPermAccess, assignableRoles]);
 
+  useEffect(() => {
+    docSchemasApi
+      .list()
+      .then((sch) => setKategorie(Object.fromEntries((sch || []).map((x: any) => [x.slug, x.name]))))
+      .catch(() => { /* brak słownika = pokażemy slug */ });
+  }, []);
+
+  const etykietaKategorii = useCallback(
+    (slug: string | null | undefined) => {
+      if (!slug || slug === 'inny') return '—';
+      return kategorie[slug] || slug;
+    },
+    [kategorie],
+  );
+
   // Top folders (root or current folder children)
   // Foldery pokazujemy alfabetycznie. localeCompare z 'pl' układa polskie znaki
   // we właściwej kolejności (ą po a, ł po l), czego zwykłe sortowanie po kodach
@@ -720,6 +744,13 @@ function FilesPageInner() {
           </div>
         )}
 
+        {komunikat && (
+          <div className="mb-3 flex items-start justify-between gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+            <span>{komunikat}</span>
+            <button onClick={() => setKomunikat('')} className="text-green-700 hover:text-green-900">✕</button>
+          </div>
+        )}
+
         {/* Files section */}
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -728,12 +759,32 @@ function FilesPageInner() {
               {selectedIds.length > 0 && (
                 <>
                   <span className="text-sm text-gray-500">zaznaczono: {selectedIds.length}</span>
-                  <button
-                    onClick={() => { setMoveTarget(selectedIds); setMoveFolderId(''); }}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                  >
-                    📂 Przenieś zaznaczone
-                  </button>
+                  {/* Jeden przycisk zamiast listy akcji: operacji zbiorczych będzie
+                      przybywać, a pasek nad tabelą nie jest miejscem na ich katalog. */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setOknoAkcji((o) => !o)}
+                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                    >
+                      ⚙ Wykonaj akcję na zaznaczonych ▾
+                    </button>
+                    {oknoAkcji && (
+                      <div className="absolute left-0 z-20 mt-1 w-64 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                        <button
+                          onClick={() => { setOknoAkcji(false); setMoveTarget(selectedIds); setMoveFolderId(''); }}
+                          className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          📂 Przenieś do folderu
+                        </button>
+                        <button
+                          onClick={() => { setOknoAkcji(false); setRenameTarget(selectedIds); }}
+                          className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          🏷 Nadaj nazwy zgodne z kategorią
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <button
                     onClick={() => setSelectedIds([])}
                     className="text-sm text-gray-400 hover:text-gray-600"
@@ -790,7 +841,7 @@ function FilesPageInner() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ikona</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nazwa</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rozmiar</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kategoria</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data dodania</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Akcje</th>
                   </tr>
@@ -822,18 +873,16 @@ function FilesPageInner() {
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {formatFileSize(file.size)}
                       </td>
+                      {/* Kategoria zamiast statusu: status pilnuje się w Kolejce plików,
+                          a na liście dokumentów szuka się rodzaju dokumentu. */}
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          file.status === 'Przetworzono'
-                            ? 'bg-green-100 text-green-800'
-                            : file.status === 'Błąd przetwarzania'
-                            ? 'bg-red-100 text-red-800'
-                            : file.status === 'Przetwarzanie'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {file.status}
-                        </span>
+                        {file.doc_type && file.doc_type !== 'inny' ? (
+                          <span className="rounded-full bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-800">
+                            {etykietaKategorii(file.doc_type)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">nierozpoznana</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {dataLokalna(file.created_at)}
@@ -1347,6 +1396,20 @@ function FilesPageInner() {
       )}
 
       {/* Przeniesienie plików do innego folderu */}
+      {renameTarget && (
+        <RenameDialog
+          fileIds={renameTarget}
+          etykietaKategorii={etykietaKategorii}
+          onClose={() => setRenameTarget(null)}
+          onDone={(tekst) => {
+            setRenameTarget(null);
+            setSelectedIds([]);
+            setKomunikat(tekst);
+            loadFiles();
+          }}
+        />
+      )}
+
       {moveTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">

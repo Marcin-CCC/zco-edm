@@ -422,6 +422,49 @@ def delete_summary(file_id: int) -> bool:
         return False
 
 
+def set_filename(file_id: int, filename: str) -> dict:
+    """Zaktualizuj `metadata.filename` we wszystkich chunkach pliku.
+
+    Nazwa z payloadu Qdranta jest tym, co użytkownik widzi pod odpowiedzią czatu.
+    Bez tej aktualizacji dokument po zmianie nazwy pokazywałby się w źródłach pod
+    starą — a wtedy nadawanie sensownych nazw nie dałoby nic akurat tam, gdzie
+    najbardziej pomaga.
+
+    Parametr `key` ustawia pole WEWNĄTRZ `metadata`, nie ruszając reszty
+    (file_id, page, folder_id).
+    """
+    base = settings.QDRANT_URL.rstrip("/")
+    url = f"{base}/collections/{settings.QDRANT_COLLECTION}/points/payload?wait=true"
+    body = {
+        "payload": {"filename": filename},
+        "key": "metadata",
+        "filter": {"must": [{"key": "metadata.file_id", "match": {"value": file_id}}]},
+    }
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            resp = client.post(url, json=body)
+        resp.raise_for_status()
+        return {"ok": True}
+    except Exception as e:
+        logger.warning(f"[QDRANT] Zapis nazwy pliku {file_id} nieudany: {e}")
+        return {"ok": False, "error": str(e)}
+
+
+def set_summary_filename(file_id: int, filename: str) -> bool:
+    """To samo dla streszczenia dokumentu — wskazywanie dokumentów pokazuje nazwę."""
+    base = settings.QDRANT_URL.rstrip("/")
+    url = f"{base}/collections/{_kolekcja_streszczen()}/points/payload?wait=true"
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            resp = client.post(url, json={"payload": {"filename": filename},
+                                          "points": [int(file_id)]})
+        resp.raise_for_status()
+        return True
+    except Exception as e:
+        logger.warning(f"[QDRANT] Zapis nazwy streszczenia pliku {file_id} nieudany: {e}")
+        return False
+
+
 def set_summary_folder_id(file_id: int, folder_id: int | None) -> bool:
     """Zaktualizuj folder w streszczeniu po przeniesieniu pliku (filtr RBAC)."""
     base = settings.QDRANT_URL.rstrip("/")

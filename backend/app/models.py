@@ -144,6 +144,9 @@ class File(Base):
     folder_id = Column(Integer, ForeignKey("folders.id", ondelete="SET NULL"), nullable=True)
     uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     status = Column(Enum(DocumentStatus), default=DocumentStatus.PENDING, nullable=False)
+    # Nazwa, pod którą plik został wgrany. Zostaje po nadaniu nazwy z pól dokumentu:
+    # pozwala cofnąć zmianę i nie gubi tego, pod czym użytkownik pamięta dokument.
+    original_filename = Column(String(500), nullable=True)
     ocr_result = Column('ocr_result', Text, nullable=True)  # wynik OCR z Docling (nazwa kolumny w DB: ocr_result)
     metadata_ = Column('metadata', JSON, nullable=True)  # dodatkowe metadane (JSON) — SQLAlchemy rezerwuje 'metadata'
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -152,6 +155,17 @@ class File(Base):
     # Relacje
     folder = relationship("Folder", back_populates="files")
     uploader = relationship("User", foreign_keys=[uploaded_by], back_populates="uploaded_files")
+
+    @property
+    def doc_type(self) -> str | None:
+        """Rozpoznana kategoria dokumentu (slug) — mieszka w `metadata_`.
+
+        Własność, a nie kolumna: klasyfikację zapisuje n8n razem z polami do JSON-a,
+        a lista plików potrzebuje samej kategorii. Dzięki temu `FileResponse` czyta
+        ją tak jak każde inne pole, bez budowania słowników w routerze.
+        """
+        meta = self.metadata_ if isinstance(self.metadata_, dict) else {}
+        return meta.get("doc_type")
 
 
 # ==================== Historia rozmów czatu ====================
@@ -348,6 +362,9 @@ class DocTypeSchema(Base):
     name = Column(String(100), nullable=False)                          # "Umowa"
     criteria = Column(Text, nullable=True)                              # kryteria klasyfikacji
     fields = Column(JSON, nullable=False, default=list)                 # [{name,type,hint}]
+    # Wzorzec nazwy pliku dla tego typu, np. „{typ}-nr-{numer}-{data}". Placeholdery
+    # to nazwy pól z `fields` oraz `{typ}`. Pusty = nazw nie generujemy.
+    name_pattern = Column(String(200), nullable=True)
     active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -94,6 +94,10 @@ class FileResponse(FileBase):
     size: Optional[float] = None
     uploaded_by: int
     status: DocumentStatus
+    # Kategoria zastąpiła status w tabeli plików: status ma znaczenie w kolejce
+    # przetwarzania, a na liście dokumentów użytkownik szuka rodzaju dokumentu.
+    doc_type: Optional[str] = None
+    original_filename: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     folder: Optional[dict] = None
@@ -295,6 +299,8 @@ class DocTypeSchemaBase(BaseModel):
     name: str                       # "Umowa"
     criteria: Optional[str] = None  # kryteria klasyfikacji (dla promptu)
     fields: list[DocTypeField] = []
+    # Wzorzec nazwy pliku, np. „{typ}-nr-{numer}-{data}"; pusty = bez generowania
+    name_pattern: Optional[str] = None
     active: bool = True
 
 

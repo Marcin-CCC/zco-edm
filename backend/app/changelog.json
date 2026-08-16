@@ -1,6 +1,19 @@
 {
   "entries": [
     {
+      "version": "1.2.0",
+      "date": "2026-08-16",
+      "title": "Nazwy plikow nadawane z rozpoznanych pol dokumentu",
+      "changes": [
+        "Kazda kategoria dokumentu moze miec wlasny wzorzec nazwy pliku, np. {typ}-nr-{numer_dokumentu}-{data}. Wzorzec ustawia administrator w Schematach dokumentow; pusty oznacza, ze dla tej kategorii nazw nie proponujemy.",
+        "Nowa akcja zbiorcza w module Pliki: zaznacz dokumenty, wybierz 'Wykonaj akcje na zaznaczonych' i 'Nadaj nazwy zgodne z kategoria'. Okno pokazuje najpierw liste stara nazwa -> nowa i pozwala kazda pozycje poprawic albo odznaczyc - nic nie dzieje sie bez podgladu.",
+        "Nazwe mozna wpisac recznie, gdy dokumentowi brakuje pola (najczestsza przyczyna to slaby OCR, a nie brak danych w dokumencie).",
+        "Dotychczasowa nazwa jest zapamietywana, wiec zmiane da sie odtworzyc i nie gubi sie to, pod czym uzytkownik pamieta dokument.",
+        "W tabeli plikow kolumne Status zastapila kolumna Kategoria. Status pilnuje sie w Kolejce plikow, a na liscie dokumentow bardziej przydaje sie rodzaj dokumentu.",
+        "Nazwa zmienia sie wszedzie naraz: w bazie, na dysku (razem z konwersjami pliku) oraz w bazie wektorowej, z ktorej bierze sie nazwa pokazywana pod odpowiedzia czatu."
+      ]
+    },
+    {
       "version": "1.1.1",
       "date": "2026-08-16",
       "title": "Trafniejsze doklejanie brakujacego watku do odpowiedzi",

@@ -43,6 +43,37 @@ def get_active_schemas(db: Session) -> list[dict]:
     return result
 
 
+_PLACEHOLDER_RE = re.compile(r"\{([a-zA-Z0-9_]+)\}")
+
+
+def _validate_name_pattern(pattern: str | None, fields: list) -> str | None:
+    """Wzorzec nazwy pliku dla tego typu; ``None`` gdy pusty.
+
+    Sprawdzamy placeholdery od razu przy zapisie, bo literówka („{numer_dok}"
+    zamiast „{numer}") objawiłaby się dopiero przy próbie nadania nazw, jako
+    „brak pól" przy każdym dokumencie — czyli w miejscu, gdzie nikt jej nie szuka.
+    """
+    wzorzec = (pattern or "").strip()
+    if not wzorzec:
+        return None
+    znane = {f.name for f in fields} | {"typ"}
+    uzyte = set(_PLACEHOLDER_RE.findall(wzorzec))
+    if not uzyte:
+        raise HTTPException(
+            status_code=400,
+            detail="Wzorzec nazwy musi zawierać choć jedno pole w nawiasach, np. {typ}-{numer}.",
+        )
+    nieznane = sorted(uzyte - znane)
+    if nieznane:
+        raise HTTPException(
+            status_code=400,
+            detail=("Wzorzec używa pól, których ten typ nie ma: "
+                    + ", ".join(nieznane)
+                    + ". Dostępne: " + ", ".join(sorted(znane)) + "."),
+        )
+    return wzorzec
+
+
 def _validate_fields(fields: list) -> None:
     for f in fields:
         t = (f.type or "").strip()
@@ -85,11 +116,13 @@ def upsert_schema(
     _validate_fields(payload.fields)
 
     fields_data = [f.model_dump() for f in payload.fields]
+    wzorzec = _validate_name_pattern(payload.name_pattern, payload.fields)
     existing = db.query(DocTypeSchema).filter(DocTypeSchema.slug == slug).first()
     if existing:
         existing.name = payload.name
         existing.criteria = payload.criteria
         existing.fields = fields_data
+        existing.name_pattern = wzorzec
         existing.active = payload.active
         db.commit()
         db.refresh(existing)
@@ -98,7 +131,7 @@ def upsert_schema(
 
     new = DocTypeSchema(
         slug=slug, name=payload.name, criteria=payload.criteria,
-        fields=fields_data, active=payload.active,
+        fields=fields_data, name_pattern=wzorzec, active=payload.active,
     )
     db.add(new)
     db.commit()

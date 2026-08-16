@@ -59,6 +59,35 @@ def convert_role_columns_to_text(engine: Engine) -> None:
             )
 
 
+# Kolumny dokładane do istniejących tabel. `create_all` zakłada BRAKUJĄCE TABELE,
+# ale nigdy nie dokłada kolumny do tabeli, która już jest — a obie poniższe pojawiły
+# się w 1.2.0, gdy tabele stały na produkcji od miesięcy.
+NEW_COLUMNS = [
+    ("files", "original_filename", "varchar(500)"),
+    ("doc_type_schemas", "name_pattern", "varchar(200)"),
+]
+
+
+def add_missing_columns(engine: Engine) -> None:
+    """Dokłada kolumny, których nie ma. Idempotentne i bezpieczne dla starego obrazu:
+    dodanie kolumny NULL-owalnej nie przeszkadza wersji, która o niej nie wie."""
+    if engine.dialect.name != "postgresql":
+        return
+    with engine.begin() as conn:
+        for table, column, typ in NEW_COLUMNS:
+            istnieje = conn.execute(
+                text(
+                    "SELECT 1 FROM information_schema.columns "
+                    "WHERE table_name = :t AND column_name = :c"
+                ),
+                {"t": table, "c": column},
+            ).scalar()
+            if istnieje:
+                continue
+            logger.info("[SCHEMAT] %s: dokładam kolumnę %s %s", table, column, typ)
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {typ}"))
+
+
 def seed_roles(session: Session) -> None:
     """Uzupełnia słownik ról: role wbudowane oraz kody zastane w danych.
 
@@ -96,6 +125,7 @@ def run_startup_upgrades(engine: Engine) -> None:
     """Wywoływane raz przy starcie, po ``create_all``."""
     try:
         convert_role_columns_to_text(engine)
+        add_missing_columns(engine)
         with Session(engine) as session:
             seed_roles(session)
     except Exception:
