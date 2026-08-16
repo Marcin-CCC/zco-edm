@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "1.5.11",
+      "date": "2026-08-16",
+      "title": "Historia chatow bez pogrubienia",
+      "changes": [
+        "Nazwy rozmow na liscie „Historia chatow\" nie sa juz wytluszczone. Biezaca rozmowe oznacza niebieska krawedz i jasne tlo, a lista, w ktorej pogrubiona jest kazda pozycja, nie wyroznia niczego."
+      ]
+    },
+    {
       "version": "1.5.10",
       "date": "2026-08-16",
       "title": "Wyrownanie kafelkow statystyk",

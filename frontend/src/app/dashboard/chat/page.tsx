@@ -879,7 +879,10 @@ export default function ChatPage() {
                 title={c.title}
               >
                 <span className="shrink-0 text-app-muted"><IconChat size={16} /></span>
-                <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-app-text">{c.title}</span>
+                {/* Bez pogrubienia: bieżącą rozmowę oznacza już niebieska krawędź
+                    i jasne tło, a lista, w której każda pozycja jest wytłuszczona,
+                    nie wyróżnia niczego. */}
+                <span className="min-w-0 flex-1 truncate text-[13px] text-app-text">{c.title}</span>
                 <button
                   onClick={(e) => deleteConversation(c.id, e)}
                   className="shrink-0 text-app-muted opacity-0 transition-opacity hover:text-app-danger focus:opacity-100 group-hover:opacity-100"
