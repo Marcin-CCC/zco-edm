@@ -25,6 +25,24 @@ jobs:
   test-backend:
     name: Backend Tests
     runs-on: ubuntu-latest
+    # Część testów uruchamia aplikację przez TestClient, a ta przy starcie łączy
+    # się z bazą (create_all + uaktualnienia schematu). Bez bazy w przebiegu CI
+    # kończyły się błędem połączenia — wcześniej nie było tego widać, bo krok
+    # z testami miał `|| true`. Port 15432 jest celowy: taki jest domyślny adres
+    # bazy w app/config.py, więc nie trzeba podawać DATABASE_URL.
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: tajne_haslo
+          POSTGRES_DB: edmdatabase
+        ports:
+          - 15432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
