@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.5.2",
+      "date": "2026-08-16",
+      "title": "Foldery jako lista, poprawiony pasek nad plikami",
+      "changes": [
+        "Foldery mozna teraz ogladac jako liste albo jako kafelki - tym samym przelacznikiem co pliki. Wybor jest niezalezny dla folderow i dla plikow i utrzymuje sie przy wchodzeniu w glab drzewa. W widoku listy kolumna ze sciezka pojawia sie dopiero w podfolderach; w katalogu glownym sciezka to sama nazwa folderu i nic nie wnosila.",
+        "Naglowek Pliki, pole wyszukiwania i przelacznik widoku ukladaja sie w jednym wierszu, jak w projekcie. Pole wyszukiwania rozciagalo sie na cala szerokosc karty i spychalo pozostale elementy do osobnych linii."
+      ]
+    },
+    {
       "version": "1.5.1",
       "date": "2026-08-16",
       "title": "Poprawki po wdrozeniu layoutu",

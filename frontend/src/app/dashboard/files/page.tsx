@@ -123,6 +123,10 @@ function FilesPageInner() {
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [breadcrumbs, setBreadcrumbs] = useState<{ id: number; name: string }[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  // Widok folderow trzymamy OSOBNO od widoku plikow: to dwie rozne listy i
+  // czesto chce sie je ogladac inaczej — foldery jako kafelki (latwiej trafic),
+  // pliki jako liste (wiecej kolumn na ekranie).
+  const [folderView, setFolderView] = useState<ViewMode>('grid');
   // Stronicowanie jest po stronie przeglądarki — dzielimy listę, którą już mamy.
   const [strona, setStrona] = useState(1);
   const [naStronie, setNaStronie] = useState(25);
@@ -720,58 +724,114 @@ function FilesPageInner() {
 
       {/* Foldery */}
       {podfoldery.length > 0 && (
-        <Card className="mb-[18px] p-[18px]">
-          <h2 className="mb-3 flex items-center gap-2.5 text-[16px] font-bold text-app-text">
-            <IconFolder size={18} />
-            Foldery
-            <span className="text-[11px] font-normal text-app-muted">
-              {currentFolderId === null ? 'główne' : 'w tym folderze'}
-            </span>
-          </h2>
-          <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 xl:grid-cols-4">
-            {podfoldery.map((folder) => (
-              <div
-                key={folder.id}
-                // relative: ikony akcji leżą NAD kafelkiem (zob. komentarz niżej).
-                className="group relative flex h-full flex-col rounded-card border border-app-line bg-white p-[18px] transition-shadow hover:shadow-card"
-              >
-                <button onClick={() => navigateToFolder(folder)} className="flex w-full flex-col gap-3 text-left">
-                  {/* Ikona ma WŁASNY wiersz, a nie miejsce obok tekstu. Ikony akcji
-                      leżą w tym samym pasie po prawej, więc nazwa folderu dostaje
-                      pełną szerokość kafelka. Wcześniej rezerwowaliśmy na akcje stały
-                      margines po prawej przez całą wysokość — i „Polityka
-                      antymobbingowa" łamała się w środku słowa mimo wolnego miejsca. */}
-                  <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[12px] bg-[#fff6e2] text-[#d99b20]">
-                    <IconFolder size={22} />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block break-words text-[14px] font-bold text-app-text">{folder.name}</span>
-                    {folder.path !== `/${folder.name}` && (
-                      // Dla folderu głównego ścieżka to sama jego nazwa ze slashem —
-                      // powtarzanie jej pod spodem nic nie wnosi.
-                      <span className="mt-0.5 block break-words text-[11px] text-app-muted">{folder.path}</span>
-                    )}
-                    <span className="mt-1 block text-[11px] text-app-muted">
-                      {folder.file_count ?? 0} {odmianaPlikow(folder.file_count ?? 0)}
-                    </span>
-                  </span>
-                </button>
-                {isAdmin && (
-                  <div className="absolute right-3 top-3 flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                    <IconButton tone="edit" title="Zmień nazwę folderu" onClick={() => openRename(folder)}>
-                      <IconEdit size={16} />
-                    </IconButton>
-                    <IconButton tone="lock" title="Uprawnienia folderu" onClick={() => openPermissions(folder)}>
-                      <IconLock size={16} />
-                    </IconButton>
-                    <IconButton tone="danger" title="Usuń folder" onClick={() => handleDeleteFolder(folder.id)}>
-                      <IconTrash size={16} />
-                    </IconButton>
-                  </div>
-                )}
-              </div>
-            ))}
+        <Card className="mb-[18px] overflow-hidden">
+          <div className="flex flex-wrap items-center gap-2.5 px-[18px] py-3.5">
+            <h2 className="mr-auto flex items-center gap-2.5 text-[16px] font-bold text-app-text">
+              <IconFolder size={18} />
+              Foldery
+              <span className="text-[11px] font-normal text-app-muted">
+                {currentFolderId === null ? 'główne' : 'w tym folderze'}
+              </span>
+            </h2>
+            <WidokToggle wartosc={folderView} zmien={setFolderView} etykieta="Widok folderów" />
           </div>
+
+          {folderView === 'grid' ? (
+            <div className="grid grid-cols-1 gap-[18px] px-[18px] pb-[18px] sm:grid-cols-2 xl:grid-cols-4">
+              {podfoldery.map((folder) => (
+                <div
+                  key={folder.id}
+                  // relative: ikony akcji leżą NAD kafelkiem (zob. komentarz niżej).
+                  className="group relative flex h-full flex-col rounded-card border border-app-line bg-white p-[18px] transition-shadow hover:shadow-card"
+                >
+                  <button onClick={() => navigateToFolder(folder)} className="flex w-full flex-col gap-3 text-left">
+                    {/* Ikona ma WŁASNY wiersz, a nie miejsce obok tekstu. Ikony akcji
+                        leżą w tym samym pasie po prawej, więc nazwa folderu dostaje
+                        pełną szerokość kafelka. Wcześniej rezerwowaliśmy na akcje stały
+                        margines po prawej przez całą wysokość — i „Polityka
+                        antymobbingowa" łamała się w środku słowa mimo wolnego miejsca. */}
+                    <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[12px] bg-[#fff6e2] text-[#d99b20]">
+                      <IconFolder size={22} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block break-words text-[14px] font-bold text-app-text">{folder.name}</span>
+                      {folder.path !== `/${folder.name}` && (
+                        // Dla folderu głównego ścieżka to sama jego nazwa ze slashem —
+                        // powtarzanie jej pod spodem nic nie wnosi.
+                        <span className="mt-0.5 block break-words text-[11px] text-app-muted">{folder.path}</span>
+                      )}
+                      <span className="mt-1 block text-[11px] text-app-muted">
+                        {folder.file_count ?? 0} {odmianaPlikow(folder.file_count ?? 0)}
+                      </span>
+                    </span>
+                  </button>
+                  {isAdmin && (
+                    <div className="absolute right-3 top-3 flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                      <AkcjeFolderu
+                        folder={folder}
+                        zmienNazwe={openRename}
+                        uprawnienia={openPermissions}
+                        usun={handleDeleteFolder}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="overflow-x-auto border-t border-app-line">
+              <Table>
+                <thead>
+                  <tr>
+                    <Th className="w-[62px]">Typ</Th>
+                    <Th>Nazwa</Th>
+                    {/* W katalogu głównym ścieżka każdego folderu to jego własna
+                        nazwa ze slashem — kolumna pełna „/Delegacje" obok „Delegacje"
+                        nie niesie nic. Pokazujemy ją dopiero w głębi drzewa. */}
+                    {currentFolderId !== null && <Th>Ścieżka</Th>}
+                    <Th className="whitespace-nowrap">Liczba plików</Th>
+                    <Th className="w-[120px]" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {podfoldery.map((folder) => (
+                    <tr
+                      key={folder.id}
+                      className="group cursor-pointer hover:bg-app-hover"
+                      onClick={() => navigateToFolder(folder)}
+                    >
+                      <Td>
+                        <span className="grid h-8 w-8 place-items-center rounded-[7px] bg-[#fff6e2] text-[#d99b20]">
+                          <IconFolder size={17} />
+                        </span>
+                      </Td>
+                      <Td>
+                        <span className="block break-words font-bold text-app-text">{folder.name}</span>
+                      </Td>
+                      {currentFolderId !== null && (
+                        <Td className="break-words text-app-muted">{folder.path}</Td>
+                      )}
+                      <Td className="whitespace-nowrap text-app-muted">
+                        {folder.file_count ?? 0} {odmianaPlikow(folder.file_count ?? 0)}
+                      </Td>
+                      <Td onClick={(e) => e.stopPropagation()}>
+                        {isAdmin && (
+                          <RowActions>
+                            <AkcjeFolderu
+                              folder={folder}
+                              zmienNazwe={openRename}
+                              uprawnienia={openPermissions}
+                              usun={handleDeleteFolder}
+                            />
+                          </RowActions>
+                        )}
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
+          )}
         </Card>
       )}
 
@@ -830,32 +890,22 @@ function FilesPageInner() {
             </div>
           )}
 
-          <input
-            type="text"
-            placeholder="Szukaj pliku…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className={`${inputClass} h-9 w-48`}
-            aria-label="Szukaj pliku"
-          />
+          {/* Szerokosc nadaje OPAKOWANIE, nie klasa na polu: `inputClass` niesie
+              `w-full`, a Tailwind emituje `.w-full` po `.w-48`, wiec przy rownej
+              specyficznosci zwezenie w lancuchu klas przegrywa (pole mialo 1075 px
+              zamiast 192 px i lamalo pasek na trzy wiersze). */}
+          <span className="w-48 shrink-0">
+            <input
+              type="text"
+              placeholder="Szukaj pliku…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={`${inputClass} h-9`}
+              aria-label="Szukaj pliku"
+            />
+          </span>
 
-          {/* Przełącznik widoku. Stan zaznaczamy jasnym tłem, nie niebieskim
-              wypełnieniem — niebieski jest w tym layoucie kolorem AKCJI. */}
-          <div className="flex overflow-hidden rounded-ctl border border-app-line" role="group" aria-label="Widok listy plików">
-            {([['list', 'Lista', IconList], ['grid', 'Kafelki', IconGrid]] as const).map(([tryb, etykieta, Ikona]) => (
-              <button
-                key={tryb}
-                onClick={() => setViewMode(tryb)}
-                aria-pressed={viewMode === tryb}
-                className={`flex items-center gap-1.5 px-3 py-2 text-[12px] ${
-                  viewMode === tryb ? 'bg-[#edf4ff] font-bold text-app-blue' : 'bg-white text-app-text hover:bg-app-hover'
-                }`}
-              >
-                <Ikona size={15} />
-                {etykieta}
-              </button>
-            ))}
-          </div>
+          <WidokToggle wartosc={viewMode} zmien={setViewMode} etykieta="Widok listy plików" />
         </div>
 
         {loading ? (
@@ -1339,6 +1389,66 @@ function FilesPageInner() {
         </Modal>
       )}
     </div>
+  );
+}
+
+/** Przełącznik Lista/Kafelki — ten sam dla plików i dla folderów.
+ *
+ * Stan zaznaczamy jasnym tłem, nie niebieskim wypełnieniem: w tym layoucie
+ * niebieski jest kolorem AKCJI, a wybrany widok to stan, nie czynność.
+ */
+function WidokToggle({
+  wartosc, zmien, etykieta,
+}: {
+  wartosc: ViewMode;
+  zmien: (v: ViewMode) => void;
+  etykieta: string;
+}) {
+  return (
+    <div className="flex shrink-0 overflow-hidden rounded-ctl border border-app-line" role="group" aria-label={etykieta}>
+      {([['list', 'Lista', IconList], ['grid', 'Kafelki', IconGrid]] as const).map(([tryb, opis, Ikona]) => (
+        <button
+          key={tryb}
+          onClick={() => zmien(tryb)}
+          aria-pressed={wartosc === tryb}
+          className={`flex items-center gap-1.5 px-3 py-2 text-[12px] ${
+            wartosc === tryb ? 'bg-[#edf4ff] font-bold text-app-blue' : 'bg-white text-app-text hover:bg-app-hover'
+          }`}
+        >
+          <Ikona size={15} />
+          {opis}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Trzy akcje administratora na folderze — te same w kafelku i w wierszu tabeli.
+ *  `stopPropagation`, bo oba pojemniki reagują na kliknięcie wejściem do folderu. */
+function AkcjeFolderu({
+  folder, zmienNazwe, uprawnienia, usun,
+}: {
+  folder: Folder;
+  zmienNazwe: (f: Folder) => void;
+  uprawnienia: (f: Folder) => void;
+  usun: (id: number) => void;
+}) {
+  const klik = (akcja: () => void) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    akcja();
+  };
+  return (
+    <>
+      <IconButton tone="edit" title="Zmień nazwę folderu" onClick={klik(() => zmienNazwe(folder))}>
+        <IconEdit size={16} />
+      </IconButton>
+      <IconButton tone="lock" title="Uprawnienia folderu" onClick={klik(() => uprawnienia(folder))}>
+        <IconLock size={16} />
+      </IconButton>
+      <IconButton tone="danger" title="Usuń folder" onClick={klik(() => usun(folder.id))}>
+        <IconTrash size={16} />
+      </IconButton>
+    </>
   );
 }
 
