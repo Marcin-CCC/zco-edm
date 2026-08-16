@@ -732,16 +732,19 @@ function FilesPageInner() {
             {podfoldery.map((folder) => (
               <div
                 key={folder.id}
-                // relative: ikony akcji leżą NAD kafelkiem, nie obok treści — ukryte
-                // przez `opacity-0` zabierałyby szerokość nazwie także wtedy, gdy ich
-                // nie widać, i nazwy łamałyby się mimo wolnego miejsca.
-                className="group relative flex h-full items-start gap-3.5 rounded-card border border-app-line bg-white p-[18px] transition-shadow hover:shadow-card"
+                // relative: ikony akcji leżą NAD kafelkiem (zob. komentarz niżej).
+                className="group relative flex h-full flex-col rounded-card border border-app-line bg-white p-[18px] transition-shadow hover:shadow-card"
               >
-                <button onClick={() => navigateToFolder(folder)} className="flex w-full items-start gap-3.5 text-left">
+                <button onClick={() => navigateToFolder(folder)} className="flex w-full flex-col gap-3 text-left">
+                  {/* Ikona ma WŁASNY wiersz, a nie miejsce obok tekstu. Ikony akcji
+                      leżą w tym samym pasie po prawej, więc nazwa folderu dostaje
+                      pełną szerokość kafelka. Wcześniej rezerwowaliśmy na akcje stały
+                      margines po prawej przez całą wysokość — i „Polityka
+                      antymobbingowa" łamała się w środku słowa mimo wolnego miejsca. */}
                   <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[12px] bg-[#fff6e2] text-[#d99b20]">
                     <IconFolder size={22} />
                   </span>
-                  <span className={`min-w-0 ${isAdmin ? 'pr-16' : ''}`}>
+                  <span className="min-w-0">
                     <span className="block break-words text-[14px] font-bold text-app-text">{folder.name}</span>
                     {folder.path !== `/${folder.name}` && (
                       // Dla folderu głównego ścieżka to sama jego nazwa ze slashem —

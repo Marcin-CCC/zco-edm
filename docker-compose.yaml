@@ -11,7 +11,7 @@ version: '3.8'
 #   SECRET_KEY=your-secret-key
 #   QDRANT_URL=http://192.168.1.34:6333
 #   N8N_WEBHOOK_URL=http://192.168.1.34:5678/webhook/document-uploaded
-#   DOCLING_API_URL=http://docling:8002
+#   DOCLING_API_URL=http://192.168.1.34:8085
 #   OLLAMA_API_URL=http://192.168.1.34:11434
 #   ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
 # ============================================================
@@ -68,7 +68,11 @@ services:
       # bezwzględne, a n8n montuje ten sam wolumen dokładnie tam. Zmiana punktu
       # montowania zrywa podgląd i pobieranie wszystkich wgranych plików.
       - STORAGE_PATH=/data/shared_docs
-      - DOCLING_API_URL=${DOCLING_API_URL:-http://docling:8002}
+      # Adres Doclinga potrzebny jest WYLACZNIE panelowi „Status systemu" na
+      # Dashboardzie. Sciezka parsowania idzie n8n -> Docling i backend jej nie
+      # dotyka, dlatego dawny „http://docling:8002" (nazwa kontenera z ukladu,
+      # ktory dawno nie istnieje) przez lata nikomu nie przeszkadzal.
+      - DOCLING_API_URL=${DOCLING_API_URL:-http://192.168.1.34:8085}
       - OLLAMA_API_URL=${OLLAMA_API_URL:-http://192.168.1.34:11434}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001}
       - WEBHOOK_SECRET=${WEBHOOK_SECRET:-}

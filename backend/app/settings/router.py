@@ -18,7 +18,14 @@ _cache_loaded = False
 
 
 def _load_cache_from_db(db: Session) -> None:
-    """Load settings from database into memory cache."""
+    """Load settings from database into memory cache.
+
+    Deklaracja `global` jest tu KONIECZNA (w odróżnieniu od pozostałych funkcji
+    w tym module): ta jedna podstawia cały słownik pod nazwę, a nie uzupełnia go
+    kluczem. Bez niej przypisanie tworzy zmienną lokalną, pamięć podręczna
+    zostaje pusta i cała aplikacja jedzie na wartościach domyślnych — adresie
+    webhooka, nazwie instancji, liście rozszerzeń.
+    """
     global _settings_cache, _cache_loaded
     records = db.query(Setting).all()
     _settings_cache = {r.key: r.value for r in records}
@@ -27,7 +34,6 @@ def _load_cache_from_db(db: Session) -> None:
 
 def _save_cache_to_db(db: Session) -> None:
     """Save cached settings to database."""
-    global _settings_cache
     for key, value in _settings_cache.items():
         existing = db.query(Setting).filter(Setting.key == key).first()
         if existing:
@@ -124,7 +130,6 @@ def get_settings(
     current_user: User = Depends(get_current_user),
 ):
     """Get all settings as a dictionary."""
-    global _cache_loaded
     if not _cache_loaded:
         _load_cache_from_db(db)
     return SettingsResponse(
@@ -156,7 +161,6 @@ def get_session_settings(
     listę dozwolonych rozszerzeń, której okno wysyłki potrzebuje, żeby filtr plików
     i opis zgadzały się z ustawieniem administratora.
     """
-    global _cache_loaded
     if not _cache_loaded:
         _load_cache_from_db(db)
     return {
@@ -175,7 +179,7 @@ async def upload_app_icon(
 
     Ikonę trzymamy w bazie jako data URI — zob. uzasadnienie w app/branding.py.
     """
-    global _settings_cache, _cache_loaded
+    global _cache_loaded
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator może zmieniać ikonę.")
     if not _cache_loaded:
@@ -193,7 +197,7 @@ def reset_app_icon(
     current_user: User = Depends(get_current_user),
 ):
     """Przywrócenie ikony domyślnej (tej z obrazu aplikacji)."""
-    global _settings_cache, _cache_loaded
+    global _cache_loaded
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator może zmieniać ikonę.")
     if not _cache_loaded:
@@ -212,7 +216,7 @@ def update_setting(
     current_user: User = Depends(get_current_user),
 ):
     """Update a setting value. Tylko administrator."""
-    global _settings_cache, _cache_loaded
+    global _cache_loaded
 
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator może zmieniać ustawienia.")

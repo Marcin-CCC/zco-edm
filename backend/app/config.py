@@ -57,7 +57,13 @@ class Settings:
     # gdyby została przemianowana przy czyszczeniu bazy demo.
     QDRANT_COLLECTION: str = os.getenv("QDRANT_COLLECTION", "chi_camp_2026")
     N8N_WEBHOOK_URL: str = os.getenv("N8N_WEBHOOK_URL")  # Pobierany z ustawień aplikacji (baza danych)
-    DOCLING_API_URL: str = os.getenv("DOCLING_API_URL", "http://docling:8002")
+    # Docling — usługa zamiany dokumentów na tekst. UWAGA: backend jej nie wywołuje.
+    # Parsowanie idzie n8n → Docling; ten adres służy wyłącznie panelowi „Status
+    # systemu" na Dashboardzie do sprawdzenia, czy usługa żyje. Domyślna wartość
+    # wskazywała kiedyś kontener o nazwie „docling" z układu, który już nie istnieje
+    # — nikt tego nie zauważył, bo do wersji 1.5.0 zmienna nie miała ani jednego
+    # odbiorcy w kodzie.
+    DOCLING_API_URL: str = os.getenv("DOCLING_API_URL", "http://192.168.1.34:8085")
     OLLAMA_API_URL: str = os.getenv("OLLAMA_API_URL", "http://192.168.1.34:11434")
 
     # vLLM (OpenAI-compatible) — klasyfikacja i ekstrakcja pól (#7B-2).

@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.5.1",
+      "date": "2026-08-16",
+      "title": "Poprawki po wdrozeniu layoutu",
+      "changes": [
+        "Status systemu pokazywal Parser jako niedostepny, choc przetwarzanie dzialalo. Backend pytal o Doclinga pod adresem z ukladu kontenerow, ktory dawno nie istnieje - adres nie mial do tej pory ani jednego odbiorcy w kodzie, wiec blad wyszedl dopiero, gdy panel zaczal go uzywac. Parsowanie idzie n8n -> Docling i nigdy nie bylo tym dotkniete.",
+        "Nazwy folderow w Eksploratorze lamaly sie w srodku slowa mimo wolnego miejsca w kafelku. Ikona folderu dostala wlasny wiersz (jak w makiecie), dzieki czemu nazwa korzysta z pelnej szerokosci zamiast ustepowac miejsca ikonom akcji."
+      ]
+    },
+    {
       "version": "1.5.0",
       "date": "2026-08-16",
       "title": "Nowy layout aplikacji",
