@@ -84,6 +84,9 @@
   --app-green-bg: #e8f8ef;
   --app-teal: #13b9b1;
   --app-orange: #e8843c;
+  /* Ramka glownego pola wprowadzania (okno czatu, pytanie w wyszukiwarce).
+     Mocniejsza niz zwykla linia, bo oznacza JEDYNE miejsce, w ktorym sie pisze. */
+  --app-field: #4f82f5;
   --app-purple: #7258ef;
   --app-purple-bg: #efeafe;
   --app-danger: #ef4444;

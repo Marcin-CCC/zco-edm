@@ -27,6 +27,7 @@ module.exports = {
           text: "var(--app-text)",
           muted: "var(--app-muted)",
           line: "var(--app-line)",
+          field: "var(--app-field)",
           green: "var(--app-green)",
           greenbg: "var(--app-green-bg)",
           teal: "var(--app-teal)",

@@ -1106,7 +1106,7 @@ export default function ChatPage() {
           {/* Pole wiadomości. Ramka jest wyraźna (2 px), bo to jedyne miejsce na
               tym ekranie, w którym się pisze. */}
           <div className="border-t border-app-line p-[18px]">
-            <div className="rounded-[12px] border-2 border-[#4f82f5] bg-white px-3 pb-2.5 pt-3">
+            <div className="rounded-[12px] border-2 border-app-field bg-white px-3 pb-2.5 pt-3">
               <textarea
                 ref={inputRef}
                 value={input}

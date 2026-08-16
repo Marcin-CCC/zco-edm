@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.5.9",
+      "date": "2026-08-16",
+      "title": "Alfabetyczna lista folderow, jednolita ramka pola pytania",
+      "changes": [
+        "W oknie „Przenies plik\" foldery sa ulozone alfabetycznie po sciezce, wiec podfoldery stoja pod swoimi rodzicami. Wczesniej lista szla w kolejnosci drzewa, ktora dla szukajacego wygladala jak przypadkowa. Polskie znaki sortuja sie poprawnie.",
+        "Pole „Zapytaj po polsku\" na ekranie Wyszukiwanie ma taka sama ramke jak pole wiadomosci w czacie — na obu ekranach jest to jedyne miejsce, w ktorym uzytkownik pisze wlasnymi slowami. Kolor przeniesiony do wspolnego tokenu, wiec nie da sie go zmienic w jednym miejscu bez drugiego."
+      ]
+    },
+    {
       "version": "1.5.8",
       "date": "2026-08-16",
       "title": "Wyszukiwanie: kursor w polu pytania, widocznosc na wezszym ekranie",

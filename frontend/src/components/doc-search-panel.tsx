@@ -175,7 +175,9 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
               onChange={(e) => setNlQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') nlSearch(); }}
               placeholder="np. wszystkie zarządzenia z 2023"
-              className="flex-1 min-w-0 px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+              // Ta sama ramka co pole wiadomosci w czacie: na obu ekranach jest to
+              // JEDYNE miejsce, w ktorym uzytkownik pisze wlasnymi slowami.
+              className="min-w-0 flex-1 rounded-md border-2 border-app-field px-2 py-1.5 text-sm outline-none"
             />
             <button
               onClick={nlSearch}
@@ -220,7 +222,9 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
                   value={row.field}
                   onChange={(e) => updateFilter(i, { field: e.target.value })}
                   placeholder="pole"
-                  className="flex-1 min-w-0 px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                  // Ta sama ramka co pole wiadomosci w czacie: na obu ekranach jest to
+              // JEDYNE miejsce, w ktorym uzytkownik pisze wlasnymi slowami.
+              className="min-w-0 flex-1 rounded-md border-2 border-app-field px-2 py-1.5 text-sm outline-none"
                 />
               )}
               <select
@@ -235,7 +239,9 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
                 value={row.value}
                 onChange={(e) => updateFilter(i, { value: e.target.value })}
                 placeholder="wartość"
-                className="flex-1 min-w-0 px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                // Ta sama ramka co pole wiadomosci w czacie: na obu ekranach jest to
+              // JEDYNE miejsce, w ktorym uzytkownik pisze wlasnymi slowami.
+              className="min-w-0 flex-1 rounded-md border-2 border-app-field px-2 py-1.5 text-sm outline-none"
               />
               <button
                 onClick={() => removeFilter(i)}

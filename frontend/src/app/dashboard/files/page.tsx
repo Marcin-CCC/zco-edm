@@ -1385,6 +1385,12 @@ function FilesPageInner() {
               <option value="">{isAdmin ? '— katalog główny —' : '— wybierz folder —'}</option>
               {folders
                 .filter((f) => (isAdmin || f.can_write) && f.id !== currentFolderId)
+                // Alfabetycznie po SCIEZCE, nie po nazwie: etykieta pozycji to pelna
+                // sciezka, wiec sortowanie po niej ustawia podfoldery pod ich
+                // rodzicami. Bez tego lista szla w kolejnosci drzewa, ktora dla
+                // szukajacego wyglada jak przypadkowa. `localeCompare` z 'pl',
+                // bo zwykle porownanie kodow znakow wypycha slowa z ogonkami na koniec.
+                .sort((a, b) => a.path.localeCompare(b.path, 'pl'))
                 .map((f) => (
                   <option key={f.id} value={String(f.id)}>{f.path}</option>
                 ))}
