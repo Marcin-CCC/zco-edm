@@ -24,12 +24,22 @@
     {
       "pytanie": "w jakim wieku dzieci mogą korzystać z wczasów pod gruszą?",
       "oczekiwany": "ZFŚS",
-      "stan": "2026-08-07: naprawione w 1.0.10 (dobór)"
+      "stan": "2026-08-16: działa przez dobór (fragment ze str. 5 regulaminu doklejany)"
     },
     {
       "pytanie": "od jakiego wieku dziecka przysługuje grusza?",
       "oczekiwany": "ZFŚS",
-      "stan": "2026-08-07: ZEPSUTE — żargon, dominują polisy"
+      "stan": "2026-08-16: NAPRAWIONE - dobor po obecnosci brakujacego slowa; wczesniej dominowaly polisy"
+    },
+    {
+      "pytanie": "Jaka jest dolna granica wieku dziecka uprawnionego do wczasów pod gruszą?",
+      "oczekiwany": "ZF",
+      "stan": "2026-08-16: jak wyzej; wariant z pytajnikiem trzymany osobno, bo w tej postaci zglosil go uzytkownik"
+    },
+    {
+      "pytanie": "dolna granica wieku dziecka uprawnionego do wczasów pod gruszą",
+      "oczekiwany": "ZF",
+      "stan": "2026-08-16: naprawione - slowa opisujace KSZTALT odpowiedzi (dolna, granica) nie wystepuja w dokumencie, wiec nie szkodza"
     },
     {
       "pytanie": "czy na wczasy pod gruszą też?",
@@ -122,7 +132,7 @@
     {
       "pytanie": "jaka jest wysokość dodatku za pracę na Marsie?",
       "oczekiwany": "",
-      "stan": "2026-08-07: 6 fragmentów nad progiem I 3 dobrane — obserwować, czy dobór nie wzmacnia szumu"
+      "stan": "2026-08-16: dobor juz NIE doklada (0 zamiast 3) - obawa o wzmacnianie szumu nieaktualna"
     },
     {
       "pytanie": "co to jest ZCO?",

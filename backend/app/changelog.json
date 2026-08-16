@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "1.1.1",
+      "date": "2026-08-16",
+      "title": "Trafniejsze doklejanie brakujacego watku do odpowiedzi",
+      "changes": [
+        "Gdy odpowiedz wymaga polaczenia dwoch odleglych miejsc w tym samym dokumencie, aplikacja dokleja teraz ten fragment, ktory FAKTYCZNIE zawiera brakujace slowo - wczesniej wybierala trzy najbardziej podobne, a wlasciwy ustep potrafil byc tuz pod progiem odciecia.",
+        "Dzieki temu dziala pytanie o dolna granice wieku dziecka uprawnionego do wczasow pod grusza, niezaleznie od tego, jak zostanie sformulowane.",
+        "Przy pytaniach, na ktore dokumenty nie odpowiadaja, aplikacja przestala doklejac cokolwiek - wczesniej dorzucala trzy fragmenty, ktore z pytaniem nie mialy zwiazku."
+      ]
+    },
+    {
       "version": "1.1.0",
       "date": "2026-08-15",
       "title": "Wlasne role uzytkownikow",

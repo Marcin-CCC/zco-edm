@@ -64,9 +64,14 @@ import re
 logger = logging.getLogger(__name__)
 
 MIN_UDZIAL = 0.25        # jaką część trafności musi zebrać dokument-zwycięzca
-MAX_RESZTY = 2           # więcej niepokrytych słów = złe wyszukiwanie, nie luka w rozumowaniu
 MAX_DOKLEJONYCH = 3      # ile fragmentów najwyżej dokładamy
 LIMIT_KANDYDATOW = 6     # ile pobieramy z dokumentu, zanim odsiejemy już obecne
+
+# Do 1.1.0 stał tu jeszcze warunek MAX_RESZTY = 2: „więcej niż dwa niepokryte słowa
+# znaczą, że wyszukiwanie chybiło, a nie że brakuje wątku". Był protezą — liczbą słów
+# zgadywaliśmy to, co teraz sprawdzamy wprost, patrz `z_brakujacym_slowem`. Odpadł,
+# bo blokował pytania w rodzaju „dolna granica wieku dziecka…", gdzie dwa z trzech
+# niepokrytych słów opisują KSZTAŁT odpowiedzi („dolna", „granica"), a nie jej temat.
 
 _SLOWO = re.compile(r"[a-ząćęłńóśźż]{4,}")
 _RDZEN = 5               # po tylu znakach porównujemy słowa (odmiana polska)
@@ -144,8 +149,8 @@ def zapytanie_uzupelniajace(reszta: list[str], filename: str) -> str:
     return " ".join(reszta + [tytul]).strip()
 
 
-def plan_doboru(pytanie: str, w_kontekscie: list[dict]) -> tuple[str, int] | None:
-    """(zapytanie uzupełniające, file_id) albo None, gdy doboru NIE robimy.
+def plan_doboru(pytanie: str, w_kontekscie: list[dict]) -> tuple[str, int, list[str]] | None:
+    """(zapytanie uzupełniające, file_id, brakujące słowa) albo None, gdy doboru NIE robimy.
 
     `w_kontekscie` to fragmenty, które FAKTYCZNIE zobaczy model — wołający wybiera
     je tak samo, jak zrobi to węzeł „Chunks Filter" (progiem albo bez progu, gdy
@@ -156,8 +161,8 @@ def plan_doboru(pytanie: str, w_kontekscie: list[dict]) -> tuple[str, int] | Non
         return None                       # pusty kontekst → odmowa jest poprawna
 
     reszta = niepokryta_reszta(pytanie, [t.get("content") or "" for t in w_kontekscie])
-    if not reszta or len(reszta) > MAX_RESZTY:
-        return None                       # albo nie ma luki, albo wyszukiwanie po prostu chybiło
+    if not reszta:
+        return None                       # kontekst pokrywa pytanie — nie ma czego szukać
 
     zwyciezca = dokument_zwyciezca(w_kontekscie)
     if not zwyciezca:
@@ -166,7 +171,7 @@ def plan_doboru(pytanie: str, w_kontekscie: list[dict]) -> tuple[str, int] | Non
     if udzial < MIN_UDZIAL:
         return None                       # rozstrzelone trafienia — nie ma „tego jednego" dokumentu
 
-    return zapytanie_uzupelniajace(reszta, filename), fid
+    return zapytanie_uzupelniajace(reszta, filename), fid, reszta
 
 
 async def dobierz_fragmenty(
@@ -191,7 +196,7 @@ async def dobierz_fragmenty(
     plan = plan_doboru(pytanie, w_kontekscie)
     if not plan:
         return []
-    zapytanie, file_id = plan
+    zapytanie, file_id, reszta = plan
 
     try:
         w = await wektoryzuj(zapytanie)
@@ -203,7 +208,7 @@ async def dobierz_fragmenty(
     warunki.append({"key": "metadata.file_id", "match": {"value": file_id}})
     kandydaci = szukaj(w, {"must": warunki}, LIMIT_KANDYDATOW)
 
-    dobrane = scal_dobrane(kandydaci, w_kontekscie)
+    dobrane = scal_dobrane(z_brakujacym_slowem(kandydaci, reszta), w_kontekscie)
     if dobrane:
         logger.info(
             f"[CHAT-DOBOR] {zapytanie!r} → doklejam {len(dobrane)} fragm. z pliku {file_id}: "
@@ -217,6 +222,29 @@ async def dobierz_fragmenty(
          "page": d.get("page"), "file_id": d.get("file_id")}
         for d in dobrane
         if (d.get("content") or "").strip()
+    ]
+
+
+def z_brakujacym_slowem(kandydaci: list[dict], reszta: list[str]) -> list[dict]:
+    """Tylko te fragmenty dokumentu-zwycięzcy, które FAKTYCZNIE zawierają któreś
+    z brakujących słów.
+
+    Podobieństwo wektorowe potrafi ustawić właściwy ustęp na końcu listy: przy
+    pytaniu o wiek dziecka odpowiedź („w wieku od ukończenia 5-go roku życia…")
+    była SZÓSTA z sześciu kandydatów, tuż pod progiem odcięcia — a jednocześnie
+    jedynym fragmentem, w którym słowo „wieku" w ogóle występuje. Obecność
+    szukanego słowa wskazuje ustęp jednoznacznie tam, gdzie podobieństwo błądzi.
+
+    To sprawdzenie zastąpiło warunek na liczbę niepokrytych słów i przy okazji
+    samo broni pytań bez sensu: dla „kary za ewakuację jednorożca" żaden kandydat
+    nie zawiera brakującego słowa, więc dobór milczy — bez osobnej reguły.
+    """
+    rdzenie = [s[:_RDZEN] for s in reszta]
+    if not rdzenie:
+        return []
+    return [
+        k for k in kandydaci
+        if any(r in bez_ogonkow(k.get("content") or "") for r in rdzenie)
     ]
 
 

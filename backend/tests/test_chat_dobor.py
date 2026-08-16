@@ -17,6 +17,7 @@ from app.chat.dobor import (
     plan_doboru,
     scal_dobrane,
     slowa_tresciowe,
+    z_brakujacym_slowem,
     zapytanie_uzupelniajace,
 )
 
@@ -99,9 +100,10 @@ class TestZapytanieUzupelniajace:
 
 class TestPlanDoboru:
     def test_zmierzony_przypadek(self):
-        zapytanie, fid = plan_doboru(
+        zapytanie, fid, reszta = plan_doboru(
             "w jakim wieku dzieci mogą korzystać z wczasów pod gruszą?", GRUSZA)
         assert fid == 203
+        assert reszta == ["wieku"]
         assert zapytanie == "wieku Zarządzenie i Regulamin ZFŚS"
 
     def test_pusty_kontekst_to_poprawna_odmowa(self):
@@ -117,7 +119,7 @@ class TestPlanDoboru:
             traf(0.46, 512, "Warunki ubezpieczenia.pdf", "świadczenie dla dziecka", 6),
             traf(0.44, 512, "Warunki ubezpieczenia.pdf", "osierocenie dziecka", 5),
         ]
-        zapytanie, fid = plan_doboru(
+        zapytanie, fid, _ = plan_doboru(
             "w jakim wieku dzieci mogą korzystać z wczasów pod gruszą?", slabe)
         assert fid == 203
         assert zapytanie == "wieku Zarządzenie i Regulamin ZFŚS"
@@ -125,9 +127,16 @@ class TestPlanDoboru:
     def test_brak_luki_to_brak_doboru(self):
         assert plan_doboru("wczasy pod gruszą", GRUSZA) is None
 
-    def test_za_duzo_niepokrytych_slow(self):
-        """Kilka nieznanych pojęć naraz = chybione wyszukiwanie, nie luka w rozumowaniu."""
-        assert plan_doboru("kara ewakuacja jednorożca stajnia", GRUSZA) is None
+    def test_wiele_niepokrytych_slow_juz_nie_blokuje_planu(self):
+        """Do 1.1.0 blokowała je liczba niepokrytych słów. Teraz plan powstaje,
+        a o doklejeniu decyduje to, czy dokument w ogóle zawiera brakujące słowa
+        (zob. TestZBrakujacymSlowem) — bo w „dolna granica wieku dziecka" dwa
+        z trzech niepokrytych słów opisują kształt odpowiedzi, nie jej temat."""
+        plan = plan_doboru("dolna granica wieku dziecka", GRUSZA)
+        assert plan is not None
+        _, fid, reszta = plan
+        assert fid == 203
+        assert reszta == ["dolna", "granica", "wieku"]
 
     def test_rozstrzelone_trafienia(self):
         rozne = [traf(0.60, i, f"plik{i}.pdf", "treść ogólna", 1) for i in range(1, 8)]
@@ -158,7 +167,7 @@ class TestDobierzFragmenty:
         def szukaj(w, filtr, limit):
             uzyty_filtr.update(filtr)
             return [traf(0.41, 203, "Zarządzenie i Regulamin ZFŚS.pdf",
-                         "dzieci od 5 roku życia do 18 lat", 4)]
+                         "dzieci w wieku od ukończenia 5-go roku życia do 18 lat", 4)]
 
         rbac = {"must": [{"key": "metadata.folder_id", "match": {"any": [7]}}]}
         wynik = asyncio.run(dobierz_fragmenty(
@@ -166,7 +175,7 @@ class TestDobierzFragmenty:
             GRUSZA, rbac, wektoryzuj, szukaj))
 
         assert [d["page"] for d in wynik] == [4]
-        assert wynik[0]["text"] == "dzieci od 5 roku życia do 18 lat"
+        assert wynik[0]["text"] == "dzieci w wieku od ukończenia 5-go roku życia do 18 lat"
         # `file_id` MUSI jechać z fragmentem: nazwa pliku nie identyfikuje dokumentu,
         # więc bez tego pola cytowanie mogłoby wskazać inny plik o tej samej nazwie.
         assert wynik[0]["file_id"] == 203
@@ -207,3 +216,49 @@ class TestDobierzFragmenty:
             "w jakim wieku dzieci mogą korzystać z wczasów pod gruszą?",
             GRUSZA, None, wektoryzuj, szukaj))
         assert wynik == []
+
+
+class TestZBrakujacymSlowem:
+    """Sedno poprawki z 1.1.1: o doklejeniu decyduje OBECNOŚĆ brakującego słowa
+    w kandydacie, a nie jego miejsce w rankingu podobieństwa."""
+
+    KANDYDACI = [
+        traf(0.60, 203, "z.pdf", "Zarządzenie w sprawie regulaminu ZFŚS", 1),
+        traf(0.55, 203, "z.pdf", "Postanowienia końcowe i załączniki", 18),
+        traf(0.50, 203, "z.pdf", "dzieci w wieku od ukończenia 5-go roku życia", 5),
+    ]
+
+    def test_wybiera_fragment_ze_slowem_mimo_najnizszej_trafnosci(self):
+        wynik = z_brakujacym_slowem(self.KANDYDACI, ["wieku"])
+        assert [k["page"] for k in wynik] == [5]
+
+    def test_slowa_nieobecne_w_dokumencie_nie_wnosza_nic(self):
+        """„dolna" i „granica" nie występują w regulaminie, więc są nieszkodliwe —
+        nie trzeba ich odsiewać żadną listą słów."""
+        wynik = z_brakujacym_slowem(self.KANDYDACI, ["dolna", "granica", "wieku"])
+        assert [k["page"] for k in wynik] == [5]
+
+    def test_pytanie_bez_sensu_nie_dokleja_niczego(self):
+        """Ochrona pytań bezsensownych bierze się z tej samej reguły — bez osobnego
+        warunku na liczbę niepokrytych słów."""
+        assert z_brakujacym_slowem(self.KANDYDACI, ["jednorozca", "ewakuacja"]) == []
+
+    def test_dopasowanie_po_rdzeniu_a_nie_calym_slowie(self):
+        """Pięcioznakowy rdzeń, ta sama reguła co w `niepokryta_reszta`.
+
+        Ta sama reguła rozstrzyga, czy słowo jest „niepokryte" i czy kandydat je
+        zawiera — obie strony mechanizmu mówią więc to samo.
+        """
+        # Słowa dłuższe niż rdzeń znoszą odmianę: „swiadczenie" → rdzeń „swiad".
+        dluzsze = [traf(0.5, 1, "a.pdf", "świadczenia socjalne dla pracownika", 2)]
+        assert len(z_brakujacym_slowem(dluzsze, ["swiadczenie"])) == 1
+
+        # Przy słowie pięcioliterowym tolerancji nie ma — „wieku" trafia w „wieku",
+        # ale już nie w „wiekiem". To ograniczenie, nie zamierzona własność; w naszym
+        # przypadku regulamin pisze „w wieku od ukończenia…", więc trafia.
+        assert len(z_brakujacym_slowem([traf(0.5, 1, "a.pdf", "dzieci w wieku od 5 lat", 2)], ["wieku"])) == 1
+        assert z_brakujacym_slowem([traf(0.5, 1, "a.pdf", "osoby z wiekiem", 2)], ["wieku"]) == []
+
+    def test_pisownia_bez_ogonkow_tez_dziala(self):
+        kand = [traf(0.5, 1, "a.pdf", "świadczenie socjalne dla pracownika", 2)]
+        assert len(z_brakujacym_slowem(kand, ["swiadczenie"])) == 1
