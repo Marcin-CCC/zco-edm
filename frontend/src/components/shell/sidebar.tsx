@@ -12,6 +12,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { IconLifebuoy } from '@/components/icons';
+import { Logo } from '@/components/shell/logo';
 import { useMarka } from '@/components/marka-provider';
 import { NAV_ADMIN, NAV_MAIN, isNavActive, type NavItem } from '@/components/shell/nav-items';
 import { versionApi } from '@/lib/api';
@@ -80,22 +81,16 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
           title={collapsed ? 'Rozwiń menu' : 'Zwiń menu'}
           aria-label={collapsed ? 'Rozwiń menu' : 'Zwiń menu'}
           className={[
-            'mb-5 flex select-none items-center gap-[10px] px-1 pt-1 text-[28px] font-extrabold',
+            'mb-5 flex items-center px-1 pt-1',
             collapsed ? 'justify-center px-0' : '',
           ].join(' ')}
         >
-          <span
-            className="relative h-9 w-9 flex-none rounded-[9px] bg-gradient-to-b from-[#2e8bff] to-[#1767dd] shadow-[0_8px_18px_rgba(25,103,221,.3)]"
-            aria-hidden
-          >
-            <span className="absolute left-[10px] top-[15.5px] h-[5px] w-4 rounded-[2px] bg-white" />
-            <span className="absolute left-[15.5px] top-[10px] h-4 w-[5px] rounded-[2px] bg-white" />
-          </span>
-          {!collapsed && (
-            <span style={{ color: marka.naglowek }} className="leading-none">
-              {marka.nazwa}
-            </span>
-          )}
+          <Logo
+            ikona={marka.ikona}
+            nazwa={marka.nazwa}
+            kolorNazwy={marka.naglowek}
+            bezNazwy={collapsed}
+          />
         </button>
 
         <nav className="flex flex-col gap-[6px]">

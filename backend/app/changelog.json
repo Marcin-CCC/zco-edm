@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "1.5.5",
+      "date": "2026-08-16",
+      "title": "Wgrane logo w menu i na ekranie logowania",
+      "changes": [
+        "Wgrana ikona pojawia sie wreszcie w menu bocznym. Do tej pory trafiala wylacznie do karty przegladarki, bo pasek boczny rysowal wlasny znak zaszyty w CSS i nie czytal ustawienia w ogole.",
+        "Logo pokazujemy wprost na tle menu, bez niebieskiego kwadratu z zaokraglonymi narozami. Podkladka nadpisywala ksztalt logo klienta i klocila sie z plikami, ktore wlasne tlo juz maja. Jesli znak potrzebuje podkladki, niesie ja wgrany plik.",
+        "Ekran logowania pokazuje nad formularzem dokladnie ten sam znak co szczyt menu, tylko wysrodkowany i wiekszy.",
+        "Podglad w Ustawieniach rysuje ten sam komponent co menu, wiec pokazuje to, co naprawde zobaczysz. Miniatura przy wyborze pliku pokazuje ikone faktycznie uzywana — takze wbudowana, gdy wlasnej nie wgrano."
+      ]
+    },
+    {
       "version": "1.5.4",
       "date": "2026-08-16",
       "title": "Drobne poprawki w czacie",

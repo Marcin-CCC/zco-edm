@@ -12,6 +12,8 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { IconClose } from '@/components/icons';
+import { useMarka } from '@/components/marka-provider';
+import { Logo } from '@/components/shell/logo';
 import {
   Button,
   Card,
@@ -48,6 +50,7 @@ function kontrast(a: string, b: string): number | null {
 const PROBKI = ['#ffffff', '#1fc8ba', '#7cc4ff', '#ffd166', '#b9c6da'];
 
 export default function SettingsPage() {
+  const marka = useMarka();
   const [dane, setDane] = useState<any>(null);
   const [form, setForm] = useState({
     app_name: '',
@@ -159,13 +162,13 @@ export default function SettingsPage() {
           <div>
             <span className="mb-1 block text-[13px] font-medium text-app-text">Ikona aplikacji</span>
             <div className="flex flex-wrap items-center gap-3">
+              {/* Ciemne tło nie jest ozdobą: ikona bywa biała i na białej karcie
+                  byłaby niewidoczna, a i tak trafia na ciemne menu. Pokazujemy
+                  ikonę FAKTYCZNIE używaną — gdy własnej nie wgrano, tę wbudowaną.
+                  Że jest domyślna, widać po wyszarzonym przycisku obok. */}
               <span className="grid h-12 w-12 flex-none place-items-center overflow-hidden rounded-[9px] bg-app-navy">
-                {ikona ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={ikona} alt="" className="h-9 w-9 object-contain" />
-                ) : (
-                  <span className="text-[10px] text-white/60">domyślna</span>
-                )}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={ikona || marka.ikona} alt="" className="h-9 w-9 object-contain" />
               </span>
               <input
                 ref={wybor}
@@ -231,16 +234,16 @@ export default function SettingsPage() {
 
           <div>
             <span className="mb-1 block text-[13px] font-medium text-app-text">Podgląd</span>
-            <div className="inline-flex items-center gap-2.5 rounded-[9px] px-3 py-2.5" style={{ background: 'var(--app-sidebar)' }}>
-              <span className="grid h-9 w-9 flex-none place-items-center overflow-hidden rounded-[9px] bg-gradient-to-b from-[#2e8bff] to-[#1767dd]">
-                {ikona && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={ikona} alt="" className="h-7 w-7 object-contain" />
-                )}
-              </span>
-              <span className="text-[22px] font-extrabold" style={{ color: form.app_name_color }}>
-                {form.app_name || 'Nazwa'}
-              </span>
+            {/* Podglad rysuje ten sam komponent co pasek boczny — podglad pokazujacy
+                cos innego niz aplikacja jest gorszy niz brak podgladu. Gdy wlasnej
+                ikony nie wgrano, pokazujemy te, ktora instancja realnie uzywa. */}
+            <div className="inline-flex rounded-[9px] px-3 py-2.5" style={{ background: 'var(--app-sidebar)' }}>
+              <Logo
+                ikona={ikona || marka.ikona}
+                nazwa={form.app_name || marka.nazwa}
+                kolorNazwy={form.app_name_color || marka.naglowek}
+                rozmiarNazwy={22}
+              />
             </div>
           </div>
         </div>

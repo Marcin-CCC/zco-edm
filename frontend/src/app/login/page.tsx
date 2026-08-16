@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { authApi, versionApi } from '@/lib/api';
 import { useAuth } from '@/lib/store';
 import { useMarka } from '@/components/marka-provider';
+import { Logo } from '@/components/shell/logo';
 
 export default function LoginPage() {
   const marka = useMarka();
@@ -51,10 +52,19 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">{marka.nazwa}</h1>
-          <p className="text-slate-300">{marka.opis}</p>
+        {/* Znak instancji — dokładnie ten sam co na szczycie menu bocznego, tylko
+            wyśrodkowany i większy. Wspólny komponent, żeby logowanie i aplikacja
+            nie rozjechały się przy pierwszej zmianie marki. */}
+        <div className="mb-8 text-center">
+          <Logo
+            ikona={marka.ikona}
+            nazwa={marka.nazwa}
+            kolorNazwy={marka.naglowek}
+            rozmiar={52}
+            rozmiarNazwy={36}
+            className="justify-center"
+          />
+          <p className="mt-3 text-slate-300">{marka.opis}</p>
         </div>
 
         {/* Card */}
