@@ -1,9 +1,16 @@
 'use client';
 
+import Link from 'next/link';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { DocSearchPanel } from '@/components/doc-search-panel';
+
+import { FileTypeIcon } from '@/components/file-type-icon';
+import {
+  IconChat, IconChevronRight, IconClose, IconDownload, IconPlus, IconSearch,
+  IconSend, IconSparkle, IconStop,
+} from '@/components/icons';
 import { OcenaOdpowiedzi } from '@/components/ocena-odpowiedzi';
+import { Button, Card, PageHeader } from '@/components/ui/primitives';
 import { docSchemasApi, docSearchApi } from '@/lib/api';
 import { pobierzListeXlsx } from '@/lib/eksport-xlsx';
 
@@ -233,7 +240,6 @@ export default function ChatPage() {
   }, []);
   const [conversations, setConversations] = useState<ConvSummary[]>([]);
   const [currentConvId, setCurrentConvId] = useState<number | null>(null);
-  const [showSearch, setShowSearch] = useState(false);  // boczne okno wyszukiwania po polach
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -787,7 +793,9 @@ export default function ChatPage() {
           const last = next[next.length - 1];
           next[next.length - 1] = {
             ...last,
-            content: last.content || `⚠ ${e?.message || 'Błąd połączenia z czatem.'}`,
+            // Bez glifu ostrzegawczego: dymek błędu niesie to samo czerwoną ramką
+            // i tłem, a znaki unicode w roli ikony wyglądają inaczej na każdym systemie.
+            content: last.content || (e?.message || 'Błąd połączenia z czatem.'),
             error: true,
           };
           return next;
@@ -857,288 +865,367 @@ export default function ChatPage() {
     }
   };
 
+  // Podpowiedzi pytań budujemy z REJESTRU SCHEMATÓW, a nie z listy wpisanej na
+  // sztywno: te same podpowiedzi mają się nadawać w każdym wdrożeniu, a pytanie
+  // o „zasady dekontaminacji" w bazie kadrowej tylko myli. Wypis dokumentów danego
+  // typu to pytanie, które czat naprawdę obsługuje (ścieżka „lista").
+  const przykladowePytania = Object.values(typeNames).slice(0, 3).map((nazwa) => `Pokaż dokumenty typu ${nazwa}`);
+
   return (
-    <div className="flex flex-col h-[calc(100vh-100px)]">
-      {/* Nagłówek strony (wzorzec jak Dashboard) */}
-      <h1 className="text-2xl font-bold text-gray-800 mb-4">Baza wiedzy</h1>
+    <div className="flex h-[calc(100vh-118px)] min-h-[560px] flex-col">
+      <PageHeader
+        title="Chat z AI"
+        description="Zadawaj pytania do dokumentów i uzyskuj odpowiedzi z cytowaniem źródeł."
+      />
 
-      <div className="flex gap-4 flex-1 min-h-0">
-      {/* Sidebar z listą rozmów */}
-      <aside className="hidden md:flex w-80 flex-col bg-white rounded-lg shadow border border-gray-200">
-        <div className="px-4 py-3 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-800">Historia chatów</h2>
-        </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {conversations.length === 0 && (
-            <p className="text-xs text-gray-400 text-center mt-4">Brak zapisanych rozmów.</p>
-          )}
-          {conversations.map((c) => (
-            <div
-              key={c.id}
-              onClick={() => openConversation(c.id)}
-              className={`group flex items-center justify-between gap-1 px-3 py-2 rounded-md cursor-pointer text-sm ${
-                currentConvId === c.id ? 'bg-blue-50 text-blue-800' : 'text-gray-700 hover:bg-gray-100'
-              }`}
-              title={c.title}
-            >
-              <span className="truncate flex-1">{c.title}</span>
-              <button
-                onClick={(e) => deleteConversation(c.id, e)}
-                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 shrink-0"
-                title="Usuń rozmowę"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-        </div>
-      </aside>
-
-      {/* Panel czatu */}
-      <div className="w-full lg:w-[480px] xl:w-[560px] flex flex-col bg-white rounded-lg shadow border border-gray-200">
-        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-800">Chat z bazy wiedzy</h2>
-          <button
-            onClick={newConversation}
-            disabled={streaming}
-            className="text-sm font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
-            title="Rozpocznij nowy chat"
-          >
-            + Nowy chat
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.length === 0 && (
-            <div className="text-center text-gray-400 text-sm mt-10">
-              Zadaj pytanie dotyczące dokumentów w bazie wiedzy.
-            </div>
-          )}
-          {messages.map((m, idx) => (
-            <div key={idx} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+      <div className="grid min-h-0 flex-1 gap-[18px] lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)_220px]">
+        {/* Historia rozmów */}
+        <Card className="hidden min-h-0 flex-col overflow-hidden lg:flex">
+          <div className="border-b border-app-line px-[18px] py-4">
+            <h2 className="text-[16px] font-bold text-app-text">Historia chatów</h2>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {conversations.length === 0 && (
+              <p className="px-[18px] py-6 text-center text-[12px] text-app-muted">Brak zapisanych rozmów.</p>
+            )}
+            {conversations.map((c) => (
               <div
-                className={`max-w-[85%] rounded-lg px-4 py-2 text-sm break-words ${
-                  m.role === 'user'
-                    ? 'bg-blue-600 text-white whitespace-pre-wrap'
-                    : m.error
-                    ? 'bg-red-50 text-red-800 border border-red-200 whitespace-pre-wrap'
-                    : 'bg-gray-100 text-gray-800'
+                key={c.id}
+                onClick={() => openConversation(c.id)}
+                // Lewa krawędź zamiast niebieskiego wypełnienia: niebieski jest
+                // w tym layoucie kolorem AKCJI, nie stanu.
+                className={`group flex cursor-pointer items-center gap-2.5 border-l-[3px] px-4 py-3.5 ${
+                  currentConvId === c.id
+                    ? 'border-l-app-blue bg-[#f5f8ff]'
+                    : 'border-l-transparent hover:bg-app-hover'
                 }`}
+                title={c.title}
               >
-                {m.role === 'assistant' && !m.error ? (
-                  m.content ? (
-                    <div className="chat-markdown">
-                      <ReactMarkdown
-                        components={{
-                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                          strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                          em: ({ children }) => <em className="italic">{children}</em>,
-                          ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-0.5">{children}</ul>,
-                          ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-0.5">{children}</ol>,
-                          li: ({ children }) => <li>{children}</li>,
-                          h1: ({ children }) => <p className="font-bold text-base mb-2">{children}</p>,
-                          h2: ({ children }) => <p className="font-bold mb-2">{children}</p>,
-                          h3: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
-                          code: ({ children }) => <code className="bg-gray-200 rounded px-1 text-xs">{children}</code>,
-                          a: ({ href, children }) => {
-                            // Odnośnik do cytowanego źródła („[1]" w treści) — otwiera dokument
-                            const srcMatch = /^#src-(\d+)$/.exec(href || '');
-                            if (srcMatch) {
-                              const idx = Number(srcMatch[1]) - 1;
-                              const src = m.sources?.[idx];
-                              return (
-                                <button
-                                  onClick={() => src && openSource(src)}
-                                  title={src ? sourceTitle(src, idx) : undefined}
-                                  className="align-super text-[10px] leading-none px-1 py-0.5 mx-0.5 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium"
-                                >
-                                  {children}
-                                </button>
-                              );
-                            }
-                            return (
-                              <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{children}</a>
-                            );
-                          },
-                          table: ({ children }) => <table className="border-collapse text-xs my-2">{children}</table>,
-                          th: ({ children }) => <th className="border border-gray-300 px-2 py-1 bg-gray-200">{children}</th>,
-                          td: ({ children }) => <td className="border border-gray-300 px-2 py-1">{children}</td>,
-                        }}
-                      >
-                        {renderAnswer(m.content, m.sources)}
-                      </ReactMarkdown>
-                    </div>
-                  ) : (
-                    streaming && idx === messages.length - 1 ? (
-                      parseWait ? (
-                        <span className="text-gray-500 italic">
-                          ⏳ Trwa przetwarzanie dokumentów — odpowiedź pojawi się za chwilę.
-                        </span>
-                      ) : bezKontekstu ? (
-                        <span className="text-gray-500 italic">
-                          Nowy temat w tej rozmowie — sprawdzam samo pytanie…
-                        </span>
-                      ) : routingHint ? (
-                        <span className="text-gray-500 italic">Rozpoznaję rodzaj pytania…</span>
-                      ) : '…'
-                    ) : ''
-                  )
-                ) : (
-                  m.content || (streaming && idx === messages.length - 1 ? '…' : '')
-                )}
+                <span className="shrink-0 text-app-muted"><IconChat size={16} /></span>
+                <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-app-text">{c.title}</span>
+                <button
+                  onClick={(e) => deleteConversation(c.id, e)}
+                  className="shrink-0 text-app-muted opacity-0 transition-opacity hover:text-app-danger focus:opacity-100 group-hover:opacity-100"
+                  title="Usuń rozmowę"
+                  aria-label={`Usuń rozmowę: ${c.title}`}
+                >
+                  <IconClose size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </Card>
 
-                {/* Eksport do arkusza — tylko pod odpowiedzią typu LISTA. Odpowiedź
-                    z treści nie jest zestawieniem, więc nie ma czego eksportować. */}
-                {m.lista && m.sources && m.sources.some((s) => s.file_id) && (
-                  <div className="mt-2">
-                    <button
-                      onClick={() => pobierzXlsx(idx, m.sources!, m.pytanie)}
-                      disabled={eksportTrwa === idx}
-                      className="text-sm text-blue-600 hover:underline disabled:text-gray-400 disabled:no-underline"
-                    >
-                      📊 {eksportTrwa === idx ? 'Przygotowuję arkusz…' : 'Pobierz tę listę w pliku xlsx'}
-                    </button>
+        {/* Rozmowa */}
+        <Card className="flex min-h-0 flex-col overflow-hidden">
+          <div className="flex items-center justify-between border-b border-app-line px-[18px] py-4">
+            <h2 className="text-[16px] font-bold text-app-text">Chat z bazy wiedzy</h2>
+            <Button small onClick={newConversation} disabled={streaming} title="Rozpocznij nowy chat">
+              <IconPlus size={15} />
+              Nowy chat
+            </Button>
+          </div>
+
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-[22px] py-5">
+            {messages.length === 0 && (
+              <div className="mx-auto max-w-lg pt-8 text-center">
+                <span className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-[#edf4ff] text-app-blue">
+                  <IconChat size={24} />
+                </span>
+                <p className="text-[14px] font-bold text-app-text">Zadaj pytanie o treść dokumentów</p>
+                <p className="mt-1 text-[12px] text-app-muted">
+                  Odpowiedź powstaje wyłącznie z dokumentów, do których masz dostęp, i zawiera odsyłacze
+                  do miejsc, z których pochodzi.
+                </p>
+                {przykladowePytania.length > 0 && (
+                  <div className="mt-6 border-t border-app-line pt-4 text-left">
+                    <b className="text-[12px] text-[#6b7890]">Wypróbuj przykładowe pytania</b>
+                    <div className="mt-2.5 flex flex-wrap gap-2">
+                      {przykladowePytania.map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => { setInput(p); inputRef.current?.focus(); }}
+                          className="flex items-center gap-1.5 rounded-full border border-app-line bg-white px-2.5 py-2 text-[11px] text-app-blue hover:bg-[#eef4ff]"
+                        >
+                          <IconSparkle size={13} />
+                          {p}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
+              </div>
+            )}
 
-                {m.role === 'assistant' && m.sources && m.sources.length > 0 && (() => {
-                  // Domyślnie pokazujemy TYLKO dokumenty przywołane w treści — reszta
-                  // (fragmenty, które model dostał, ale z nich nie skorzystał) czeka pod
-                  // zwijką. Przy dużym dokumencie kontekst potrafi mieć kilkanaście
-                  // fragmentów z tego samego pliku i lista przytłaczała odpowiedź.
-                  const pozycje = m.sources!.map((s, i) => ({ s, numer: i + 1 }));
-                  const przywolane = pozycje.filter((p) => p.s.cited !== false);
-                  const pozostale = pozycje.filter((p) => p.s.cited === false);
-                  const otwarte = !!pokazPozostale[idx];
+            {messages.map((m, idx) => (
+              <div key={idx} className={m.role === 'user' ? 'flex justify-end' : ''}>
+                <div
+                  className={`max-w-[88%] rounded-[12px] border px-4 py-3.5 text-[13px] leading-[1.55] ${
+                    m.role === 'user'
+                      ? 'whitespace-pre-wrap border-app-line bg-[#f4f7ff] text-app-text'
+                      : m.error
+                      ? 'whitespace-pre-wrap border-[#fecdd3] bg-app-dangerbg text-app-danger'
+                      : 'border-app-line bg-white text-app-text shadow-[0_4px_14px_rgba(20,35,60,.04)]'
+                  }`}
+                >
+                  {m.role === 'assistant' && !m.error ? (
+                    m.content ? (
+                      <div className="chat-markdown">
+                        <ReactMarkdown
+                          components={{
+                            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                            strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                            em: ({ children }) => <em className="italic">{children}</em>,
+                            ul: ({ children }) => <ul className="mb-2 list-disc space-y-0.5 pl-5">{children}</ul>,
+                            ol: ({ children }) => <ol className="mb-2 list-decimal space-y-0.5 pl-5">{children}</ol>,
+                            li: ({ children }) => <li>{children}</li>,
+                            h1: ({ children }) => <p className="mb-2 text-base font-bold">{children}</p>,
+                            h2: ({ children }) => <p className="mb-2 font-bold">{children}</p>,
+                            h3: ({ children }) => <p className="mb-1 font-semibold">{children}</p>,
+                            code: ({ children }) => <code className="rounded bg-app-bg px-1 text-xs">{children}</code>,
+                            a: ({ href, children }) => {
+                              // Odnośnik do cytowanego źródła („[1]" w treści) — otwiera dokument
+                              const srcMatch = /^#src-(\d+)$/.exec(href || '');
+                              if (srcMatch) {
+                                const nr = Number(srcMatch[1]) - 1;
+                                const src = m.sources?.[nr];
+                                return (
+                                  <button
+                                    onClick={() => src && openSource(src)}
+                                    title={src ? sourceTitle(src, nr) : undefined}
+                                    className="mx-0.5 rounded bg-[#eaf1ff] px-1 py-0.5 align-super text-[10px] font-medium leading-none text-[#2455cc] hover:bg-[#dbe7ff]"
+                                  >
+                                    {children}
+                                  </button>
+                                );
+                              }
+                              return (
+                                <a href={href} target="_blank" rel="noopener noreferrer" className="text-app-blue hover:underline">{children}</a>
+                              );
+                            },
+                            table: ({ children }) => <table className="my-2 border-collapse text-xs">{children}</table>,
+                            th: ({ children }) => <th className="border border-app-line bg-app-bg px-2 py-1">{children}</th>,
+                            td: ({ children }) => <td className="border border-app-line px-2 py-1">{children}</td>,
+                          }}
+                        >
+                          {renderAnswer(m.content, m.sources)}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      streaming && idx === messages.length - 1 ? (
+                        <span className="italic text-app-muted">
+                          {parseWait
+                            ? 'Trwa przetwarzanie dokumentów — odpowiedź pojawi się za chwilę.'
+                            : bezKontekstu
+                            ? 'Nowy temat w tej rozmowie — sprawdzam samo pytanie…'
+                            : routingHint
+                            ? 'Rozpoznaję rodzaj pytania…'
+                            : '…'}
+                        </span>
+                      ) : ''
+                    )
+                  ) : (
+                    m.content || (streaming && idx === messages.length - 1 ? '…' : '')
+                  )}
 
-                  // Numer musi odpowiadać znacznikowi w treści, więc po ukryciu części
-                  // pozycji w numeracji zostają dziury. Dlatego numer nosi tę samą
-                  // niebieską plakietkę co odsyłacz w tekście — czyta się ją jak
-                  // etykietę odsyłacza, a nie jak kolejność na liście.
-                  const wiersz = ({ s, numer }: { s: ChatSource; numer: number }, uzyty: boolean) => (
-                    <li key={numer} className="text-xs">
-                      <span
-                        className={`align-super text-[10px] leading-none px-1 py-0.5 mr-1 rounded font-medium ${
-                          uzyty ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-600'
-                        }`}
-                      >
-                        {numer}
-                      </span>
-                      {sourceHref(s) ? (
-                        <button onClick={() => openSource(s)} className="text-blue-600 hover:underline text-left">
-                          📄 {renderSourceLabel(s, numer - 1)}{s.page ? ` (str. ${s.page})` : ''}
-                        </button>
-                      ) : (
-                        <span className="text-gray-600">📄 {renderSourceLabel(s, numer - 1)}{s.page ? ` (str. ${s.page})` : ''}</span>
-                      )}
-                      {s.doc_type_name && s.filename && (
-                        <div className="text-gray-600 pl-5 break-all">{s.filename}</div>
-                      )}
-                    </li>
-                  );
-
-                  return (
-                    <div className="mt-3 pt-2 border-t border-gray-300">
-                      {przywolane.length > 0 && (
-                        <>
-                          <p className="text-xs font-medium text-gray-500 mb-1">
-                            {przywolane.length === 1 ? 'Dokument użyty w odpowiedzi:' : 'Dokumenty użyte w odpowiedzi:'}
-                          </p>
-                          <ul className="space-y-1">{przywolane.map((p) => wiersz(p, true))}</ul>
-                        </>
-                      )}
-
-                      {pozostale.length > 0 && (
-                        <div className={przywolane.length > 0 ? 'mt-2' : ''}>
-                          <p className="text-xs font-medium text-gray-500">
-                            {sprawdzoneOpis(pozostale.length)}{' '}
-                            <button
-                              onClick={() => setPokazPozostale((prev) => ({ ...prev, [idx]: !otwarte }))}
-                              className="text-blue-600 hover:underline font-medium"
-                              aria-expanded={otwarte}
-                            >
-                              {otwarte ? 'Ukryj te dokumenty' : 'Pokaż te dokumenty'}
-                            </button>
-                          </p>
-                          {otwarte && (
-                            <ul className="space-y-1 mt-1">{pozostale.map((p) => wiersz(p, false))}</ul>
-                          )}
-                        </div>
-                      )}
+                  {/* Eksport do arkusza — tylko pod odpowiedzią typu LISTA. Odpowiedź
+                      z treści nie jest zestawieniem, więc nie ma czego eksportować. */}
+                  {m.lista && m.sources && m.sources.some((s) => s.file_id) && (
+                    <div className="mt-2.5">
+                      <Button small onClick={() => pobierzXlsx(idx, m.sources!, m.pytanie)} disabled={eksportTrwa === idx}>
+                        <IconDownload size={15} />
+                        {eksportTrwa === idx ? 'Przygotowuję arkusz…' : 'Pobierz tę listę w pliku XLSX'}
+                      </Button>
                     </div>
-                  );
-                })()}
+                  )}
 
-                {/* Prośba o ocenę — tylko pod kompletną odpowiedzią MODELU (te mają
-                    migawkę planu wyszukiwania), nie pod podsumowaniami list ani błędami. */}
-                {oceny.wlaczone && m.role === 'assistant' && !m.error && m.requestId
-                  && !(streaming && idx === messages.length - 1) && (
-                  <OcenaOdpowiedzi
-                    key={m.requestId}
-                    requestId={m.requestId}
-                    messageId={m.messageId}
-                    pytanie={m.pytanie || ''}
-                    odpowiedz={m.content}
-                    powody={oceny.powody}
-                    authHeaders={authHeaders}
-                  />
+                  {m.role === 'assistant' && m.sources && m.sources.length > 0 && (() => {
+                    // Domyślnie pokazujemy TYLKO dokumenty przywołane w treści — reszta
+                    // (fragmenty, które model dostał, ale z nich nie skorzystał) czeka pod
+                    // zwijką. Przy dużym dokumencie kontekst potrafi mieć kilkanaście
+                    // fragmentów z tego samego pliku i lista przytłaczała odpowiedź.
+                    const pozycje = m.sources!.map((s, i) => ({ s, numer: i + 1 }));
+                    const przywolane = pozycje.filter((p) => p.s.cited !== false);
+                    const pozostale = pozycje.filter((p) => p.s.cited === false);
+                    const otwarte = !!pokazPozostale[idx];
+
+                    return (
+                      <div className="mt-4 border-t border-app-line pt-3">
+                        {przywolane.length > 0 && (
+                          <>
+                            <p className="mb-2 text-[12px] text-[#66758c]">
+                              {przywolane.length === 1 ? 'Dokument użyty w odpowiedzi' : 'Dokumenty użyte w odpowiedzi'}
+                            </p>
+                            <div className="grid gap-2">
+                              {przywolane.map((p) => (
+                                <Zrodlo
+                                  key={p.numer}
+                                  s={p.s}
+                                  numer={p.numer}
+                                  uzyty
+                                  etykieta={renderSourceLabel(p.s, p.numer - 1)}
+                                  otworz={sourceHref(p.s) ? () => openSource(p.s) : undefined}
+                                />
+                              ))}
+                            </div>
+                          </>
+                        )}
+
+                        {pozostale.length > 0 && (
+                          <div className={przywolane.length > 0 ? 'mt-3' : ''}>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-[12px] text-app-muted">{sprawdzoneOpis(pozostale.length)}</span>
+                              <Button
+                                small
+                                onClick={() => setPokazPozostale((prev) => ({ ...prev, [idx]: !otwarte }))}
+                                aria-expanded={otwarte}
+                              >
+                                {otwarte ? 'Ukryj dokumenty' : 'Pokaż dokumenty'}
+                              </Button>
+                            </div>
+                            {otwarte && (
+                              <div className="mt-2.5 grid gap-2">
+                                {pozostale.map((p) => (
+                                  <Zrodlo
+                                    key={p.numer}
+                                    s={p.s}
+                                    numer={p.numer}
+                                    uzyty={false}
+                                    etykieta={renderSourceLabel(p.s, p.numer - 1)}
+                                    otworz={sourceHref(p.s) ? () => openSource(p.s) : undefined}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Prośba o ocenę — tylko pod kompletną odpowiedzią MODELU (te mają
+                      migawkę planu wyszukiwania), nie pod podsumowaniami list ani błędami. */}
+                  {oceny.wlaczone && m.role === 'assistant' && !m.error && m.requestId
+                    && !(streaming && idx === messages.length - 1) && (
+                    <OcenaOdpowiedzi
+                      key={m.requestId}
+                      requestId={m.requestId}
+                      messageId={m.messageId}
+                      pytanie={m.pytanie || ''}
+                      odpowiedz={m.content}
+                      powody={oceny.powody}
+                      authHeaders={authHeaders}
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+            <div ref={bottomRef} />
+          </div>
+
+          {/* Pole wiadomości. Ramka jest wyraźna (2 px), bo to jedyne miejsce na
+              tym ekranie, w którym się pisze. */}
+          <div className="border-t border-app-line p-[18px]">
+            <div className="rounded-[12px] border-2 border-[#4f82f5] bg-white px-3 pb-2.5 pt-3">
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+                }}
+                rows={2}
+                placeholder="Napisz wiadomość…"
+                className="w-full resize-none border-0 bg-transparent text-[13px] text-app-text outline-none placeholder:text-app-muted"
+                disabled={streaming}
+              />
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[11px] text-[#8592a7]">
+                  Enter — wyślij wiadomość, Shift+Enter — nowa linia
+                </span>
+                {streaming ? (
+                  <Button variant="danger" small onClick={stopGenerating} title="Przerwij generowanie odpowiedzi">
+                    <IconStop size={15} />
+                    Zatrzymaj
+                  </Button>
+                ) : (
+                  <Button variant="primary" small onClick={sendMessage} disabled={!input.trim()}>
+                    <IconSend size={15} />
+                    Wyślij
+                  </Button>
                 )}
               </div>
             </div>
-          ))}
-          <div ref={bottomRef} />
-        </div>
-
-        <div className="p-3 border-t border-gray-200">
-          <div className="flex gap-2">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-              }}
-              rows={2}
-              placeholder="Napisz wiadomość… (Enter — wyślij, Shift+Enter — nowa linia)"
-              className="flex-1 resize-none border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
-              disabled={streaming}
-            />
-            {streaming ? (
-              <button
-                onClick={stopGenerating}
-                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 self-end"
-                title="Przerwij generowanie odpowiedzi"
-              >
-                ⏹ Zatrzymaj
-              </button>
-            ) : (
-              <button
-                onClick={sendMessage}
-                disabled={!input.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed self-end"
-              >
-                Wyślij
-              </button>
-            )}
           </div>
-        </div>
-      </div>
+        </Card>
 
-      {showSearch ? (
-        <DocSearchPanel onClose={() => setShowSearch(false)} />
-      ) : (
-        // Zwinięta wyszukiwarka — kafelka z samą lupą, na wysokości nagłówków paneli
-        <div className="hidden lg:block self-start">
-          <button
-            onClick={() => setShowSearch(true)}
-            title="Wyszukiwarka po polach"
-            className="w-14 h-14 flex items-center justify-center bg-white rounded-lg shadow border border-gray-200 text-xl hover:bg-gray-50 transition-colors"
-          >
-            🔎
-          </button>
-        </div>
-      )}
+        {/* Wyszukiwanie po polach ma od layoutu 1.5 własny ekran — tutaj zostaje
+            tylko odsyłacz. Czat odpowiada na pytania o TREŚĆ, tamten ekran szuka po
+            STRUKTURZE; dwa pola wyszukiwania obok siebie zmuszały użytkownika do
+            zgadywania, do którego wpisać pytanie. */}
+        <Link
+          href="/dashboard/wyszukiwanie"
+          className="hidden self-start rounded-card border border-app-line bg-app-card p-[22px] shadow-card transition-colors hover:bg-app-hover xl:block"
+        >
+          <span className="mb-4 grid h-[46px] w-[46px] place-items-center rounded-full bg-[#edf4ff] text-app-blue">
+            <IconSearch size={22} />
+          </span>
+          <span className="block text-[15px] font-bold text-app-text">Wyszukiwanie</span>
+          <span className="mt-2 block text-[12px] leading-[1.5] text-app-muted">
+            Zbuduj zapytanie po polach metadanych i przeszukaj dokumenty.
+          </span>
+          <span className="mt-3.5 block text-[12px] font-bold text-app-blue">Przejdź do wyszukiwania ›</span>
+        </Link>
       </div>
     </div>
+  );
+}
+
+/** Jedno źródło pod odpowiedzią: numer odsyłacza, typ pliku, rodzaj, strona i nazwa.
+ *
+ * Numer musi odpowiadać znacznikowi w treści, więc po ukryciu części pozycji
+ * w numeracji zostają dziury. Dlatego numer nosi tę samą plakietkę co odsyłacz
+ * w tekście — czyta się ją jak etykietę odsyłacza, a nie jak kolejność na liście.
+ */
+function Zrodlo({
+  s, numer, uzyty, etykieta, otworz,
+}: {
+  s: ChatSource;
+  numer: number;
+  uzyty: boolean;
+  etykieta: string;
+  otworz?: () => void;
+}) {
+  const tresc = (
+    <>
+      <span
+        className={`grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full text-[11px] font-bold ${
+          uzyty ? 'bg-[#eaf1ff] text-[#2455cc]' : 'bg-app-bg text-app-muted'
+        }`}
+      >
+        {numer}
+      </span>
+      {s.filename && <FileTypeIcon filename={s.filename} size={28} />}
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-baseline gap-x-2 text-[11px] text-app-muted">
+          {s.doc_type_name && <span className="font-bold uppercase tracking-[.02em]">{s.doc_type_name}</span>}
+          {s.page && <span>str. {s.page}</span>}
+        </span>
+        <span className="block break-words text-[12px] font-bold text-app-text">{etykieta}</span>
+        {s.filename && s.filename !== etykieta && (
+          <span className="block break-all text-[11px] text-app-muted">{s.filename}</span>
+        )}
+      </span>
+      {otworz && <span className="shrink-0 text-app-muted"><IconChevronRight size={16} /></span>}
+    </>
+  );
+
+  const klasy = 'flex w-full items-center gap-2.5 rounded-ctl border border-app-line bg-white px-2.5 py-2 text-left';
+  return otworz ? (
+    <button onClick={otworz} className={`${klasy} transition-colors hover:bg-app-hover`} title="Otwórz dokument">
+      {tresc}
+    </button>
+  ) : (
+    <div className={klasy}>{tresc}</div>
   );
 }

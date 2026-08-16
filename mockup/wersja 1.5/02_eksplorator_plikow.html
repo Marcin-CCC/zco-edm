@@ -1,0 +1,240 @@
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Eksplorator plików — HiRS</title><style>
+:root{
+  --navy:#0b2347; --navy2:#0a2b5c; --blue:#2563eb; --blue2:#1d4ed8;
+  --bg:#f5f7fb; --card:#ffffff; --text:#13233f; --muted:#6f7f99;
+  --line:#e5ebf4; --green:#16a36a; --greenbg:#e8f8ef; --teal:#13b9b1;
+  --purple:#7258ef; --purplebg:#efeafe; --danger:#ef4444; --dangerbg:#fff1f2;
+  --shadow:0 6px 18px rgba(19,35,63,.06);
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text);background:var(--bg)}
+body{display:flex;min-height:100vh}
+.sidebar{width:244px;min-height:100vh;position:fixed;left:0;top:0;background:linear-gradient(180deg,#0b2d61 0%,#0a2146 100%);color:#fff;display:flex;flex-direction:column;padding:18px 14px 16px;z-index:20}
+.brand{display:flex;align-items:center;gap:10px;font-size:28px;font-weight:800;padding:4px 4px 20px}.logo{width:36px;height:36px;aspect-ratio:1;flex:none;border-radius:9px;cursor:pointer;background:linear-gradient(180deg,#2e8bff,#1767dd);position:relative;box-shadow:0 8px 18px rgba(25,103,221,.3)}
+.logo:before,.logo:after{content:"";position:absolute;background:white;border-radius:2px}.logo:before{width:16px;height:5px;left:10px;top:15.5px}.logo:after{width:5px;height:16px;left:15.5px;top:10px}
+.nav{display:flex;flex-direction:column;gap:6px}.nav a{color:#f7fbff;text-decoration:none;padding:12px 14px;border-radius:9px;font-size:15px;display:flex;align-items:center;gap:12px}.nav a.active{background:linear-gradient(90deg,#2377ef,#2b65e8);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 8px 22px rgba(18,84,182,.28)}.nav a:hover{background:rgba(255,255,255,.06)}
+.nav-sep{height:1px;background:rgba(255,255,255,.12);margin:10px 0}.ni{width:20px;height:20px;display:grid;place-items:center;flex:0 0 20px;opacity:.98}.ni svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;display:block}.help{margin-top:auto;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:16px}.help strong{display:block;font-size:13px;margin-bottom:6px}.help p{font-size:12px;line-height:1.45;color:#c9d6ea;margin:0 0 14px}.help button{width:100%;border:0;border-radius:8px;padding:10px;background:rgba(255,255,255,.1);color:#fff;font-weight:700}.foot{color:#a9bbd4;font-size:12px;line-height:1.8;margin-top:18px;padding:0 6px}
+.main{margin-left:244px;min-height:100vh;width:calc(100% - 244px)}
+.topbar{height:64px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 34px;position:sticky;top:0;z-index:10}.search{width:min(560px,52vw);height:40px;border:1px solid var(--line);border-radius:10px;display:flex;align-items:center;gap:10px;padding:0 14px;color:#8a98ae;background:#fff}.search span:last-child{margin-left:auto;color:#9aa8bb;font-size:12px}.userbox{display:flex;align-items:center;gap:14px}.bell{position:relative;font-size:18px}.dot{position:absolute;right:-6px;top:-7px;background:#ef2d2d;color:#fff;width:17px;height:17px;border-radius:50%;font-size:10px;display:grid;place-items:center}.avatar{width:38px;height:38px;border-radius:50%;background:#2563eb;color:#fff;display:grid;place-items:center;font-weight:700}.usertext{line-height:1.15}.usertext strong{font-size:14px}.usertext span{font-size:12px;color:var(--muted)}
+.page{padding:24px 30px 34px;max-width:1500px;margin:0 auto}.title-row{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px}.title-row h1{margin:0;font-size:28px;letter-spacing:-.3px}.subtitle{margin-top:4px;color:var(--muted);font-size:14px}.btn{border:1px solid var(--line);background:#fff;color:var(--text);padding:10px 14px;border-radius:9px;font-weight:700}.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}.btn.danger{color:var(--danger);border-color:#fecdd3;background:#fff}.btn.small{padding:7px 10px;font-size:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}.metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:18px}.metric{padding:18px;display:flex;align-items:center;gap:14px}.metric .ico{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;font-size:23px;background:#edf4ff}.metric .label{font-size:13px;color:#5e6f89}.metric .value{font-size:28px;font-weight:800;line-height:1.05;margin-top:3px}.metric .trend{font-size:11px;color:var(--green);margin-top:8px}.metric .spark{margin-left:auto;color:var(--blue);font-size:22px}.metric.teal .ico{background:#e2f8f6}.metric.purple .ico{background:#f0edff}.metric.orange .ico{background:#fff0e7}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}.grid3{display:grid;grid-template-columns:1.3fr .9fr .95fr;gap:18px}.section-card{padding:16px}.section-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px}.section-head h3{font-size:16px;margin:0}.muted{color:var(--muted);font-size:12px}.chart{height:210px;position:relative;padding:12px 8px 24px}.chart .gridline{position:absolute;left:42px;right:8px;height:1px;background:#e8edf5}.chart svg{position:absolute;left:42px;right:8px;bottom:24px;width:calc(100% - 50px);height:155px;overflow:visible}.chart .axis{position:absolute;left:6px;top:0;bottom:22px;color:#8a98ad;font-size:10px;display:flex;flex-direction:column;justify-content:space-between}.chart .xlabels{position:absolute;left:42px;right:8px;bottom:0;display:flex;justify-content:space-between;color:#8a98ad;font-size:10px}.chart-title{font-size:22px;font-weight:800;margin:2px 0 0}.area{fill:rgba(37,99,235,.07)}.line{fill:none;stroke:#2c68ee;stroke-width:2.3}.teal-line{fill:none;stroke:#10b8b3;stroke-width:2.3}.teal-area{fill:rgba(16,184,179,.08)}
+.table{width:100%;border-collapse:separate;border-spacing:0}.table th{font-size:11px;color:#65738a;text-align:left;padding:12px 14px;background:#fafbfd;border-bottom:1px solid var(--line);text-transform:uppercase;letter-spacing:.02em}.table td{padding:12px 14px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}.table tr:last-child td{border-bottom:0}.fileicon{width:30px;height:34px;border-radius:5px;background:#d62828;color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center}.docicon{background:#2f66dc}.xlsicon{background:#20a25a}.name{font-weight:700}.sub{font-size:11px;color:var(--muted);margin-top:2px}.badge{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:700}.badge.green{color:#148a57;background:var(--greenbg)}.badge.blue{color:#2455cc;background:#eaf1ff}.badge.purple{color:#694be0;background:#f0ebff}.badge.gray{color:#65738a;background:#f2f4f8}
+.quick{padding:16px}.quick-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.quickitem{text-align:center}.quickitem .qico{width:42px;height:42px;margin:0 auto 8px;border-radius:12px;background:#edf4ff;display:grid;place-items:center;font-size:20px}.quickitem b{font-size:12px;display:block}.quickitem span{font-size:10px;color:var(--muted)}
+.donut{width:100px;height:100px;border-radius:50%;background:conic-gradient(#2563eb 0 64%,#dfe6f0 64% 100%);display:grid;place-items:center;position:relative}.donut:after{content:"";width:70px;height:70px;border-radius:50%;background:#fff;position:absolute}.donut strong{z-index:2;font-size:21px}.status-list{display:grid;gap:10px;font-size:12px}.status-row{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:8px}.online{color:var(--green);font-weight:700}
+.breadcrumb{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;margin-bottom:22px}.crumbs{display:flex;gap:10px;align-items:center;font-size:14px}.crumbs b{color:var(--blue)}.folders{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin:12px 0 20px}.folder-card{padding:20px;display:flex;align-items:center;gap:16px}.folder-ico{font-size:42px;filter:saturate(.8)}.folder-card .arrow{margin-left:auto;width:34px;height:34px;border:1px solid var(--line);border-radius:10px;display:grid;place-items:center}.files-wrap{padding:0;overflow:hidden}.files-toolbar{padding:14px 18px;display:flex;align-items:center;gap:10px}.files-toolbar h3{margin:0 auto 0 0}.files-toolbar input{height:36px;border:1px solid var(--line);border-radius:9px;padding:0 12px}.seg{display:flex;gap:3px;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#f2f4f8;padding:3px}.seg button{border:0;background:transparent;padding:7px 12px;border-radius:7px;color:#5e6f89;font-weight:600;cursor:pointer}.seg button:hover{color:var(--text)}.seg button.active{background:#fff;color:var(--text);box-shadow:0 1px 2px rgba(19,35,63,.12);cursor:default}
+.admin-tabs{display:flex;gap:8px;padding:10px;background:#fff;border:1px solid var(--line);border-radius:12px;margin:10px 0 22px}.admin-tabs a{padding:10px 14px;border-radius:8px;color:#5d6d86;text-decoration:none;font-size:13px}.admin-tabs a.active{background:#edf4ff;color:var(--blue);font-weight:700}
+.chat-layout{display:grid;grid-template-columns:310px 1fr 210px;gap:18px}.chat-history,.chat-main,.chat-side{min-height:720px}.chat-history{padding:0;overflow:hidden}.chat-history h3,.chat-main h3{margin:0;padding:18px;border-bottom:1px solid var(--line);font-size:17px}.history-item{padding:14px 16px;display:flex;align-items:center;gap:10px;border-left:3px solid transparent}.history-item.active{background:#f5f8ff;border-left-color:var(--blue)}.history-item .ht{font-size:13px;font-weight:700;flex:1}.history-item .time{font-size:11px;color:var(--muted)}.history-footer{position:absolute;bottom:0}.chat-main{position:relative;padding-bottom:110px}.chat-top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}.chat-top h3{border:0}.chat-body{padding:22px 30px}.bubble{max-width:68%;padding:14px 16px;border:1px solid var(--line);border-radius:12px;margin-bottom:18px;font-size:13px;line-height:1.55}.bubble.user{margin-left:auto;background:#f4f7ff}.bubble.ai{background:#fff;box-shadow:0 4px 14px rgba(20,35,60,.04)}.source-title{font-size:12px;color:#66758c;margin:6px 0 8px}.sources{display:flex;gap:8px;flex-wrap:wrap}.source{border:1px solid var(--line);border-radius:999px;padding:7px 10px;font-size:11px;background:#fff}.suggest{border-top:1px solid var(--line);margin-top:28px;padding-top:18px}.suggest b{font-size:12px;color:#6b7890}.chips{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.chip{border:1px solid var(--line);border-radius:999px;padding:8px 10px;font-size:11px;color:var(--blue);background:#fff}.composer{position:absolute;left:18px;right:18px;bottom:16px;border:2px solid #4f82f5;border-radius:12px;background:#fff;padding:12px 12px 10px}.composer textarea{width:100%;border:0;outline:0;resize:none;font-family:inherit;height:40px}.composer-row{display:flex;align-items:center;justify-content:space-between;color:#8592a7;font-size:11px}.chat-side{padding:22px}.side-icon{width:46px;height:46px;border-radius:50%;background:#edf4ff;display:grid;place-items:center;font-size:22px;margin-bottom:18px}.chat-side h4{font-size:15px;margin:0 0 8px}.chat-side p{font-size:12px;line-height:1.5;color:var(--muted)}
+.user-table td:first-child{width:220px}.person{display:flex;align-items:center;gap:12px}.mini-avatar{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;background:#edf4ff;color:#2563eb}.actions{display:flex;gap:12px}.link{color:var(--blue);font-weight:700}.delete{color:var(--danger)}
+@media(max-width:1100px){.metric-grid,.folders{grid-template-columns:repeat(2,1fr)}.grid2,.grid3,.chat-layout{grid-template-columns:1fr}.chat-side{min-height:auto}.sidebar{width:210px}.main{margin-left:210px;width:calc(100% - 210px)}}
+
+.folder-card{position:relative}
+.folder-actions{position:absolute;top:12px;right:12px;display:flex;gap:6px;opacity:0;pointer-events:none;transition:opacity .15s ease}
+.folder-card:hover .folder-actions{opacity:1;pointer-events:auto}
+.folder-card .arrow{transition:opacity .15s ease}
+.folder-card:hover .arrow{opacity:0;pointer-events:none}
+.fa-btn{width:30px;height:30px;aspect-ratio:1;border:1px solid var(--line);border-radius:8px;background:#fff;display:grid;place-items:center;color:#5e6f89;cursor:pointer;padding:0}
+.fa-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;display:block}
+.fa-btn:hover{background:#eef4ff;border-color:#cfdcf5;color:var(--blue)}
+.fa-btn.danger:hover{background:var(--dangerbg);border-color:#fecdd3;color:var(--danger)}
+
+.folder-card{flex-direction:column;align-items:stretch;gap:12px;padding:18px}
+.folder-row{display:flex;align-items:center;justify-content:space-between;min-height:30px}
+.folder-card .folder-ico{font-size:28px;line-height:1}
+.folder-actions{position:static;top:auto;right:auto}
+.fa-btn.edit{color:var(--green)}.fa-btn.edit:hover{background:var(--greenbg);border-color:#bfe8d3;color:#0f8a55}
+.fa-btn.perm{color:var(--blue)}.fa-btn.perm:hover{background:#eef4ff;border-color:#cfdcf5;color:var(--blue2)}
+.fa-btn.danger{color:var(--danger)}.hi{display:grid;place-items:center;width:20px;height:20px;flex:none;color:#4a5a72}.hi svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;display:block}.crumb-home{display:grid;place-items:center;width:24px;height:24px;flex:none;color:#4a5a72}.crumb-home svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;display:block}
+
+.crumbs a{color:var(--blue);text-decoration:none;font-weight:700}
+.crumbs a:hover{text-decoration:underline}
+.crumbs .sep{color:#9aa8bb}
+.crumbs .cur{font-weight:700}
+.folder-body .name{cursor:pointer}
+.folder-body .name:hover{color:var(--blue)}
+.folder-card{cursor:pointer;transition:background .15s ease}
+.folder-card:hover{background:#f6f8fc}.odticon{background:#2f66dc}
+.crumbs{flex-wrap:wrap;row-gap:6px}
+.breadcrumb{flex-wrap:wrap;gap:12px}
+.table-scroll{overflow-x:auto}.table-scroll .table{min-width:820px}
+.folders-card{padding:0 18px 18px;margin-bottom:18px}.folders-card .files-toolbar{padding:14px 0}.folders-card .folders{margin:0}.folders-card .folder-card{box-shadow:none}
+
+.cb{width:13.5px;height:13.5px;margin:0;accent-color:var(--blue);cursor:pointer}
+.btn .bi{display:inline-grid;place-items:center;width:18px;height:18px;vertical-align:-4px;margin-right:6px}
+.btn .bi svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:block}
+.actions{gap:14px;font-size:15px;opacity:0;pointer-events:none;transition:opacity .15s ease}.actions span{line-height:1;cursor:pointer}#filesBody tr:hover .actions{opacity:1;pointer-events:auto}#filesBody tr{cursor:pointer}#filesBody tr:hover td{background:#f6f8fc}.seg button .bi{display:inline-grid;place-items:center;width:16px;height:16px;vertical-align:-3px;margin-right:6px}.seg button .bi svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;display:block}.page-cur{background:#f2f4f8;border-color:#dbe2ec;color:var(--text);cursor:default;font-weight:800}
+
+.modal-back{position:fixed;inset:0;background:rgba(11,35,71,.42);display:none;align-items:center;justify-content:center;z-index:60;padding:24px}
+.modal-back.open{display:flex}
+.modal{background:#fff;border-radius:16px;box-shadow:0 24px 60px rgba(12,25,48,.28);width:min(720px,100%);padding:26px 28px 24px}
+.modal-head{display:flex;align-items:flex-start;gap:14px}
+.modal-head .fileicon{margin-top:2px}
+.modal-head h3{margin:0;font-size:19px;line-height:1.35;flex:1;overflow-wrap:break-word}
+.modal-close{border:0;background:transparent;color:#8a98ae;font-size:20px;line-height:1;padding:4px;cursor:pointer;border-radius:8px}
+.modal-close:hover{background:#f2f4f8;color:var(--text)}
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 26px;margin:22px 0 24px}
+.modal-grid .k{font-size:12px;color:var(--muted);margin-bottom:4px}
+.modal-grid .v{font-size:14px;overflow-wrap:break-word}
+.modal-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.modal-actions .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 14px}
+.btn.soft{background:#f2f4f8;border-color:#e3e8f0;color:var(--text)}
+.btn.soft:hover{background:#e9edf4}
+.btn.danger-soft{background:var(--dangerbg);border-color:#fbd5da;color:var(--danger)}
+.btn.danger-soft:hover{background:#ffe4e8}
+@media(max-width:640px){.modal-grid,.modal-actions{grid-template-columns:1fr}}.btn.primary:hover{background:var(--blue2);border-color:var(--blue2)}.btn.primary:active{background:#1a45c0;border-color:#1a45c0}.btn:not(.primary):not(.soft):not(.danger-soft):not(.page-cur):hover{background:#f6f8fc}.btn.primary:focus-visible,.btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+.sidebar{transition:width .18s ease,padding .18s ease}.main{transition:margin-left .18s ease,width .18s ease}
+.brand{cursor:pointer;user-select:none}
+.help .lifebuoy{display:none}
+.foot .copyonly{display:none}
+body.collapsed .sidebar{width:72px;padding:18px 10px 16px}
+body.collapsed .main{margin-left:72px;width:calc(100% - 72px)}
+body.collapsed .brand{justify-content:center;padding:4px 0 20px}
+body.collapsed .brand span{display:none}
+body.collapsed .nav a{justify-content:center;padding:12px 0}
+body.collapsed .lbl{display:none}
+body.collapsed .help{padding:12px;display:grid;place-items:center}
+body.collapsed .help strong,body.collapsed .help p,body.collapsed .help button{display:none}
+body.collapsed .help .lifebuoy{display:grid;place-items:center;width:26px;height:26px;color:#fff}
+body.collapsed .help .lifebuoy svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;display:block}
+body.collapsed .foot{text-align:center;padding:0}
+body.collapsed .foot .fulltext{display:none}
+body.collapsed .foot .copyonly{display:inline-block;color:#a9bbd4;text-decoration:none;font-size:15px}
+body.collapsed .foot .copyonly:hover{color:#fff}
+.btn{white-space:nowrap}.btn.primary:hover{background:var(--blue2);border-color:var(--blue2)}.btn.primary:active{background:#1a45c0;border-color:#1a45c0}.btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}.mini-avatar,.fileicon{flex:none;aspect-ratio:1}
+.help-cta{display:block;text-align:center;text-decoration:none;width:100%;border:0;border-radius:8px;padding:10px;background:rgba(255,255,255,.1);color:#fff;font-weight:700;font-size:13px}.help-cta:hover{background:rgba(255,255,255,.16)}body.collapsed .help .help-cta{display:none}
+</style></head><body>
+<aside class="sidebar">
+  <div class="brand"><div class="logo"></div><span>HiRS</span></div>
+  <nav class="nav">
+    <a href="#"><span class="ni"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></span><span class="lbl">Dashboard</span></a>
+    <a class="active" href="#"><span class="ni"><svg viewBox="0 0 24 24"><path d="M4 20V5a1 1 0 0 1 1-1h5l2 2.5h7a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/></svg></span><span class="lbl">Pliki</span></a>
+    <a href="#"><span class="ni"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/><path d="M8.5 9.5h7M8.5 12.5h4"/></svg></span><span class="lbl">Chat&nbsp;z&nbsp;AI</span></a>
+    <a href="#"><span class="ni"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.2 16.2L21 21"/></svg></span><span class="lbl">Wyszukiwanie</span></a>
+    <div class="nav-sep"></div>
+    <a href="#"><span class="ni"><svg viewBox="0 0 24 24"><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="3.2"/><path d="M22 20v-2a4 4 0 0 0-3-3.87"/><path d="M16 4.13A4 4 0 0 1 16 11.6"/></svg></span><span class="lbl">Użytkownicy</span></a>
+    <a href="#"><span class="ni"><svg viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14"/><circle cx="8.5" cy="10.8" r="2.2"/><path d="M5 16.2c.6-1.5 2-2.3 3.5-2.3s2.9.8 3.5 2.3"/><path d="M15 10h4M15 13.5h4"/></svg></span><span class="lbl">Lista dostępów</span></a>
+    <a href="#"><span class="ni"><svg viewBox="0 0 24 24"><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h4"/></svg></span><span class="lbl">Schematy dokumentów</span></a>
+    <a href="#"><span class="ni"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h9"/><path d="M17 15.5v5M14.5 18h5"/></svg></span><span class="lbl">Kolejka plików</span></a>
+    <a href="#"><span class="ni"><svg viewBox="0 0 24 24"><path d="M20 14a2 2 0 0 1-2 2H9l-4 3.5V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2z"/><path d="M9 8.5h6M9 11.5h3.5"/><path d="M14.6 12.4l1.7 1.7 3-3.4"/></svg></span><span class="lbl">Lista odpowiedzi</span></a>
+    <a href="#"><span class="ni"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.9 19.3a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.7 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.7 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.7h.06A1.7 1.7 0 0 0 10.1 3.14V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.3 9v.06a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15z"/></svg></span><span class="lbl">Ustawienia aplikacji</span></a>
+  </nav>
+  <div class="help" title="Potrzebujesz pomocy?"><span class="lifebuoy"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.6"/><path d="M5.6 5.6l3.8 3.8M14.6 14.6l3.8 3.8M18.4 5.6l-3.8 3.8M9.4 14.6l-3.8 3.8"/></svg></span><strong>Potrzebujesz pomocy?</strong><p>Skontaktuj się z działem wsparcia technicznego.</p><a class="help-cta" href="11_kontakt.html">Skontaktuj się</a></div>
+  <div class="foot"><span class="fulltext">HiRS v1.0.17 · Historia zmian<br>© Polmedi Group sp. z o.o.</span><a class="copyonly" href="https://polmedi.pl" title="© Polmedi Group sp. z o.o.">©</a></div>
+</aside><main class="main"><header class="topbar"><div class="search"><span>⌕</span><span>Wyszukaj dokumenty, foldery, użytkowników...</span><span>⌘ K</span></div><div class="userbox"><div class="bell">♧<span class="dot">3</span></div><div class="avatar">PP</div><div class="usertext"><strong>Piotr Piątek</strong><br><span>Administrator</span></div><span>⌄</span></div></header>
+<section class="page">
+  <div class="title-row"><div><h1>Eksplorator plików</h1><div class="subtitle">Przegląd folderów i dokumentów w systemie HiRS.</div></div></div>
+  <div class="card breadcrumb"><div class="crumbs" id="crumbs"></div><div style="display:flex;gap:10px"><button class="btn">＋ Nowy folder</button><button class="btn primary"><span class="bi"><svg viewBox="0 0 24 24"><path d="M12 19V5.5"/><path d="M6.5 11L12 5.5l5.5 5.5"/></svg></span>Prześlij pliki</button></div></div>
+  <div id="foldersSection" class="card folders-card"><div class="files-toolbar"><h3 style="display:flex;align-items:center;gap:10px"><span class="hi"><svg viewBox="0 0 24 24"><path d="M4 20V5a1 1 0 0 1 1-1h5l2 2.5h7a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/></svg></span>Foldery</h3></div><div class="folders" id="foldersGrid"></div></div>
+  <div class="card files-wrap"><div class="files-toolbar"><h3 style="display:flex;align-items:center;gap:10px"><span class="hi"><svg viewBox="0 0 24 24"><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h4"/></svg></span>Pliki</h3><input placeholder="Szukaj pliku..."><div class="seg"><button class="active">☷ Lista</button><button><span class="bi"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7"/><rect x="13" y="4" width="7" height="7"/><rect x="4" y="13" width="7" height="7"/><rect x="13" y="13" width="7" height="7"/></svg></span>Kafelki</button></div></div><div class="table-scroll"><table class="table"><thead><tr><th style="width:52px"><input type="checkbox" class="cb"></th><th style="width:70px">Ikona</th><th>Nazwa</th><th>Rozmiar</th><th>Status</th><th>Data dodania</th><th></th></tr></thead><tbody id="filesBody"></tbody></table></div><div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;color:var(--muted);font-size:12px"><span id="fileCount"></span><span><button class="btn small">‹</button> <button class="btn small page-cur" aria-current="page">1</button> <button class="btn small">›</button></span><span>Pokaż: <button class="btn small">10⌄</button></span></div></div>
+</section><div class="modal-back" id="fileModal"><div class="modal">
+  <div class="modal-head"><div class="fileicon" id="fmIco">PDF</div><h3 id="fmName"></h3><button class="modal-close" id="fmClose" title="Zamknij">✕</button></div>
+  <div class="modal-grid">
+    <div><div class="k">Typ pliku</div><div class="v" id="fmMime"></div></div>
+    <div><div class="k">Rozmiar</div><div class="v" id="fmSize"></div></div>
+    <div><div class="k">Status</div><div class="v" id="fmStatus"></div></div>
+    <div><div class="k">Data dodania</div><div class="v" id="fmDate"></div></div>
+    <div><div class="k">Folder</div><div class="v" id="fmFolder"></div></div>
+    <div><div class="k">Wczytał</div><div class="v" id="fmUser"></div></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn primary"><span class="bi"><svg viewBox="0 0 24 24"><path d="M12 4.5V17"/><path d="M6.5 11.5L12 17l5.5-5.5"/><path d="M5 19.5h14"/></svg></span>Pobierz plik</button>
+    <button class="btn soft"><span class="bi"><svg viewBox="0 0 24 24"><path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg></span>Podgląd</button>
+    <button class="btn danger-soft"><span class="bi"><svg viewBox="0 0 24 24"><path d="M4.5 7h15"/><path d="M9.5 7V4.8h5V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10.5 10.5v6.5M13.5 10.5v6.5"/></svg></span>Usuń</button>
+  </div>
+</div></div>
+</main><script>
+const HOME='<svg viewBox="0 0 24 24"><path d="M3.5 10.5L12 3.5l8.5 7"/><path d="M5.5 9.8V20h13V9.8"/><path d="M10 20v-5.5h4V20"/></svg>';
+const ACT='<div class="folder-actions">'
++'<button class="fa-btn edit" title="Zmień nazwę"><svg viewBox="0 0 24 24"><path d="M14.5 5.5l4 4L9 19H5v-4z"/><path d="M12.8 7.2l4 4"/></svg></button>'
++'<button class="fa-btn perm" title="Uprawnienia"><svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/><path d="M12 14v2.5"/></svg></button>'
++'<button class="fa-btn danger" title="Usuń"><svg viewBox="0 0 24 24"><path d="M4.5 7h15"/><path d="M9.5 7V4.8h5V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10.5 10.5v6.5M13.5 10.5v6.5"/></svg></button></div>';
+const ODT='application/vnd.oasis.opendocument.text';
+function f(n,s,d,t){return{name:n,ext:'ODT',cls:'odticon',mime:ODT,size:s,date:d,time:t,status:'ok'}}
+const TREE={
+ name:'Katalog główny',
+ folders:[
+  {name:'Faktury',count:9,files:[{name:'Biologia klasa 1.pdf',ext:'PDF',cls:'',mime:'application/pdf',size:'825.4 KB',date:'10.08.2026',time:'11:32',status:'ok'}]},
+  {name:'Leczenia',count:2,files:[]},
+  {name:'Normy i standardy',count:6,files:[]},
+  {name:'PPK',count:3,files:[{name:'Raport PPK – Q2 2026.xlsx',ext:'XLSX',cls:'xlsicon',mime:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',size:'412 KB',date:'08.08.2026',time:'09:20',status:'ok'}]},
+  {name:'Procedury',folders:[
+    {name:'P-206 ONKOLOGIA KLINICZNA',folders:[
+      {name:'I-206 INSTRUKCJE',files:[
+        f('I 206-001 Przyjęcie do oddziału Onkologii Klinicznej.odt','121.1 KB','28.07.2026','10:22'),
+        f('I 206-002 Opieka pielęgniarska.odt','121.5 KB','28.07.2026','09:16'),
+        f('I 206-003 Podawanie cytostatyków.odt','121.5 KB','28.07.2026','10:22'),
+        f('I 206-004 Postępowanie w sytuacji zagrożenia bezpieczeństwa pracy na skutek bezpośredniego kontaktu z cytostatykiem.odt','135.4 KB','28.07.2026','10:22'),
+        f('I 206-005 Postępowanie w przypadku wynaczynienia leku cytostatycznego ed 4.odt','150.4 KB','28.07.2026','10:22'),
+        f('I 206-006 Wypis pacjenta z oddziału onkologii klinicznej.odt','114.6 KB','28.07.2026','10:22'),
+        f('I 206-007 Trepanobiopsja szpiku.odt','35.2 KB','28.07.2026','10:22'),
+        f('I 206-008 Punkcja.odt','163.5 KB','28.07.2026','10:22')]},
+      {name:'Z-206 ZAŁĄCZNIKI',files:[]}],
+     files:[f('P 206 Onkologia kliniczna.odt','204.8 KB','27.07.2026','14:05')]},
+    {name:'P-101 IZBA PRZYJĘĆ',folders:[{name:'I-101 INSTRUKCJE',files:[]}],files:[]}],
+   files:[]}
+ ],
+ files:[
+  {name:'Biologia klasa 1.pdf',ext:'PDF',cls:'',mime:'application/pdf',size:'825.4 KB',date:'10.08.2026',time:'11:32',status:'ok'},
+  {name:'schulke Przewodnik dekontaminacji dla Zespołów Kontroli Zakażeń Szpitalnych 01 A4_DRUK_25.07.2026 (1).pdf',ext:'PDF',cls:'',mime:'application/pdf',size:'8.9 MB',date:'10.08.2026',time:'10:45',status:'ok'},
+  {name:'Standardy akredytacyjne szpitali.docx',ext:'DOCX',cls:'docicon',mime:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',size:'1.2 MB',date:'09.08.2026',time:'16:10',status:'queue'},
+  {name:'Raport PPK – Q2 2026.xlsx',ext:'XLSX',cls:'xlsicon',mime:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',size:'412 KB',date:'08.08.2026',time:'09:20',status:'ok'}]
+};
+let path=[];
+function nodeAt(p){let n=TREE;p.forEach(i=>{n=(n.folders||[])[i]});return n}
+function countFiles(n){if(typeof n.count==='number')return n.count;let c=(n.files||[]).length;(n.folders||[]).forEach(f=>c+=countFiles(f));return c}
+function render(){
+ const node=nodeAt(path);
+ const cr=document.getElementById('crumbs');
+ let html='<a href="#" data-go="-1"><span class="crumb-home">'+HOME+'</span></a>';
+ html+='<a href="#" data-go="-1">Katalog główny</a>';
+ path.forEach((idx,i)=>{
+   const n=nodeAt(path.slice(0,i+1));
+   html+='<span class="sep">/</span>';
+   html+= i===path.length-1 ? '<span class="cur">'+n.name+'</span>' : '<a href="#" data-go="'+i+'">'+n.name+'</a>';
+ });
+ cr.innerHTML=html;
+ cr.querySelectorAll('[data-go]').forEach(a=>a.onclick=e=>{e.preventDefault();const g=+a.dataset.go;path=g<0?[]:path.slice(0,g+1);render()});
+
+ const grid=document.getElementById('foldersGrid');
+ const subs=node.folders||[];
+ document.getElementById('foldersSection').style.display=subs.length?'':'none';
+ grid.innerHTML=subs.map((f,i)=>'<div class="card folder-card" data-open="'+i+'"><div class="folder-row"><div class="folder-ico">📁</div>'+ACT+'</div><div class="folder-body"><div class="name">'+f.name+'</div><div class="sub">'+pathOf(f)+'</div><div class="muted" style="margin-top:10px">Liczba plików: '+countFiles(f)+'</div></div></div>').join('');
+ grid.querySelectorAll('[data-open]').forEach(c=>c.onclick=e=>{if(e.target.closest('.fa-btn'))return;path=path.concat(+c.dataset.open);render();window.scrollTo(0,0)});
+
+ const files=node.files||[];
+ document.getElementById('filesBody').innerHTML=files.map(fl=>
+  '<tr><td><input type="checkbox" class="cb"></td><td><div class="fileicon '+fl.cls+'">'+fl.ext+'</div></td>'
+  +'<td><div class="name">'+fl.name+'</div><div class="sub">'+fl.mime+'</div></td>'
+  +'<td>'+fl.size+'</td><td><span class="badge '+(fl.status==='ok'?'green':'purple')+'">'+(fl.status==='ok'?'Przetworzono':'W kolejce')+'</span></td>'
+  +'<td>'+fl.date+'<br>'+fl.time+'</td>'
+  +'<td><div class="actions"><span class="link" title="Pobierz">⇩</span><span class="link" title="Przenieś">▣</span><span class="delete" title="Usuń">🗑</span></div></td></tr>').join('')
+  || '<tr><td colspan="7" style="padding:22px 14px;color:var(--muted)">Brak plików w tym folderze.</td></tr>';
+ const body=document.getElementById('filesBody');
+ body.querySelectorAll('tr').forEach((tr,i)=>{tr.onclick=e=>{if(e.target.closest('.actions')||e.target.closest('.cb'))return;openFile(files[i])}});
+ document.getElementById('fileCount').textContent=files.length?('1–'+files.length+' z '+files.length+' plików'):'0 plików';
+}
+function pathOf(f){const names=path.map(i=>'');return '/'+path.map((idx,i)=>nodeAt(path.slice(0,i+1)).name).concat(f.name).join('/')}
+const MONTHS=['stycznia','lutego','marca','kwietnia','maja','czerwca','lipca','sierpnia','września','października','listopada','grudnia'];
+function longDate(d,t){const[dd,mm,yy]=d.split('.');return parseInt(dd,10)+' '+MONTHS[parseInt(mm,10)-1]+' '+yy+' '+t}
+function openFile(fl){
+ if(!fl)return;
+ const ico=document.getElementById('fmIco');
+ ico.className='fileicon '+(fl.cls||'');ico.textContent=fl.ext;
+ document.getElementById('fmName').textContent=fl.name;
+ document.getElementById('fmMime').textContent=fl.mime;
+ document.getElementById('fmSize').textContent=fl.size;
+ document.getElementById('fmStatus').textContent=fl.status==='ok'?'Przetworzono':'W kolejce';
+ document.getElementById('fmDate').textContent=longDate(fl.date,fl.time);
+ document.getElementById('fmFolder').textContent=path.length?nodeAt(path).name:'Katalog główny';
+ document.getElementById('fmUser').textContent=fl.user||'Marcin';
+ document.getElementById('fileModal').classList.add('open');
+}
+function closeFile(){document.getElementById('fileModal').classList.remove('open')}
+document.getElementById('fmClose').onclick=closeFile;
+document.getElementById('fileModal').onclick=e=>{if(e.target.id==='fileModal')closeFile()};
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeFile()});
+render();
+</script><script>
+document.querySelector('.brand').addEventListener('click',function(){document.body.classList.toggle('collapsed')});
+</script></body></html>

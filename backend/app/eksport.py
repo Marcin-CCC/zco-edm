@@ -34,6 +34,12 @@ MAX_NAZWA_ARKUSZA = 31
 NAGLOWEK_TLO = PatternFill("solid", fgColor="F3F4F6")
 NAGLOWEK_FONT = Font(bold=True)
 
+# Format kolumn kwotowych. Bez symbolu waluty: pole „Kwota" bywa w euro tak samo
+# jak w złotych, a dopisany na sztywno symbol byłby wtedy po prostu nieprawdą.
+# Kod formatu jest niezależny od języka — Excel pokazuje separatory wg ustawień
+# użytkownika, więc w polskiej wersji wyjdzie „1 234,56".
+FORMAT_KWOTY = "#,##0.00"
+
 
 def nazwa_arkusza(nazwa: str, zajete: set[str]) -> str:
     """Nazwa arkusza dopuszczalna dla Excela i niepowtarzalna w skoroszycie."""
@@ -81,7 +87,46 @@ def _wartosc(surowa, typ: str):
             return int(liczba) if liczba.is_integer() else liczba
         except ValueError:
             return tekst
+    if typ == "money":
+        kwota = _kwota(tekst)
+        return tekst if kwota is None else kwota
     return tekst
+
+
+# Symbole i skróty walut, które model wyciąga razem z liczbą („1 234,56 zł").
+_WALUTY = re.compile(r"(?i)\b(zl|zł|pln|eur|usd|gbp|chf)\b|[€$£]")
+
+
+def _kwota(tekst: str) -> float | None:
+    """„1 234,56 zł" → 1234.56. ``None``, gdy to nie jest kwota.
+
+    Kwota musi trafić do arkusza jako LICZBA, nie tekst — inaczej kolumna się nie
+    zsumuje, a to jedyny powód, dla którego „Kwota" jest osobnym typem obok
+    „Liczby". Rozdzielamy separatory po polsku: przecinek jest dziesiętny, spacja
+    (także niełamliwa) grupuje tysiące.
+    """
+    czysty = _WALUTY.sub("", tekst)
+    czysty = re.sub(r"[\s\u00a0\u202f]", "", czysty).strip()
+    if not czysty:
+        return None
+
+    if "," in czysty and "." in czysty:
+        # Separatorem dziesiętnym jest ten ostatni; drugi grupuje tysiące.
+        if czysty.rfind(",") > czysty.rfind("."):
+            czysty = czysty.replace(".", "").replace(",", ".")
+        else:
+            czysty = czysty.replace(",", "")
+    elif "," in czysty:
+        czysty = czysty.replace(",", ".")
+    elif re.fullmatch(r"-?\d{1,3}(\.\d{3})+", czysty):
+        # „1.234" i „12.345.678" to po polsku tysiące, nie ułamek. Trzy cyfry po
+        # kropce i cyfry przed nią — inaczej „1.5" byłoby czytane jako 15 setek.
+        czysty = czysty.replace(".", "")
+
+    try:
+        return float(czysty)
+    except ValueError:
+        return None
 
 
 def _typ_pola(definicja: dict) -> str:
@@ -124,6 +169,10 @@ def zbuduj_xlsx(dokumenty: list[dict], schematy: dict[str, dict]) -> bytes:
             komorka.fill = NAGLOWEK_TLO
             komorka.alignment = Alignment(vertical="center")
 
+        # Kolumny kwotowe dostają format z groszami i separatorem tysięcy — bez
+        # niego arkusz pokazuje „1234.5" tam, gdzie w dokumencie było „1 234,50".
+        kolumny_kwot = [i for i, p in enumerate(pola, start=2) if _typ_pola(p) == "money"]
+
         for nr, d in enumerate(pozycje, 1):
             wartosci = d.get("doc_fields") or {}
             wiersz = [nr]
@@ -131,6 +180,12 @@ def zbuduj_xlsx(dokumenty: list[dict], schematy: dict[str, dict]) -> bytes:
                 wiersz.append(_wartosc(wartosci.get(p.get("name")), _typ_pola(p)))
             wiersz.append(d.get("filename") or "")
             ws.append(wiersz)
+            for kol in kolumny_kwot:
+                komorka = ws.cell(row=ws.max_row, column=kol)
+                # Format tylko dla wartości liczbowych: nierozpoznany zapis został
+                # tekstem i format walutowy zrobiłby z niego zero.
+                if isinstance(komorka.value, (int, float)):
+                    komorka.number_format = FORMAT_KWOTY
 
         # Filtr i zamrożony nagłówek — arkusz ma służyć do przeglądania rejestru,
         # a nie tylko do archiwizacji.

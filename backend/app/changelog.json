@@ -1,6 +1,25 @@
 {
   "entries": [
     {
+      "version": "1.5.0",
+      "date": "2026-08-16",
+      "title": "Nowy layout aplikacji",
+      "changes": [
+        "Caly interfejs przeszedl na nowy uklad graficzny: jednolite karty, tabele, przyciski i plakietki na wszystkich jedenastu ekranach. Wartosci wizualne (kolory, promienie, cienie) mieszkaja teraz w jednym miejscu, wiec kolejna korekta wygladu nie wymaga poprawiania kazdego ekranu osobno.",
+        "Menu boczne mozna zwinac do samych ikon; wybor jest zapamietywany. Pod kreska oddzielajaca czesc administracyjna pojawil sie napis ADMINISTRACJA.",
+        "Emoji w roli ikon zniknely z calej aplikacji. Kazda ikona jest teraz rysunkiem, ktory wyglada tak samo na Windowsie, macOS i Linuksie - wczesniej te same znaki (zolta teczka, kartka) kazdy system rysowal po swojemu, a czesci w ogole nie pokazywal.",
+        "Typ pliku na listach niesie kwadratowa plakietka z rozszerzeniem (PDF, DOCX, ODT, XLSX) w kolorze rodziny formatu.",
+        "Dashboard: kafelki z ikonami, wykresy liniowe zamiast slupkowych (czytelne takze przy zakresie 90 dni), Szybkie akcje, panel zajetosci dysku oraz Status systemu z realnym odczytem obciazenia serwera, czasu odpowiedzi bazy i kolejki modelu jezykowego.",
+        "Dashboard pokazuje takze aktywnosc uzytkownikow w wybranym okresie - z danych, ktore system juz zbiera (wgrane pliki i zadane pytania).",
+        "Eksplorator plikow: stronicowanie listy z wyborem liczby pozycji, przelacznik Lista/Kafelki, okno szczegolow dokumentu i czytelna informacja, gdy folder przekracza limit jednorazowego odczytu.",
+        "Chat: dokumenty uzyte w odpowiedzi sa teraz osobnymi pozycjami z numerem odsylacza, typem pliku, kategoria i strona; dokumenty sprawdzone, ale niewykorzystane, chowaja sie pod zwijka. Puste okno czatu podpowiada przykladowe pytania zbudowane z kategorii dokumentow, ktore sa w systemie.",
+        "Wyszukiwanie po polach metadanych ma wlasny ekran w menu. Z czatu prowadzi do niego odsylacz - dwa pola wyszukiwania obok siebie zmuszaly do zgadywania, do ktorego wpisac pytanie.",
+        "Nowy ekran Skontaktuj sie: zgloszenie do wsparcia technicznego wysylane wlasnym serwerem poczty (dane SMTP wpisuje administrator w Ustawieniach). Awaria przetwarzania dokumentow nie odcina juz drogi zgloszenia problemu.",
+        "Nazwe aplikacji, kolor napisu i ikone ustawia sie w Ustawieniach aplikacji, zamiast w trzech miejscach przy wdrozeniu. Ikona musi byc kwadratowa - w zwinietym menu prostokat wygladalby na blad aplikacji.",
+        "W schematach dokumentow doszedl typ pola Kwota. W eksporcie do Excela kwota trafia do arkusza jako liczba z groszami, wiec kolumna sie sumuje - takze gdy w dokumencie zapisano ja jako '1 234,56 zl'."
+      ]
+    },
+    {
       "version": "1.2.0",
       "date": "2026-08-16",
       "title": "Nazwy plikow nadawane z rozpoznanych pol dokumentu",

@@ -26,7 +26,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/doc-schemas", tags=["DocSchemas"])
 
 _SLUG_RE = re.compile(r"^[a-z0-9_-]{2,50}$")
-_ALLOWED_FIELD_TYPES_PREFIX = ("string", "number", "date", "enum:")
+# „money" stoi obok „number" nie dla ozdoby: kwota trafia do eksportu jako liczba
+# z formatem walutowym, więc kolumna się sumuje, a model dostaje w prompcie
+# podpowiedź, że szuka kwoty, a nie dowolnej liczby z dokumentu.
+_ALLOWED_FIELD_TYPES_PREFIX = ("string", "number", "money", "date", "enum:")
 
 
 def get_active_schemas(db: Session) -> list[dict]:
@@ -80,7 +83,7 @@ def _validate_fields(fields: list) -> None:
         if not any(t == p or t.startswith("enum:") for p in _ALLOWED_FIELD_TYPES_PREFIX):
             raise HTTPException(
                 status_code=400,
-                detail=f"Nieprawidłowy typ pola '{f.name}': '{t}'. Dozwolone: string|number|date|enum:v1,v2,...",
+                detail=f"Nieprawidłowy typ pola '{f.name}': '{t}'. Dozwolone: string|number|money|date|enum:v1,v2,...",
             )
 
 

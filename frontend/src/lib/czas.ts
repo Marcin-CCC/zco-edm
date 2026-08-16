@@ -49,3 +49,29 @@ export function godzinaLokalna(
   const d = parsujUtc(iso);
   return isNaN(d.getTime()) ? '—' : d.toLocaleTimeString('pl-PL', opcje);
 }
+
+/** Znacznik czasu w formie z makiety 1.5: „Dzisiaj, 11:32", „Wczoraj, 16:07",
+ *  a starsze — „14.08, 09:18".
+ *
+ * Rok pomijamy przy datach z bieżącego roku: na liście „ostatnio dodanych"
+ * czterocyfrowy rok przy każdej pozycji to szum, a nie informacja.
+ */
+export function kiedy(iso?: string | null): string {
+  if (!iso) return '—';
+  const d = parsujUtc(iso);
+  if (isNaN(d.getTime())) return '—';
+
+  const godzina = d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+  const dzien = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dzis = new Date();
+  const dzisDzien = new Date(dzis.getFullYear(), dzis.getMonth(), dzis.getDate());
+  const roznica = Math.round((dzisDzien.getTime() - dzien.getTime()) / 86_400_000);
+
+  if (roznica === 0) return `Dzisiaj, ${godzina}`;
+  if (roznica === 1) return `Wczoraj, ${godzina}`;
+  const data = d.toLocaleDateString('pl-PL',
+    d.getFullYear() === dzis.getFullYear()
+      ? { day: '2-digit', month: '2-digit' }
+      : { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return `${data}, ${godzina}`;
+}

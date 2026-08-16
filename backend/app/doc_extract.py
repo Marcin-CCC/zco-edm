@@ -183,6 +183,8 @@ def _build_messages(schemas: list[dict], text: str, filename: str = "") -> list[
         "zastępczą w rodzaju 'nieokreślony', 'brak' czy myślnika — po prostu je pomiń. "
         "Nie każdy dokument ma tabelkę nagłówkową i brak pól jest poprawnym wynikiem. "
         "Daty zwracaj w formacie YYYY-MM-DD. "
+        "Pola typu money to kwoty — zwracaj samą wartość z groszami (np. '1234,56'), "
+        "bez symbolu waluty i bez spacji rozdzielających tysiące. "
         "Zwróć wyłącznie JSON zgodny ze schematem."
     )
     user = f"NAZWA PLIKU: {filename}\n\n{catalog}\n\nDOKUMENT (początek):\n{text}"

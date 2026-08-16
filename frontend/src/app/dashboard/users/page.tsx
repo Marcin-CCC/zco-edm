@@ -1,14 +1,36 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { usersApi } from '@/lib/api';
-import { useAuth } from '@/lib/store';
-import { ROLE_GUEST, roleLabel, useRoles } from '@/lib/roles';
+/** Użytkownicy — konta w systemie, ich role i status dostępu (layout 1.5).
+ *
+ * Logika bez zmian względem poprzedniej wersji: ten sam formularz obsługuje
+ * dodawanie i edycję, hasło przy edycji zostaje puste (puste = bez zmiany),
+ * a własnego konta nie da się usunąć. Zmienia się wyłącznie warstwa wizualna.
+ */
+import { useEffect, useState } from 'react';
 
+import { IconEdit, IconPlus, IconTrash } from '@/components/icons';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  IconButton,
+  PageHeader,
+  RowActions,
+  Sub,
+  Table,
+  Td,
+  Th,
+  inputClass,
+} from '@/components/ui/primitives';
+import { usersApi } from '@/lib/api';
+import { ROLE_GUEST, roleLabel, useRoles } from '@/lib/roles';
+import { useAuth } from '@/lib/store';
+import { inicjaly } from '@/lib/user';
 
 export default function UsersPage() {
   const { token, user } = useAuth();
-  // Role z bazy — także te założone przez administratora.
   const { roles } = useRoles();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,8 +48,7 @@ export default function UsersPage() {
 
   const fetchUsers = async () => {
     try {
-      const data = await usersApi.list(token!);
-      setUsers(data);
+      setUsers(await usersApi.list(token!));
     } catch (err: any) {
       setError(err.message || 'Błąd pobierania użytkowników');
     } finally {
@@ -35,9 +56,7 @@ export default function UsersPage() {
     }
   };
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  useEffect(() => { fetchUsers(); }, []);
 
   const resetForm = () => {
     setForm({ email: '', username: '', password: '', full_name: '', role: ROLE_GUEST, is_active: true });
@@ -61,13 +80,11 @@ export default function UsersPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
     try {
       if (editingId) {
         const { password, ...rest } = form;
         const updates: Record<string, unknown> = { ...rest };
-        // Hasło wysyłamy tylko gdy admin je wpisał (puste = bez zmiany)
-        if (password) updates.password = password;
+        if (password) updates.password = password;   // puste = bez zmiany hasła
         await usersApi.update(token!, editingId, updates);
       } else {
         await usersApi.create(token!, form);
@@ -89,185 +106,154 @@ export default function UsersPage() {
     }
   };
 
-  const getRoleLabel = (role: string) => roleLabel(roles, role);
-
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Zarządzanie użytkownikami</h1>
-        <button
-          onClick={() => setShowForm(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
-        >
-          + Dodaj użytkownika
-        </button>
-      </div>
+      <PageHeader
+        title="Użytkownicy"
+        description="Konta w systemie, ich role i status dostępu."
+        actions={
+          !showForm && (
+            <Button variant="primary" onClick={() => setShowForm(true)}>
+              <IconPlus size={18} />
+              Dodaj użytkownika
+            </Button>
+          )
+        }
+      />
 
-      {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+        <div className="mb-4 rounded-ctl border border-[#fecdd3] bg-app-dangerbg px-4 py-3 text-sm text-app-danger">
           {error}
         </div>
       )}
 
-      {/* User form */}
       {showForm && (
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">
+        <Card className="mb-5 p-[18px]">
+          <h2 className="mb-4 text-base font-bold text-app-text">
             {editingId ? 'Edytuj użytkownika' : 'Dodaj nowego użytkownika'}
           </h2>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Field label="Email">
               <input
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={inputClass}
                 required
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nazwa wyświetlana</label>
+            </Field>
+            <Field label="Nazwa wyświetlana">
               <input
                 type="text"
                 value={form.username}
                 onChange={(e) => setForm({ ...form, username: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={inputClass}
                 required
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Hasło{editingId && <span className="text-gray-400 font-normal"> (zostaw puste, by nie zmieniać)</span>}
-              </label>
+            </Field>
+            <Field label="Hasło" hint={editingId ? 'Zostaw puste, by nie zmieniać.' : undefined}>
               <input
                 type="password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={inputClass}
                 required={!editingId}
                 autoComplete="new-password"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Pełne imię i nazwisko</label>
+            </Field>
+            <Field label="Pełne imię i nazwisko">
               <input
                 type="text"
                 value={form.full_name}
                 onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={inputClass}
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Rola</label>
+            </Field>
+            <Field label="Rola">
               <select
                 value={form.role}
                 onChange={(e) => setForm({ ...form, role: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={inputClass}
               >
                 {roles.map((r) => (
                   <option key={r.code} value={r.code}>{r.name}</option>
                 ))}
               </select>
-            </div>
-            <div className="flex items-center pt-6">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={form.is_active}
-                  onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-                  className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">Aktywny</span>
-              </label>
-            </div>
-            <div className="md:col-span-2 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={resetForm}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-              >
-                Anuluj
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
-              >
+            </Field>
+            <label className="flex items-center gap-2 pt-7 text-[13px] text-app-text">
+              <input
+                type="checkbox"
+                checked={form.is_active}
+                onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+                className="rounded border-app-line text-app-blue"
+              />
+              Aktywny
+            </label>
+            <div className="flex justify-end gap-2 md:col-span-2">
+              <Button type="button" onClick={resetForm}>Anuluj</Button>
+              <Button type="submit" variant="primary">
                 {editingId ? 'Zapisz zmiany' : 'Dodaj'}
-              </button>
+              </Button>
             </div>
           </form>
-        </div>
+        </Card>
       )}
 
-      {/* Users table */}
-      {loading ? (
-        <div className="text-center py-8 text-gray-500">Ładowanie...</div>
-      ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+      <Card className="overflow-hidden">
+        {loading ? (
+          <EmptyState title="Ładowanie…" />
+        ) : users.length === 0 ? (
+          <EmptyState title="Brak użytkowników" hint="Dodaj pierwsze konto przyciskiem powyżej." />
+        ) : (
+          <Table>
+            <thead>
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Użytkownik</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rola</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Akcje</th>
+                <Th className="w-[280px]">Użytkownik</Th>
+                <Th>Email</Th>
+                <Th>Rola</Th>
+                <Th>Status</Th>
+                <Th className="text-right">Akcje</Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
-              {users.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                    Brak użytkowników
-                  </td>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id} className="group hover:bg-app-hover">
+                  <Td>
+                    <div className="flex items-center gap-3">
+                      <span className="grid h-9 w-9 flex-none place-items-center rounded-full bg-app-blue text-xs font-bold text-white">
+                        {inicjaly(u.full_name, u.username)}
+                      </span>
+                      <span>
+                        <span className="font-semibold text-app-text">{u.username}</span>
+                        {u.full_name && <Sub>{u.full_name}</Sub>}
+                      </span>
+                    </div>
+                  </Td>
+                  <Td className="text-app-muted">{u.email}</Td>
+                  <Td><Badge tone="blue">{roleLabel(roles, u.role)}</Badge></Td>
+                  <Td>
+                    <Badge tone={u.is_active ? 'green' : 'danger'}>
+                      {u.is_active ? 'Aktywny' : 'Nieaktywny'}
+                    </Badge>
+                  </Td>
+                  <Td>
+                    <RowActions>
+                      <IconButton tone="edit" title="Edytuj" onClick={() => handleEdit(u)}>
+                        <IconEdit size={16} />
+                      </IconButton>
+                      {u.id !== user?.id && (
+                        <IconButton tone="danger" title="Usuń" onClick={() => handleDelete(u.id)}>
+                          <IconTrash size={16} />
+                        </IconButton>
+                      )}
+                    </RowActions>
+                  </Td>
                 </tr>
-              ) : (
-                users.map((u) => (
-                  <tr key={u.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-800">
-                      <div className="font-medium">{u.username}</div>
-                      {u.full_name && <div className="text-gray-500 text-xs">{u.full_name}</div>}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{u.email}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                        {getRoleLabel(u.role)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        u.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {u.is_active ? 'Aktywny' : 'Nieaktywny'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => handleEdit(u)}
-                          className="text-blue-600 hover:text-blue-800 text-xs font-medium"
-                        >
-                          Edytuj
-                        </button>
-                        {u.id !== user?.id && (
-                          <button
-                            onClick={() => handleDelete(u.id)}
-                            className="text-red-600 hover:text-red-800 text-xs font-medium"
-                          >
-                            Usuń
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
-          </table>
-        </div>
-      )}
+          </Table>
+        )}
+      </Card>
     </div>
   );
 }

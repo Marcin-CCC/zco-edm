@@ -15,6 +15,28 @@ module.exports = {
     },
     extend: {
       colors: {
+        // Paleta layoutu 1.5 (zob. globals.css). Używamy jej jako `bg-app-card`,
+        // `border-app-line`, `text-app-muted` itd., zamiast powtarzać wartości.
+        app: {
+          navy: "var(--app-navy)",
+          navy2: "var(--app-navy2)",
+          blue: "var(--app-blue)",
+          blue2: "var(--app-blue2)",
+          bg: "var(--app-bg)",
+          card: "var(--app-card)",
+          text: "var(--app-text)",
+          muted: "var(--app-muted)",
+          line: "var(--app-line)",
+          green: "var(--app-green)",
+          greenbg: "var(--app-green-bg)",
+          teal: "var(--app-teal)",
+          orange: "var(--app-orange)",
+          purple: "var(--app-purple)",
+          purplebg: "var(--app-purple-bg)",
+          danger: "var(--app-danger)",
+          dangerbg: "var(--app-danger-bg)",
+          hover: "var(--app-hover)",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -50,9 +72,14 @@ module.exports = {
         },
       },
       borderRadius: {
+        card: "14px",     // karty w makiecie
+        ctl: "9px",       // przyciski i pola
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      boxShadow: {
+        card: "var(--app-shadow)",
       },
       keyframes: {
         "accordion-down": {

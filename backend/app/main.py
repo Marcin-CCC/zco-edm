@@ -34,6 +34,7 @@ from app.settings.router import router as settings_router
 from app.chat.router import router as chat_router
 from app.doc_schemas import router as doc_schemas_router
 from app.doc_search import router as doc_search_router
+from app.contact import router as contact_router
 from app.roles.router import router as roles_router
 from app.schema_upgrade import run_startup_upgrades
 
@@ -120,6 +121,7 @@ app.include_router(chat_router)
 app.include_router(doc_schemas_router)
 app.include_router(doc_search_router)
 app.include_router(roles_router)
+app.include_router(contact_router)
 
 
 # ============ HEALTH CHECK ============

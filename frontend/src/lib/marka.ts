@@ -60,3 +60,41 @@ export function markaZeSrodowiska(): Marka {
     ikonaApple: env.BRAND_ICON_APPLE || MARKA_DOMYSLNA.ikonaApple,
   };
 }
+
+/**
+ * Marka z bazy, z awaryjnym powrotem do zmiennych środowiskowych.
+ *
+ * Od layoutu 1.5 nazwę, kolor nazwy i ikonę ustawia administrator na ekranie
+ * Ustawienia aplikacji — wcześniej trzeba było wpisać je w trzech miejscach przy
+ * wdrożeniu i raz się to zemściło (ZCO pokazało ikonę HiRS).
+ *
+ * Zmienne środowiskowe zostają jako wartość początkowa: świeża instancja wygląda
+ * poprawnie, zanim ktokolwiek wejdzie w ustawienia. Awaria backendu nie może
+ * zablokować renderowania strony, więc każdy błąd kończy się marką ze środowiska.
+ *
+ * WYŁĄCZNIE po stronie serwera (używa adresu wewnętrznego `BACKEND_URL`).
+ */
+export async function markaAktualna(): Promise<Marka> {
+  const podstawa = markaZeSrodowiska();
+  const adres = process.env.BACKEND_URL;
+  if (!adres) return podstawa;
+  try {
+    const odp = await fetch(`${adres}/api/branding`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(2000),
+    });
+    if (!odp.ok) return podstawa;
+    const d = (await odp.json()) as { nazwa?: string; kolor_nazwy?: string; ikona?: string };
+    return {
+      ...podstawa,
+      nazwa: d.nazwa || podstawa.nazwa,
+      naglowek: d.kolor_nazwy || podstawa.naglowek,
+      ikona: d.ikona || podstawa.ikona,
+      // Ikona dla ekranu głównego iOS zostaje ze środowiska: wymaga PNG-a pod
+      // własnym adresem, a wgrana ikona bywa SVG i jest data URI.
+    };
+  } catch {
+    return podstawa;
+  }
+}
+

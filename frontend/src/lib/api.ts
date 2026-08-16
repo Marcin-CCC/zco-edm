@@ -315,8 +315,14 @@ export const rolesApi = {
 
 // Dashboard stats endpoints
 export const dashboardApi = {
-  stats: () =>
-    apiRequest<any>('/api/dashboard/stats', {
+  stats: (days = 30) =>
+    apiRequest<any>(`/api/dashboard/stats?days=${days}`, {
+      method: 'GET',
+      token: getAuthToken(),
+    }),
+  /** Ostatnio dodane dokumenty — rzut oka na Dashboardzie, wg uprawnień użytkownika. */
+  recentFiles: (limit = 5) =>
+    apiRequest<any[]>(`/api/dashboard/recent-files?limit=${limit}`, {
       method: 'GET',
       token: getAuthToken(),
     }),
@@ -335,7 +341,37 @@ export const dashboardApi = {
       days: number;
       users: { user_id: number; name: string; parsed: number; queries: number }[];
     }>(`/api/dashboard/by-user?days=${days}`, { method: 'GET', token: getAuthToken() }),
+  /** Stan serwera pod panele „Status systemu" i „Miejsce w systemie" (tylko admin). */
+  systemStatus: () =>
+    apiRequest<SystemStatus>('/api/dashboard/system-status', { method: 'GET', token: getAuthToken() }),
 };
+
+export interface SystemStatus {
+  aplikacja: {
+    online: boolean;
+    load: number | null;
+    cores: number | null;
+    load_percent: number | null;
+    memory_used: number | null;
+    memory_total: number | null;
+  };
+  baza: { online: boolean; ms: number | null };
+  parser: {
+    online: boolean;
+    docling: boolean;
+    model: boolean;
+    running: number | null;
+    waiting: number | null;
+  };
+  magazyn: {
+    dostepny: boolean;
+    total?: number;
+    used?: number;
+    free?: number;
+    percent?: number;
+    documents_bytes: number;
+  };
+}
 
 // Settings endpoints
 export const settingsApi = {
@@ -368,10 +404,47 @@ export const settingsApi = {
       body: data,
       token: getAuthToken(),
     }),
+  /** Zapis pojedynczego ustawienia. Backend waliduje każdy klucz osobno. */
+  updateKey: (key: string, value: string | number) =>
+    apiRequest<any>(`/api/settings/${key}`, {
+      method: 'PUT',
+      body: { [key]: value },
+      token: getAuthToken(),
+    }),
+  /** Ikona aplikacji: PNG albo SVG, kwadratowa. Walidację robi backend. */
+  uploadAppIcon: (plik: File) => {
+    const dane = new FormData();
+    dane.append('plik', plik);
+    return apiRequest<{ app_icon: string }>('/api/settings/app-icon', {
+      method: 'POST',
+      body: dane,
+      token: getAuthToken(),
+    });
+  },
+  resetAppIcon: () =>
+    apiRequest<{ app_icon: string }>('/api/settings/app-icon', {
+      method: 'DELETE',
+      token: getAuthToken(),
+    }),
   // Lekki endpoint dla wszystkich zalogowanych: auto-wylogowanie + dozwolone rozszerzenia
   session: () =>
     apiRequest<{ idle_timeout_minutes: number; allowed_extensions: string[] }>('/api/settings/session', {
       method: 'GET',
+      token: getAuthToken(),
+    }),
+};
+
+/** Identyfikacja instancji — bez uwierzytelnienia, bo potrzebuje jej też ekran logowania. */
+export const brandingApi = {
+  get: () => apiRequest<{ nazwa: string; kolor_nazwy: string; ikona: string }>('/api/branding', { method: 'GET' }),
+};
+
+/** Zgłoszenia do wsparcia technicznego (ekran „Skontaktuj się"). */
+export const contactApi = {
+  send: (tresc: string) =>
+    apiRequest<{ wyslano: boolean; do: string }>('/api/contact', {
+      method: 'POST',
+      body: { tresc },
       token: getAuthToken(),
     }),
 };

@@ -10,12 +10,36 @@ from app.schemas import DashboardStats
 from app.auth.auth import get_current_user
 from app.models import User, File, Folder, DocumentStatus, Conversation, Message
 from app.rbac import readable_folder_ids
+from app.dashboard.system_status import zbierz
 
 router = APIRouter(tags=["Dashboard"])
 
 
+# Najmniejsza podstawa, przy której procent cokolwiek znaczy. Zmierzone na bazie
+# ZCO 2026-08-16: system ma sześć tygodni, więc porównanie z „stanem sprzed 30 dni"
+# dawało +800% dla kont i +5200% dla folderów — liczby prawdziwe i bezużyteczne.
+# Procent liczony od jedynki nie jest informacją, tylko ozdobą.
+MIN_PODSTAWA_TRENDU = 10
+
+
+def _zmiana_procentowa(teraz: int, wczesniej: int) -> float | None:
+    """Zmiana w procentach wobec stanu sprzed okresu.
+
+    ``None`` gdy: brak odniesienia (wcześniej zero), zbyt mała podstawa albo brak
+    zmiany. Interfejs pokazuje wtedy sam licznik, bez drugiej linijki — kafelek
+    z „→ 0,0%" albo „↑ 5200%" niósłby mniej niż jego brak.
+    """
+    if wczesniej < MIN_PODSTAWA_TRENDU or teraz == wczesniej:
+        return None
+    return round((teraz - wczesniej) / wczesniej * 100, 1)
+
+
 @router.get("/dashboard/stats", response_model=DashboardStats)
-def get_dashboard_stats(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def get_dashboard_stats(
+    days: int = Query(30, ge=1, le=365),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     """Statystyki dashboardu w zakresie widoczności użytkownika.
 
     Administrator widzi całość wraz z liczbą kont. Zwykły użytkownik — tylko
@@ -38,12 +62,77 @@ def get_dashboard_stats(db: Session = Depends(get_db), current_user=Depends(get_
         folders_count = len(readable)
         users_count = None
 
+    dokumenty = q_files.scalar()
+    przetworzone = q_ready.scalar()
+
+    # Stan sprzed okresu liczymy z dat utworzenia — bez osobnej tabeli migawek.
+    # Wystarcza, bo wiersze nie znikają: skasowany dokument i tak nie powinien
+    # podbijać „wzrostu" wstecz.
+    granica = datetime.utcnow() - timedelta(days=days)
+    q_files_przed = db.query(func.count(File.id)).filter(File.created_at < granica)
+    q_ready_przed = q_files_przed.filter(File.status == DocumentStatus.READY)
+    if readable is not None:
+        q_files_przed = q_files_przed.filter(File.folder_id.in_(readable))
+        q_ready_przed = q_ready_przed.filter(File.folder_id.in_(readable))
+        folders_przed = db.query(func.count(Folder.id)).filter(
+            Folder.id.in_(readable), Folder.created_at < granica
+        ).scalar()
+        users_przed = None
+    else:
+        folders_przed = db.query(func.count(Folder.id)).filter(Folder.created_at < granica).scalar()
+        users_przed = db.query(func.count(User.id)).filter(User.created_at < granica).scalar()
+
+    dokumenty_przed = q_files_przed.scalar()
+    przetworzone_przed = q_ready_przed.scalar()
+    # „Przetworzone" to udział procentowy, więc porównujemy udziały, nie liczby.
+    udzial = (przetworzone / dokumenty * 100) if dokumenty else 0.0
+    udzial_przed = (przetworzone_przed / dokumenty_przed * 100) if dokumenty_przed else 0.0
+
     return DashboardStats(
         users=users_count,
-        documents=q_files.scalar(),
+        documents=dokumenty,
         folders=folders_count,
-        processed=q_ready.scalar(),
+        processed=przetworzone,
+        processed_percent=round(udzial, 1),
+        trend_users=_zmiana_procentowa(users_count, users_przed) if users_count is not None else None,
+        trend_folders=_zmiana_procentowa(folders_count, folders_przed),
+        trend_documents=_zmiana_procentowa(dokumenty, dokumenty_przed),
+        trend_processed=(
+            round(udzial - udzial_przed, 1) if udzial_przed and abs(udzial - udzial_przed) >= 0.05 else None
+        ),
+        trend_days=days,
     )
+
+
+@router.get("/dashboard/recent-files")
+def get_recent_files(
+    limit: int = Query(5, ge=1, le=20),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Ostatnio dodane dokumenty — rzut oka na Dashboardzie, nie zamiennik listy plików.
+
+    Zakres jak wszędzie: administrator widzi wszystko, pozostali tylko pliki
+    z folderów dostępnych ich roli.
+    """
+    readable = readable_folder_ids(current_user, db)
+    q = db.query(File)
+    if readable is not None:
+        q = q.filter(File.folder_id.in_(readable))
+    pliki = q.order_by(File.created_at.desc(), File.id.desc()).limit(limit).all()
+
+    return [
+        {
+            "id": f.id,
+            "filename": f.filename,
+            "folder": f.folder.path if f.folder else None,
+            "size": f.size,
+            "status": f.status.value if hasattr(f.status, "value") else str(f.status),
+            "doc_type": f.doc_type,
+            "created_at": f.created_at.isoformat() if f.created_at else None,
+        }
+        for f in pliki
+    ]
 
 
 @router.get("/dashboard/activity")
@@ -181,3 +270,19 @@ def get_activity_by_user(
     # dwóch różnych sortowaniach.
     osoby.sort(key=lambda o: (-(o["parsed"] + o["queries"]), o["name"].lower()))
     return {"days": days, "users": osoby}
+
+
+@router.get("/dashboard/system-status")
+def get_system_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Stan serwera pod panele „Status systemu" i „Miejsce w systemie".
+
+    Tylko dla administratora — tak jak licznik kont w statystykach. Zwykły
+    użytkownik nie ma co zrobić z informacją, że dysk Sparka jest zajęty w 19%,
+    a wolne miejsce na serwerze i obciążenie to dane o infrastrukturze klienta.
+    """
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Stan serwera widzi tylko administrator.")
+    return zbierz(db)

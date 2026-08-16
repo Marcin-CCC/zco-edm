@@ -1,5 +1,8 @@
 'use client';
 
+import { IconRefresh } from '@/components/icons';
+import { Badge, Button, Card, EmptyState, PageHeader, Table, Td, Th, inputClass } from '@/components/ui/primitives';
+
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/store';
 import { docSchemasApi } from '@/lib/api';
@@ -267,132 +270,105 @@ export default function FileQueuePage() {
 
   const statuses = [...new Set(queueItems.map(item => item.status))];
 
+  const kafelek = (etykieta: string, wartosc: number, ton: string) => (
+    <Card className="p-4">
+      <div className={`text-2xl font-bold ${ton}`}>{wartosc}</div>
+      <div className="mt-0.5 text-[13px] text-app-muted">{etykieta}</div>
+    </Card>
+  );
+
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Nagłówek strony (wzorzec jak Dashboard) */}
-      <h1 className="text-2xl font-bold text-gray-800 mb-4">Kolejka plików</h1>
+    <div>
+      <PageHeader
+        title="Kolejka plików"
+        description="Stan przetwarzania plików przesłanych do systemu."
+        actions={
+          <>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className={`${inputClass} w-auto`}
+            >
+              <option value="">Wszystkie statusy</option>
+              {statuses.map((status) => (
+                <option key={status} value={status}>{status}</option>
+              ))}
+            </select>
+            <Button onClick={() => { loadQueue(); loadStatusSummary(); }} disabled={loading}>
+              <IconRefresh size={16} />
+              {loading ? 'Ładowanie…' : 'Odśwież'}
+            </Button>
+            <label className="flex items-center gap-2 self-center text-[13px] text-app-muted">
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+                className="rounded border-app-line text-app-blue"
+              />
+              Auto-odświeżanie (5 s)
+            </label>
+          </>
+        }
+      />
 
-      {/* Moduł: filtry i odświeżanie (bez nagłówka → niższy) */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3">
-        <div className="flex items-center space-x-3">
-          {/* Status filter */}
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-1 text-sm"
-          >
-            <option value="">Wszystkie statusy</option>
-            {statuses.map(status => (
-              <option key={status} value={status}>{status}</option>
-            ))}
-          </select>
-          <button
-            onClick={() => { loadQueue(); loadStatusSummary(); }}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm"
-            disabled={loading}
-          >
-            {loading ? 'Ładowanie...' : '🔄 Odśwież'}
-          </button>
-          <label className="flex items-center gap-2 text-sm text-gray-600 ml-1">
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            Auto-odświeżanie (5 s)
-          </label>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div>
         {/* Summary Cards - Status Counts */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="text-2xl font-bold text-yellow-800">
-              {statusSummary['W kolejce'] || 0}
-            </div>
-            <div className="text-sm text-yellow-600">W kolejce</div>
-          </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="text-2xl font-bold text-blue-800">
-              {statusSummary['Przetwarzanie'] || 0}
-            </div>
-            <div className="text-sm text-blue-600">Przetwarzanie</div>
-          </div>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <div className="text-2xl font-bold text-green-800">
-              {statusSummary['Przetworzono'] || 0}
-            </div>
-            <div className="text-sm text-green-600">Przetworzone</div>
-          </div>
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="text-2xl font-bold text-red-800">
-              {statusSummary['Błąd przetwarzania'] || 0}
-            </div>
-            <div className="text-sm text-red-600">Błędy</div>
-          </div>
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <div className="text-2xl font-bold text-gray-800">
-              {queueItems.length}
-            </div>
-            <div className="text-sm text-gray-600">Łącznie</div>
-          </div>
+        {/* Liczniki statusów. Kolor niesie znaczenie stanu, nie akcję — niebieski
+            zostaje przyciskom. */}
+        <div className="mb-5 grid grid-cols-2 gap-4 md:grid-cols-5">
+          {kafelek('W kolejce', statusSummary['W kolejce'] || 0, 'text-[#b7791f]')}
+          {kafelek('Przetwarzanie', statusSummary['Przetwarzanie'] || 0, 'text-[#2455cc]')}
+          {kafelek('Przetworzone', statusSummary['Przetworzono'] || 0, 'text-[#148a57]')}
+          {kafelek('Błędy', statusSummary['Błąd przetwarzania'] || 0, 'text-app-danger')}
+          {kafelek('Łącznie', queueItems.length, 'text-app-text')}
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50">
+        <Card className="overflow-hidden">
+          <Table>
+            <thead>
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-[30%]">Plik</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kategoria</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data dodania</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Czas parsowania</th>
-                {isAdmin && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Akcje</th>}
+                <Th>ID</Th>
+                <Th>Plik</Th>
+                <Th>Kategoria</Th>
+                <Th>Status</Th>
+                <Th>Data dodania</Th>
+                <Th>Czas parsowania</Th>
+                {isAdmin && <Th>Akcje</Th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody>
               {filteredItems.map((item) => (
                 <tr
                   key={item.id}
-                  className="hover:bg-gray-50 cursor-pointer"
+                  className="cursor-pointer hover:bg-app-hover"
                   onClick={() => setSelectedItem(selectedItem?.id === item.id ? null : item)}
                 >
-                  <td className="px-4 py-3 text-sm text-gray-600">#{item.id}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-800 max-w-[220px] truncate" title={item.file_name}>{item.file_name}</td>
-                  <td className="px-4 py-3">
+                  <Td className="text-app-muted">#{item.id}</Td>
+                  <Td className="max-w-[260px] truncate font-semibold text-app-text"><span title={item.file_name}>{item.file_name}</span></Td>
+                  <Td>
                     {item.doc_type ? (
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                        {typeLabel(item.doc_type)}
-                      </span>
+                      <Badge tone="purple">{typeLabel(item.doc_type)}</Badge>
                     ) : (
-                      <span className="text-gray-400 text-sm">—</span>
+                      <span className="text-app-muted">—</span>
                     )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(item.status)}`}>
+                  </Td>
+                  <Td>
+                    <span className={`inline-flex items-center rounded-full px-[9px] py-[5px] text-[11px] font-bold ${getStatusClass(item.status)}`}>
                       {item.status}
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {fmtDateTime(item.created_at)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {fmtDuration(item.processing_seconds)}
-                  </td>
+                  </Td>
+                  <Td className="text-app-muted">{fmtDateTime(item.created_at)}</Td>
+                  <Td className="text-app-muted">{fmtDuration(item.processing_seconds)}</Td>
                   {isAdmin && (
-                    <td className="px-4 py-3">
-                      <div className="flex space-x-2">
+                    <Td>
+                      <div className="flex flex-wrap gap-1.5">
                         {(item.status === 'Błąd przetwarzania' || item.status === 'W kolejce') && (
                           <button
                             onClick={(e) => { e.stopPropagation(); retryItem(item.id); }}
-                            className="text-blue-600 hover:text-blue-800 text-sm"
+                            className="rounded-lg px-2 py-1 text-xs font-semibold text-app-blue hover:bg-[#eef4ff]"
                           >
-                            🔄 Ponów
+                            Ponów
                           </button>
                         )}
                         {/* Plik wiszący w „Przetwarzanie" (przebieg w n8n umarł bez odpowiedzi)
@@ -400,54 +376,52 @@ export default function FileQueuePage() {
                         {item.status === 'Przetwarzanie' && (
                           <button
                             onClick={(e) => { e.stopPropagation(); unstickItem(item.id); }}
-                            className="text-amber-600 hover:text-amber-800 text-sm whitespace-nowrap"
+                            className="whitespace-nowrap rounded-lg px-2 py-1 text-xs font-semibold text-[#b7791f] hover:bg-[#fdf6e7]"
                             title="Zwolnij zablokowaną kolejkę i przetwórz plik od nowa"
                           >
-                            ⏭ Przerwij i ponów
+                            Przerwij i ponów
                           </button>
                         )}
                         {/* NARZĘDZIE TESTOWE — reparse z kasowaniem wektorów (do usunięcia po testach) */}
                         {item.status === 'Przetworzono' && (
                           <button
                             onClick={(e) => { e.stopPropagation(); reparseItem(item.id); }}
-                            className="text-indigo-600 hover:text-indigo-800 text-sm whitespace-nowrap"
+                            className="whitespace-nowrap rounded-lg px-2 py-1 text-xs font-semibold text-app-purple hover:bg-app-purplebg"
                             title="Przetwórz od nowa z wyczyszczeniem wektorów (narzędzie testowe)"
                           >
-                            ♻️ Przetwórz ponownie
+                            Przetwórz ponownie
                           </button>
                         )}
                         <button
                           onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
-                          className="text-red-600 hover:text-red-800 text-sm"
+                          className="rounded-lg px-2 py-1 text-xs font-semibold text-app-danger hover:bg-app-dangerbg"
                         >
-                          🗑️ Usuń
+                          Usuń
                         </button>
                         {item.status === 'Błąd przetwarzania' && item.error_message && (
                           <button
                             onClick={(e) => { e.stopPropagation(); setSelectedItem(item); }}
-                            className="text-red-600 hover:text-red-800 text-sm"
+                            className="rounded-lg px-2 py-1 text-xs font-semibold text-app-danger hover:bg-app-dangerbg"
                           >
-                            ℹ️ Details
+                            Szczegóły błędu
                           </button>
                         )}
                       </div>
-                    </td>
+                    </Td>
                   )}
                 </tr>
               ))}
               {filteredItems.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={isAdmin ? 7 : 6} className="px-4 py-8 text-center text-gray-500">
+                  <Td colSpan={isAdmin ? 7 : 6} className="py-10 text-center text-app-muted">
                     Brak pozycji w kolejce
-                  </td>
+                  </Td>
                 </tr>
               )}
             </tbody>
-          </table>
-          {loading && (
-            <div className="px-4 py-8 text-center text-gray-500">Ładowanie...</div>
-          )}
-        </div>
+          </Table>
+          {loading && <EmptyState title="Ładowanie…" />}
+        </Card>
       </div>
 
       {/* Detail Modal */}

@@ -1,40 +1,107 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/lib/store';
-import { dashboardApi } from '@/lib/api';
-import { isAdmin as czyAdmin } from '@/lib/roles';
-import { BarChart, BarChartPoint } from '@/components/bar-chart';
-import { HBarChart } from '@/components/bar-chart-h';
 
-// Kolory serii sprawdzone pod kątem czytelności i rozróżnialności przy zaburzeniach
-// widzenia barw (osobna seria na wykres, więc bez legendy — tytuł karty ją nazywa).
-const KOLOR_PARSOWANIE = '#2563eb';  // niebieski aplikacji
-// Akcent marki — ta sama wartosc co w pasku bocznym, czytana ze zmiennej CSS
-// ustawionej w ukladzie glownym (biblioteka wykresow potrzebuje konkretu, nie klasy).
-const KOLOR_ZAPYTANIA = 'var(--marka-akcent)';
+import { AreaChart, AreaChartPoint } from '@/components/area-chart';
+import { QuickActions, StoragePanel, SystemStatusPanel } from '@/components/dashboard/panels';
+import { FileTypeIcon, rozmiarPliku } from '@/components/file-type-icon';
+import {
+  IconDocCheck,
+  IconDoc,
+  IconFiles,
+  IconUsers,
+} from '@/components/icons';
+import { Badge, Card, EmptyState, PageHeader, Sub, inputClass } from '@/components/ui/primitives';
+import { dashboardApi, type SystemStatus } from '@/lib/api';
+import { kiedy } from '@/lib/czas';
+import { isAdmin as czyAdmin } from '@/lib/roles';
+import { useAuth } from '@/lib/store';
+
+// Kolory serii sprawdzone pod kątem rozróżnialności także przy zaburzeniach
+// widzenia barw (jedna seria na wykres, więc bez legendy — nazywa ją tytuł karty).
+// Świadomie NIE bierzemy tu koloru marki: jest edytowalny w Ustawieniach, więc
+// administrator mógłby ustawić niebieski i oba wykresy stałyby się nierozróżnialne.
+const KOLOR_PARSOWANIE = '#2563eb';
+const KOLOR_ZAPYTANIA = '#10b8b3';
+
+const OKRESY = [7, 30, 90];
+
+/** Inicjały do awatara. Dwa znaki: z imienia i nazwiska, a z jednego słowa — pierwsza litera. */
+function inicjaly(nazwa: string): string {
+  const czlony = nazwa.trim().split(/\s+/).filter(Boolean);
+  if (!czlony.length) return '?';
+  if (czlony.length === 1) return czlony[0].slice(0, 1).toUpperCase();
+  return (czlony[0][0] + czlony[czlony.length - 1][0]).toUpperCase();
+}
+
+/** Polska odmiana rzeczownika po liczbie: 1 plik, 2 pliki, 5 plików. */
+function odmiana(n: number, jeden: string, dwa: string, piec: string): string {
+  const ost = n % 10;
+  const dwie = n % 100;
+  if (n === 1) return jeden;
+  if (ost >= 2 && ost <= 4 && (dwie < 10 || dwie >= 20)) return dwa;
+  return piec;
+}
+
+type Kafelek = {
+  label: string;
+  value: string;
+  suffix?: string;
+  href?: string;
+  trend?: number | null;
+  jednostka?: string;
+  Icon: React.ComponentType<{ size?: number }>;
+  ton: 'blue' | 'teal' | 'purple' | 'orange';
+};
+
+const TONY: Record<Kafelek['ton'], { tlo: string; kolor: string }> = {
+  blue: { tlo: '#edf4ff', kolor: 'var(--app-blue)' },
+  teal: { tlo: '#e2f8f6', kolor: 'var(--app-teal)' },
+  purple: { tlo: '#f0edff', kolor: 'var(--app-purple)' },
+  orange: { tlo: '#fff0e7', kolor: 'var(--app-orange)' },
+};
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const isAdmin = czyAdmin(user);
 
-  // users = null dla zwykłego użytkownika (backend nie zwraca liczby kont)
-  const [stats, setStats] = useState<{
-    users: number | null; documents: number; folders: number; processed: number;
-  }>({ users: null, documents: 0, folders: 0, processed: 0 });
+  // Jeden wybór okresu dla całego ekranu. Makieta ma trzy przełączniki (nagłówek
+  // + każdy wykres osobno); świadomie robimy jeden, bo trzy niezależne zakresy na
+  // jednym ekranie rodzą pytanie „dlaczego wykres pokazuje co innego niż kafelek".
+  const [dni, setDni] = useState(30);
+  const [stats, setStats] = useState<any>({ users: null, documents: 0, folders: 0, processed: 0 });
+  const [ostatnie, setOstatnie] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [parsed, setParsed] = useState<BarChartPoint[]>([]);
-  const [queries, setQueries] = useState<BarChartPoint[]>([]);
+  const [parsed, setParsed] = useState<AreaChartPoint[]>([]);
+  const [queries, setQueries] = useState<AreaChartPoint[]>([]);
   const [scope, setScope] = useState<'all' | 'own'>('own');
   const [chartsLoading, setChartsLoading] = useState(true);
   // Rozbicie na użytkowników: endpoint odpowiada tylko administratorowi (403 dla reszty),
-  // więc pusta lista = sekcja nie jest w ogóle rysowana.
+  // więc pusta lista = panel nie jest w ogóle rysowany.
   const [wgUzytkownikow, setWgUzytkownikow] = useState<
     { user_id: number; name: string; parsed: number; queries: number }[]
   >([]);
+  const [stan, setStan] = useState<SystemStatus | null>(null);
+  const [bladStanu, setBladStanu] = useState(false);
 
   useEffect(() => {
-    dashboardApi.activity(30)
+    dashboardApi.recentFiles(5)
+      .then(setOstatnie)
+      .catch(() => { /* lista podręczna — brak nie psuje reszty ekranu */ });
+  }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    dashboardApi.systemStatus()
+      .then(setStan)
+      .catch(() => setBladStanu(true));
+  }, [isAdmin]);
+
+  useEffect(() => {
+    setChartsLoading(true);
+    dashboardApi.activity(dni)
       .then((d) => {
         setParsed(d.days.map((day, i) => ({ day, value: d.parsed[i] ?? 0 })));
         setQueries(d.days.map((day, i) => ({ day, value: d.queries[i] ?? 0 })));
@@ -43,188 +110,287 @@ export default function DashboardPage() {
       .catch(() => { /* wykresy nie są krytyczne dla reszty dashboardu */ })
       .finally(() => setChartsLoading(false));
 
-    dashboardApi.byUser(30)
+    dashboardApi.byUser(dni)
       .then((d) => setWgUzytkownikow(d?.users || []))
-      .catch(() => { /* 403 dla nie-admina — sekcja po prostu się nie pokazuje */ });
-  }, []);
+      .catch(() => { /* 403 dla nie-admina — panel po prostu się nie pokazuje */ });
+  }, [dni]);
 
-  const suma = (p: BarChartPoint[]) => p.reduce((a, b) => a + b.value, 0);
+  useEffect(() => {
+    dashboardApi.stats(dni)
+      .then(setStats)
+      .catch((err: any) => setError(err.message || 'Nie udało się załadować statystyk'))
+      .finally(() => setLoading(false));
+  }, [dni]);
 
-  /** Dane jednego wykresu wg użytkowników: od największej wartości, licząc od góry. */
-  const wgWartosci = (wartosc: (u: { parsed: number; queries: number }) => number) =>
-    wgUzytkownikow
-      .map((u) => ({ label: u.name, value: wartosc(u) }))
-      // przy równych wartościach alfabetycznie — inaczej kolejność zmieniałaby się losowo
-      .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, 'pl'));
+  const suma = (p: AreaChartPoint[]) => p.reduce((a, b) => a + b.value, 0);
+
   // Wykresy mają różny zakres dla zwykłego użytkownika: pliki widzi te, do których
   // ma dostęp, a zapytania wyłącznie własne — stąd dwa osobne opisy.
   const opisPlikow = scope === 'all' ? 'wszyscy użytkownicy' : 'dostępne dla Ciebie';
   const opisZapytan = scope === 'all' ? 'wszyscy użytkownicy' : 'Twoje zapytania';
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const data = await dashboardApi.stats();
-        setStats({
-          users: data.users ?? null,
-          documents: data.documents ?? 0,
-          folders: data.folders ?? 0,
-          processed: data.processed ?? 0,
-        });
-      } catch (err: any) {
-        setError(err.message || 'Nie udało się załadować statystyk');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchStats();
-  }, []);
-
-  const isAdmin = czyAdmin(user);
-
-  // Kafelek bez `href` jest tylko liczbą — nie udaje odnośnika (brak kursora
-  // i reakcji na najechanie). Kolejka plików leży w Administracji, więc kafelek
-  // „Przetworzone" prowadzi tam wyłącznie administratora.
-  const statItems: { label: string; value: string; suffix?: string; href?: string }[] = [
-    // kafelek Użytkownicy tylko dla admina — prowadzi do strony administracyjnej
-    ...(stats.users !== null
-      ? [{ label: 'Użytkownicy', value: String(stats.users), href: '/dashboard/users' }]
+  // Kafelek bez `href` jest tylko liczbą — nie udaje odnośnika. Kolejka plików
+  // leży w Administracji, więc „Przetworzone" prowadzi tam wyłącznie administratora.
+  const kafelki: Kafelek[] = [
+    ...(stats.users !== null && stats.users !== undefined
+      ? [{
+          label: 'Użytkownicy', value: String(stats.users), href: '/dashboard/users',
+          trend: stats.trend_users, Icon: IconUsers, ton: 'blue' as const,
+        }]
       : []),
-    { label: 'Dokumenty', value: String(stats.documents), href: '/dashboard/files' },
-    { label: 'Foldery', value: String(stats.folders), href: '/dashboard/files' },
+    {
+      label: 'Foldery', value: String(stats.folders ?? 0), href: '/dashboard/files',
+      trend: stats.trend_folders, Icon: IconFiles, ton: 'teal',
+    },
+    {
+      label: 'Dokumenty', value: String(stats.documents ?? 0), href: '/dashboard/files',
+      trend: stats.trend_documents, Icon: IconDoc, ton: 'purple',
+    },
     {
       label: 'Przetworzone',
-      value: String(stats.processed),
-      // Udział przetworzonych w całości. Bez dokumentów procent nie istnieje —
-      // pokazywanie „0,00%" sugerowałoby, że coś czeka na przetworzenie.
-      suffix: stats.documents > 0
-        ? `(${((stats.processed / stats.documents) * 100).toLocaleString('pl-PL', {
-            minimumFractionDigits: 2, maximumFractionDigits: 2,
-          })}%)`
-        : undefined,
+      value: `${(stats.processed_percent ?? 0).toLocaleString('pl-PL', { maximumFractionDigits: 1 })}%`,
+      suffix: `${stats.processed ?? 0} z ${stats.documents ?? 0}`,
       href: isAdmin ? '/dashboard/file-queue' : undefined,
+      trend: stats.trend_processed,
+      jednostka: ' pkt proc.',
+      Icon: IconDocCheck,
+      ton: 'orange',
     },
   ];
 
+  // Panel aktywności pokazuje tylko tych, którzy coś zrobili w wybranym okresie.
+  // Konta bez aktywności są w danych (backend zwraca wszystkie), ale lista
+  // kilkunastu zer nie jest informacją — liczbę takich kont podajemy pod spodem.
+  const aktywni = wgUzytkownikow.filter((u) => u.parsed + u.queries > 0);
+  const bezczynni = wgUzytkownikow.length - aktywni.length;
+
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h1>
+      <PageHeader
+        title="Dashboard"
+        description="Przegląd kluczowych danych i aktywności w systemie."
+        actions={
+          <select
+            value={dni}
+            onChange={(e) => setDni(Number(e.target.value))}
+            className={`${inputClass} w-auto`}
+            aria-label="Zakres danych"
+          >
+            {OKRESY.map((d) => (
+              <option key={d} value={d}>Ostatnie {d} dni</option>
+            ))}
+          </select>
+        }
+      />
 
-      {/* Error */}
       {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+        <div className="mb-4 rounded-ctl border border-[#fecdd3] bg-app-dangerbg px-4 py-3 text-sm text-app-danger">
           {error}
         </div>
       )}
 
-      {/* Stats */}
-      {/* liczba kolumn = liczba kafelków, żeby brak kafelka Użytkownicy nie zostawiał luki */}
-      <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 ${
-        statItems.length === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'
-      }`}>
-        {statItems.map((stat) => {
-          const Kafelek = stat.href ? 'a' : 'div';
-          return (
-          <Kafelek
-            key={stat.label}
-            {...(stat.href ? { href: stat.href } : {})}
-            className={`bg-white p-4 rounded-lg shadow-sm border border-gray-200${
-              stat.href ? ' hover:shadow-md transition-shadow' : ''
-            }`}
-          >
-            <p className="text-sm text-gray-500">{stat.label}</p>
-            <p className="text-2xl font-bold text-gray-800">
-              {loading ? '...' : stat.value}
-              {!loading && stat.suffix && (
-                <span className="ml-2 text-base font-medium text-gray-400">{stat.suffix}</span>
-              )}
-            </p>
-          </Kafelek>
+      {/* Kafelki. Trend pokazujemy tylko wtedy, gdy backend go policzył — przy zbyt
+          małej podstawie zwraca `null`, bo procent liczony od jedynki nie jest
+          informacją (zob. MIN_PODSTAWA_TRENDU w dashboard/router.py). */}
+      <div className={`mb-[18px] grid grid-cols-1 gap-[18px] md:grid-cols-2 ${kafelki.length === 4 ? 'xl:grid-cols-4' : 'xl:grid-cols-3'}`}>
+        {kafelki.map((k) => {
+          const ton = TONY[k.ton];
+          const tresc = (
+            <>
+              <span
+                className="grid h-[46px] w-[46px] shrink-0 place-items-center rounded-[13px]"
+                style={{ background: ton.tlo, color: ton.kolor }}
+              >
+                <k.Icon size={23} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[13px] text-[#5e6f89]">{k.label}</span>
+                <span className="mt-[3px] block text-[26px] font-extrabold leading-none text-app-text">
+                  {loading ? '…' : k.value}
+                  {!loading && k.suffix && (
+                    <span className="ml-2 text-xs font-medium text-app-muted">{k.suffix}</span>
+                  )}
+                </span>
+                {!loading && typeof k.trend === 'number' && (
+                  <span className={`mt-2 block text-[11px] font-semibold ${k.trend >= 0 ? 'text-app-green' : 'text-app-danger'}`}>
+                    {k.trend >= 0 ? '↑' : '↓'} {Math.abs(k.trend).toLocaleString('pl-PL', { maximumFractionDigits: 1 })}
+                    {k.jednostka || '%'}{' '}
+                    <span className="font-normal text-app-muted">wobec poprzednich {dni} dni</span>
+                  </span>
+                )}
+              </span>
+            </>
+          );
+          return k.href ? (
+            <Link
+              key={k.label}
+              href={k.href}
+              className="flex items-center gap-3.5 rounded-card border border-app-line bg-white p-[18px] shadow-card transition-colors hover:bg-app-hover"
+            >
+              {tresc}
+            </Link>
+          ) : (
+            <Card key={k.label} className="flex items-center gap-3.5 p-[18px]">{tresc}</Card>
           );
         })}
       </div>
 
-      {/* Wykresy aktywności — ostatnie 30 dni */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-baseline justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-800">Statystyki parsowania</h2>
-            <span className="text-xs text-gray-400">30 dni · {opisPlikow}</span>
-          </div>
-          {chartsLoading ? (
-            <div className="h-56 flex items-center justify-center text-sm text-gray-400">Ładowanie…</div>
-          ) : (
-            <>
-              <p className="text-2xl font-bold text-gray-800 mb-4">{suma(parsed)}</p>
-              <BarChart
-                data={parsed}
-                color={KOLOR_PARSOWANIE}
-                unitLabel="sparsowanych plików"
-                emptyText="Brak sparsowanych plików w ostatnich 30 dniach"
-              />
-            </>
-          )}
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-baseline justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-800">Statystyki zapytań w chacie</h2>
-            <span className="text-xs text-gray-400">30 dni · {opisZapytan}</span>
-          </div>
-          {chartsLoading ? (
-            <div className="h-56 flex items-center justify-center text-sm text-gray-400">Ładowanie…</div>
-          ) : (
-            <>
-              <p className="text-2xl font-bold text-gray-800 mb-4">{suma(queries)}</p>
-              <BarChart
-                data={queries}
-                color={KOLOR_ZAPYTANIA}
-                unitLabel="zapytań"
-                emptyText="Brak zapytań w ostatnich 30 dniach"
-              />
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Rozbicie na użytkowników — tylko dla administratora */}
-      {wgUzytkownikow.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-baseline justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-800">Sparsowane pliki wg użytkowników</h2>
-              <span className="text-xs text-gray-400">ostatnie 30 dni</span>
+      {/* Wykresy aktywności */}
+      <div className="mb-[18px] grid grid-cols-1 gap-[18px] lg:grid-cols-2">
+        <Card className="p-4">
+          <div className="mb-2 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-[16px] font-bold text-app-text">Statystyki parsowania</h2>
+              <p className="mt-0.5 text-[22px] font-extrabold text-app-text">
+                {chartsLoading ? '…' : suma(parsed).toLocaleString('pl-PL')}{' '}
+                <span className="text-[12px] font-normal text-app-muted">
+                  {odmiana(suma(parsed), 'dokument przetworzony', 'dokumenty przetworzone', 'dokumentów przetworzonych')}
+                </span>
+              </p>
             </div>
-            <HBarChart
-              data={wgWartosci((u) => u.parsed)}
+            <span className="whitespace-nowrap pt-1 text-[11px] text-app-muted">{dni} dni · {opisPlikow}</span>
+          </div>
+          {chartsLoading ? (
+            <div className="flex h-[179px] items-center justify-center text-sm text-app-muted">Ładowanie…</div>
+          ) : (
+            <AreaChart
+              data={parsed}
               color={KOLOR_PARSOWANIE}
               unitLabel="sparsowanych plików"
-              emptyText="Nikt nie wysłał plików w ostatnich 30 dniach"
+              emptyText={`Brak sparsowanych plików w ostatnich ${dni} dniach`}
             />
-          </div>
+          )}
+        </Card>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-baseline justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-800">Zapytania wg użytkowników</h2>
-              <span className="text-xs text-gray-400">ostatnie 30 dni</span>
+        <Card className="p-4">
+          <div className="mb-2 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-[16px] font-bold text-app-text">Statystyki zapytań w chacie</h2>
+              <p className="mt-0.5 text-[22px] font-extrabold text-app-text">
+                {chartsLoading ? '…' : suma(queries).toLocaleString('pl-PL')}{' '}
+                <span className="text-[12px] font-normal text-app-muted">
+                  {odmiana(suma(queries), 'zapytanie', 'zapytania', 'zapytań')}
+                </span>
+              </p>
             </div>
-            <HBarChart
-              data={wgWartosci((u) => u.queries)}
+            <span className="whitespace-nowrap pt-1 text-[11px] text-app-muted">{dni} dni · {opisZapytan}</span>
+          </div>
+          {chartsLoading ? (
+            <div className="flex h-[179px] items-center justify-center text-sm text-app-muted">Ładowanie…</div>
+          ) : (
+            <AreaChart
+              data={queries}
               color={KOLOR_ZAPYTANIA}
               unitLabel="zapytań"
-              emptyText="Nikt nie zadał pytania w ostatnich 30 dniach"
+              emptyText={`Brak zapytań w ostatnich ${dni} dniach`}
             />
+          )}
+        </Card>
+      </div>
+
+      <div className="mb-[18px] grid grid-cols-1 gap-[18px] lg:grid-cols-2">
+        {/* Ostatnio dodane dokumenty — rzut oka, nie zamiennik listy plików.
+            Widoczność wg uprawnień: backend zwraca tylko dostępne foldery. */}
+        <Card className="p-4">
+          <div className="mb-2 flex items-start justify-between">
+            <h2 className="text-[16px] font-bold text-app-text">Ostatnio dodane dokumenty</h2>
+            <Link href="/dashboard/files" className="text-[11px] font-bold text-app-blue hover:underline">
+              Zobacz wszystkie ›
+            </Link>
           </div>
-        </div>
-      )}
+          {ostatnie.length === 0 ? (
+            <EmptyState title="Brak dokumentów" hint="Wgrane pliki pojawią się tutaj." />
+          ) : (
+            <ul className="-mx-1">
+              {ostatnie.map((f) => (
+                <li
+                  key={f.id}
+                  className="flex items-center gap-3 rounded-ctl border-b border-app-line px-1 py-3 last:border-b-0 hover:bg-app-hover"
+                >
+                  <FileTypeIcon filename={f.filename} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-words text-[13px] font-bold text-app-text">{f.filename}</span>
+                    <Sub>{f.folder || 'katalog główny'}</Sub>
+                  </span>
+                  <span className="hidden whitespace-nowrap text-[12px] text-app-muted sm:block">
+                    {rozmiarPliku(f.size)}
+                  </span>
+                  <Badge tone={f.status === 'Przetworzono' ? 'green' : f.status === 'Błąd przetwarzania' ? 'danger' : 'gray'}>
+                    {f.status}
+                  </Badge>
+                  <span className="w-[92px] shrink-0 text-right text-[11px] text-app-muted">{kiedy(f.created_at)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
 
-      {/* Dane konta przeniesione na stronę Profil (menu pod awatarem w nagłówku) —
-          Dashboard pokazuje wyłącznie stan dokumentów i aktywność. */}
+        {/* Aktywność użytkowników. Makieta pokazuje tu dziennik zdarzeń („przeglądał
+            dokument…"); my pokazujemy zestawienie z danych, które system NAPRAWDĘ
+            zbiera. Rejestrowanie odczytów to osobna decyzja — bez niej byłaby to
+            atrapa udająca dziennik. Panel widzi wyłącznie administrator (403). */}
+        {wgUzytkownikow.length > 0 && (
+          <Card className="p-4">
+            <div className="mb-2 flex items-start justify-between">
+              <div>
+                <h2 className="text-[16px] font-bold text-app-text">Aktywność użytkowników</h2>
+                {/* Okres podajemy RAZ, w nagłówku. Powtórzony przy każdym wierszu
+                    byłby tą samą informacją pięć razy pod rząd. */}
+                <p className="mt-0.5 text-[11px] text-app-muted">ostatnie {dni} dni</p>
+              </div>
+              <Link href="/dashboard/users" className="text-[11px] font-bold text-app-blue hover:underline">
+                Zobacz wszystkich ›
+              </Link>
+            </div>
+            {aktywni.length === 0 ? (
+              <EmptyState
+                title="Brak aktywności"
+                hint={`Nikt nie wysłał plików ani nie zadał pytania w ostatnich ${dni} dniach.`}
+              />
+            ) : (
+              <>
+                <ul className="-mx-1">
+                  {aktywni.slice(0, 6).map((u) => (
+                    <li
+                      key={u.user_id}
+                      className="flex items-center gap-3 border-b border-app-line px-1 py-3 last:border-b-0"
+                    >
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#edf4ff] text-[12px] font-extrabold text-app-blue">
+                        {inicjaly(u.name)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-bold text-app-text">{u.name}</span>
+                        <Sub>
+                          {u.parsed > 0 && `${u.parsed} ${odmiana(u.parsed, 'plik', 'pliki', 'plików')}`}
+                          {u.parsed > 0 && u.queries > 0 && ' · '}
+                          {u.queries > 0 && `${u.queries} ${odmiana(u.queries, 'pytanie', 'pytania', 'pytań')}`}
+                        </Sub>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {(aktywni.length > 6 || bezczynni > 0) && (
+                  <p className="mt-2.5 text-[11px] text-app-muted">
+                    {aktywni.length > 6 && `Pokazano 6 z ${aktywni.length} aktywnych kont. `}
+                    {bezczynni > 0 && `${bezczynni} ${odmiana(bezczynni, 'konto', 'konta', 'kont')} bez aktywności w tym okresie.`}
+                  </p>
+                )}
+              </>
+            )}
+          </Card>
+        )}
+      </div>
 
-      {/* Coming soon */}
-      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
-        <h3 className="text-lg font-medium text-blue-800 mb-2">UWAGA!</h3>
-        <p className="text-blue-600 text-sm">
+      {/* Dolny rząd. Bez uprawnień administratora zostają same Szybkie akcje —
+          panele stanu serwera są administracyjne (zob. panels.tsx). */}
+      <div className={`mb-[18px] grid grid-cols-1 gap-[18px] ${isAdmin ? 'lg:grid-cols-[1.3fr_0.9fr_0.95fr]' : ''}`}>
+        <QuickActions isAdmin={isAdmin} />
+        {isAdmin && <StoragePanel stan={stan} />}
+        {isAdmin && <SystemStatusPanel stan={stan} blad={bladStanu} />}
+      </div>
+
+      <div className="rounded-card border border-[#cddffb] bg-[#eef4ff] p-5 text-center">
+        <p className="text-sm text-[#2455cc]">
           To jest bezpieczna baza wiedzy, która działa na lokalnym serwerze AI bez kontaktu z siecią Internet.
         </p>
       </div>

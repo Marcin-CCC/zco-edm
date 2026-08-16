@@ -1,176 +1,346 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+/** Ustawienia aplikacji (layout 1.5).
+ *
+ * Trzy sekcje: identyfikacja instancji, integracje i sesja, poczta wychodząca.
+ *
+ * Identyfikacja to zmiana architektoniczna, nie kosmetyczna: do 1.2.0 nazwa,
+ * kolor i ikona pochodziły ze zmiennych środowiskowych ustawianych przy wdrożeniu
+ * w trzech miejscach naraz (CI + dwa pliki compose). Raz się to zemściło — ZCO
+ * pokazało ikonę HiRS. Teraz wartości siedzą w bazie i zmienia je administrator.
+ */
+import { useEffect, useRef, useState } from 'react';
+
+import { IconClose } from '@/components/icons';
+import {
+  Button,
+  Card,
+  CardHeader,
+  Field,
+  PageHeader,
+  inputClass,
+} from '@/components/ui/primitives';
 import { settingsApi } from '@/lib/api';
 
+/** Kontrast napisu na tle menu (WCAG 2.1). Poniżej 4,5:1 nazwa robi się trudna
+ * do odczytania — ostrzegamy, ale nie blokujemy: to decyzja właściciela marki. */
+const TLO_MENU = '#0b2d61';
+
+function luminancja(hex: string): number | null {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  let h = m[1];
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  const kanaly = [0, 2, 4].map((i) => {
+    const v = parseInt(h.slice(i, i + 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * kanaly[0] + 0.7152 * kanaly[1] + 0.0722 * kanaly[2];
+}
+
+function kontrast(a: string, b: string): number | null {
+  const la = luminancja(a);
+  const lb = luminancja(b);
+  if (la === null || lb === null) return null;
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+const PROBKI = ['#ffffff', '#1fc8ba', '#7cc4ff', '#ffd166', '#b9c6da'];
+
 export default function SettingsPage() {
-  const [webhookUrl, setWebhookUrl] = useState('');
-  const [chatWebhookUrl, setChatWebhookUrl] = useState('');
-  const [allowedExtensions, setAllowedExtensions] = useState('');
-  const [idleTimeout, setIdleTimeout] = useState('15');
+  const [dane, setDane] = useState<any>(null);
+  const [form, setForm] = useState({
+    app_name: '',
+    app_name_color: '',
+    n8n_webhook_url: '',
+    chat_webhook_url: '',
+    allowed_extensions: '',
+    idle_timeout_minutes: '15',
+    smtp_host: '',
+    smtp_port: '587',
+    smtp_user: '',
+    smtp_password: '',
+    smtp_from: '',
+    support_email: '',
+  });
+  const [ikona, setIkona] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [error, setError] = useState('');
+  const [komunikat, setKomunikat] = useState('');
+  const [blad, setBlad] = useState('');
+  const wybor = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
+  const wczytaj = async () => {
     try {
-      const data = await settingsApi.get();
-      setWebhookUrl(data.n8n_webhook_url || '');
-      setChatWebhookUrl(data.chat_webhook_url || '');
-      setAllowedExtensions(data.allowed_extensions || '');
-      setIdleTimeout(String(data.idle_timeout_minutes ?? 15));
-    } catch (err: any) {
-      setMessage({ type: 'error', text: 'Nie udało się załadować ustawień' });
+      const d = await settingsApi.get();
+      setDane(d);
+      setIkona(d.app_icon || '');
+      setForm((f) => ({
+        ...f,
+        app_name: d.app_name || '',
+        app_name_color: d.app_name_color || '#ffffff',
+        n8n_webhook_url: d.n8n_webhook_url || '',
+        chat_webhook_url: d.chat_webhook_url || '',
+        allowed_extensions: d.allowed_extensions || '',
+        idle_timeout_minutes: String(d.idle_timeout_minutes ?? 15),
+        smtp_host: d.smtp_host || '',
+        smtp_port: d.smtp_port || '587',
+        smtp_user: d.smtp_user || '',
+        smtp_password: '',            // hasła backend nie zwraca — puste = bez zmiany
+        smtp_from: d.smtp_from || '',
+        support_email: d.support_email || '',
+      }));
+    } catch {
+      setBlad('Nie udało się wczytać ustawień.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    setMessage(null);
-    setError('');
+  useEffect(() => { wczytaj(); }, []);
 
+  const zapisz = async () => {
+    setSaving(true);
+    setBlad('');
+    setKomunikat('');
     try {
-      await settingsApi.update({ n8n_webhook_url: webhookUrl });
-      if (chatWebhookUrl.trim()) {
-        await settingsApi.updateChatWebhook({ chat_webhook_url: chatWebhookUrl });
+      // Zapisujemy tylko pola z wartością: pusty klucz backend odrzuca, a puste
+      // hasło SMTP ma oznaczać „zostaw dotychczasowe", nie „wyczyść".
+      for (const [klucz, wartosc] of Object.entries(form)) {
+        if (String(wartosc).trim() === '') continue;
+        await settingsApi.updateKey(klucz, wartosc);
       }
-      if (allowedExtensions.trim()) {
-        await settingsApi.updateAllowedExtensions({ allowed_extensions: allowedExtensions });
-      }
-      const it = parseInt(idleTimeout, 10);
-      if (!Number.isNaN(it)) {
-        await settingsApi.updateIdleTimeout({ idle_timeout_minutes: it });
-      }
-      setMessage({ type: 'success', text: 'Ustawienia zapisane pomyślnie' });
-      // Odśwież — pokaż wartości po normalizacji z backendu
-      await loadSettings();
-    } catch (err: any) {
-      const detail = err.message || 'Nie udało się zapisać ustawień';
-      setError(detail);
-      setMessage(null);
+      setKomunikat('Ustawienia zapisane.');
+      await wczytaj();
+    } catch (e: unknown) {
+      setBlad(e instanceof Error ? e.message : 'Nie udało się zapisać ustawień.');
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return <div className="text-gray-500">Ładowanie...</div>;
-  }
+  const wgrajIkone = async (plik?: File | null) => {
+    if (!plik) return;
+    setBlad('');
+    setKomunikat('');
+    try {
+      const wynik = await settingsApi.uploadAppIcon(plik);
+      setIkona(wynik.app_icon);
+      setKomunikat('Ikona zapisana. Pojawi się w menu po odświeżeniu strony.');
+    } catch (e: unknown) {
+      setBlad(e instanceof Error ? e.message : 'Nie udało się wgrać ikony.');
+    }
+  };
+
+  if (loading) return <div className="text-app-muted">Ładowanie…</div>;
+
+  const wsp = kontrast(form.app_name_color, TLO_MENU);
+  const slabyKontrast = wsp !== null && wsp < 4.5;
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Ustawienia aplikacji</h1>
+    <div className="max-w-3xl">
+      <PageHeader title="Ustawienia aplikacji" description="Identyfikacja instancji, parametry integracji i poczta wychodząca." />
 
-      <div className="bg-white rounded-lg shadow p-6 space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Adres webhooka do przetwarzania plików
-          </label>
-          <input
-            type="text"
-            value={webhookUrl}
-            onChange={(e) => {
-              setWebhookUrl(e.target.value);
-              setError('');
-            }}
-            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              error ? 'border-red-500' : 'border-gray-300'
-            }`}
-            placeholder="http://localhost:5678/webhook/document-uploaded"
-          />
+      {komunikat && (
+        <div className="mb-4 rounded-ctl border border-[#bfe6d2] bg-app-greenbg px-4 py-3 text-sm text-[#148a57]">
+          {komunikat}
         </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Adres webhooka czatu
-          </label>
-          <input
-            type="text"
-            value={chatWebhookUrl}
-            onChange={(e) => {
-              setChatWebhookUrl(e.target.value);
-              setError('');
-            }}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="https://n8n-host/webhook/xxxx/chat"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            URL triggera &quot;When chat message received&quot; z workflow czatu n8n (tryb streaming).
-          </p>
+      )}
+      {blad && (
+        <div className="mb-4 rounded-ctl border border-[#fecdd3] bg-app-dangerbg px-4 py-3 text-sm text-app-danger">
+          {blad}
         </div>
+      )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Dozwolone rozszerzenia plików
-          </label>
-          <input
-            type="text"
-            value={allowedExtensions}
-            onChange={(e) => {
-              setAllowedExtensions(e.target.value);
-              setError('');
-            }}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="pdf,docx,xlsx"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            Lista rozdzielona przecinkami. Musi odpowiadać typom obsługiwanym przez workflow n8n
-            (gałęzie &quot;Switch on file ext&quot;) — inaczej plik zostanie przyjęty, ale nie przetworzony.
-          </p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Auto-wylogowanie po bezczynności (minuty)
-          </label>
-          <input
-            type="number"
-            min={1}
-            max={1440}
-            value={idleTimeout}
-            onChange={(e) => {
-              setIdleTimeout(e.target.value);
-              setError('');
-            }}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="15"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            Po tylu minutach bez aktywności użytkownik zostanie wylogowany i wróci na ekran logowania
-            (od 1 do 1440 min). Niezależnie od tego sesja ma twardy limit 12 godzin.
-          </p>
-        </div>
-
-        {error && (
-          <p className="text-sm text-red-600">{error}</p>
-        )}
-
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {saving ? 'Zapisywanie...' : 'Zapisz'}
-        </button>
-
-        {message && (
-          <div
-            className={`p-4 rounded-md ${
-              message.type === 'success'
-                ? 'bg-green-50 text-green-800 border border-green-200'
-                : 'bg-red-50 text-red-800 border border-red-200'
-            }`}
-          >
-            {message.text}
+      {/* ---------------------------------------------- identyfikacja */}
+      <Card className="mb-5">
+        <CardHeader><h2 className="text-[15px] font-bold text-app-text">Identyfikacja aplikacji</h2></CardHeader>
+        <div className="space-y-5 p-[18px]">
+          <div>
+            <span className="mb-1 block text-[13px] font-medium text-app-text">Ikona aplikacji</span>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="grid h-12 w-12 flex-none place-items-center overflow-hidden rounded-[9px] bg-app-navy">
+                {ikona ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={ikona} alt="" className="h-9 w-9 object-contain" />
+                ) : (
+                  <span className="text-[10px] text-white/60">domyślna</span>
+                )}
+              </span>
+              <input
+                ref={wybor}
+                type="file"
+                accept=".png,.svg,image/png,image/svg+xml"
+                className="hidden"
+                onChange={(e) => wgrajIkone(e.target.files?.[0])}
+              />
+              <Button onClick={() => wybor.current?.click()}>Wybierz plik</Button>
+              <Button
+                onClick={async () => { await settingsApi.resetAppIcon(); setIkona(''); setKomunikat('Przywrócono ikonę domyślną.'); }}
+                disabled={!ikona}
+              >
+                Przywróć domyślną
+              </Button>
+            </div>
+            <p className="mt-1 text-[11px] text-app-muted">
+              Plik PNG lub SVG, kwadratowy (proporcje 1:1), zalecane minimum 128×128 px.
+              Ikona pojawia się w lewym górnym rogu, także w zwiniętym menu.
+            </p>
           </div>
-        )}
+
+          <Field label="Nazwa aplikacji" hint="Wyświetlana obok ikony i w tytule okna przeglądarki.">
+            <input
+              value={form.app_name}
+              onChange={(e) => setForm({ ...form, app_name: e.target.value })}
+              maxLength={40}
+              className={inputClass}
+            />
+          </Field>
+
+          <div>
+            <span className="mb-1 block text-[13px] font-medium text-app-text">Kolor nazwy</span>
+            <div className="flex flex-wrap items-center gap-2">
+              {PROBKI.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setForm({ ...form, app_name_color: p })}
+                  title={p}
+                  aria-label={`Kolor ${p}`}
+                  className={`h-8 w-8 rounded-lg border ${
+                    form.app_name_color.toLowerCase() === p ? 'border-app-text ring-2 ring-app-blue' : 'border-app-line'
+                  }`}
+                  style={{ background: p }}
+                />
+              ))}
+              <input
+                value={form.app_name_color}
+                onChange={(e) => setForm({ ...form, app_name_color: e.target.value })}
+                placeholder="#ffffff"
+                className={`${inputClass} w-32 font-mono`}
+              />
+            </div>
+            {slabyKontrast && (
+              <p className="mt-1.5 text-[11px] text-[#b7791f]">
+                Niski kontrast na tle menu ({wsp?.toFixed(1)}:1) — napis może być słabo czytelny.
+              </p>
+            )}
+            <p className="mt-1 text-[11px] text-app-muted">
+              Kolor napisu na ciemnym tle menu — dobierz tak, aby zachować czytelność.
+            </p>
+          </div>
+
+          <div>
+            <span className="mb-1 block text-[13px] font-medium text-app-text">Podgląd</span>
+            <div className="inline-flex items-center gap-2.5 rounded-[9px] px-3 py-2.5" style={{ background: 'var(--app-sidebar)' }}>
+              <span className="grid h-9 w-9 flex-none place-items-center overflow-hidden rounded-[9px] bg-gradient-to-b from-[#2e8bff] to-[#1767dd]">
+                {ikona && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={ikona} alt="" className="h-7 w-7 object-contain" />
+                )}
+              </span>
+              <span className="text-[22px] font-extrabold" style={{ color: form.app_name_color }}>
+                {form.app_name || 'Nazwa'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* ---------------------------------------- integracje i sesja */}
+      <Card className="mb-5">
+        <CardHeader><h2 className="text-[15px] font-bold text-app-text">Integracje i sesja</h2></CardHeader>
+        <div className="space-y-4 p-[18px]">
+          <Field label="Adres webhooka do przetwarzania plików">
+            <input
+              value={form.n8n_webhook_url}
+              onChange={(e) => setForm({ ...form, n8n_webhook_url: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+          <Field
+            label="Adres webhooka czatu"
+            hint={'URL triggera „When chat message received” z workflow czatu n8n (tryb streaming).'}
+          >
+            <input
+              value={form.chat_webhook_url}
+              onChange={(e) => setForm({ ...form, chat_webhook_url: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+          <Field
+            label="Dozwolone rozszerzenia plików"
+            hint={'Lista rozdzielona przecinkami, np. pdf,docx,xlsx,odt. Musi odpowiadać typom '
+              + 'obsługiwanym przez workflow n8n — inaczej plik zostanie przyjęty, ale nie przetworzony.'}
+          >
+            <input
+              value={form.allowed_extensions}
+              onChange={(e) => setForm({ ...form, allowed_extensions: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+          <Field
+            label="Automatyczne wylogowanie po bezczynności (minuty)"
+            hint={'Po tylu minutach bez aktywności użytkownik wróci na ekran logowania (od 1 do 1440 min). '
+              + 'Niezależnie od tego sesja ma twardy limit 12 godzin.'}
+          >
+            <input
+              type="number"
+              min={1}
+              value={form.idle_timeout_minutes}
+              onChange={(e) => setForm({ ...form, idle_timeout_minutes: e.target.value })}
+              className={`${inputClass} w-32`}
+            />
+          </Field>
+        </div>
+      </Card>
+
+      {/* ------------------------------------------ poczta wychodząca */}
+      <Card className="mb-5">
+        <CardHeader>
+          <h2 className="text-[15px] font-bold text-app-text">Poczta wychodząca</h2>
+          <span className="text-[11px] text-app-muted">
+            Używana przez ekran „Skontaktuj się”
+          </span>
+        </CardHeader>
+        <div className="grid grid-cols-1 gap-4 p-[18px] md:grid-cols-2">
+          <Field label="Serwer SMTP">
+            <input value={form.smtp_host} onChange={(e) => setForm({ ...form, smtp_host: e.target.value })} placeholder="smtp.firma.pl" className={inputClass} />
+          </Field>
+          <Field label="Port" hint="465 = SMTPS, pozostałe porty używają STARTTLS.">
+            <input value={form.smtp_port} onChange={(e) => setForm({ ...form, smtp_port: e.target.value })} className={inputClass} />
+          </Field>
+          <Field label="Użytkownik">
+            <input value={form.smtp_user} onChange={(e) => setForm({ ...form, smtp_user: e.target.value })} autoComplete="off" className={inputClass} />
+          </Field>
+          <Field
+            label="Hasło"
+            hint={dane?.smtp_password_set ? 'Hasło jest zapisane. Puste pole = bez zmiany.' : 'Hasło nie zostało jeszcze ustawione.'}
+          >
+            <input
+              type="password"
+              value={form.smtp_password}
+              onChange={(e) => setForm({ ...form, smtp_password: e.target.value })}
+              autoComplete="new-password"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Adres nadawcy">
+            <input value={form.smtp_from} onChange={(e) => setForm({ ...form, smtp_from: e.target.value })} placeholder="system@firma.pl" className={inputClass} />
+          </Field>
+          <Field label="Adres wsparcia (odbiorca zgłoszeń)">
+            <input value={form.support_email} onChange={(e) => setForm({ ...form, support_email: e.target.value })} placeholder="wsparcie@firma.pl" className={inputClass} />
+          </Field>
+        </div>
+      </Card>
+
+      <div className="flex justify-end gap-2">
+        <Button onClick={() => { setKomunikat(''); setBlad(''); wczytaj(); }}>
+          <IconClose size={16} />
+          Odrzuć zmiany
+        </Button>
+        <Button variant="primary" onClick={zapisz} disabled={saving}>
+          {saving ? 'Zapisywanie…' : 'Zapisz ustawienia'}
+        </Button>
       </div>
     </div>
   );

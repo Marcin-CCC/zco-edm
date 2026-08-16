@@ -1,12 +1,22 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { docSchemasApi, filesApi, foldersApi, settingsApi } from '@/lib/api';
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
+
+import { FileTypeIcon, rozmiarPliku } from '@/components/file-type-icon';
+import {
+  IconChevronDown, IconClose, IconDoc, IconDownload, IconEdit, IconEye, IconFolder,
+  IconGrid, IconHome, IconList, IconLock, IconMove, IconPlus, IconTrash, IconUpload,
+} from '@/components/icons';
 import { RenameDialog } from '@/components/rename-dialog';
-import { useAuth } from '@/lib/store';
-import { czasLokalny, dataLokalna, godzinaLokalna } from '@/lib/czas';
+import {
+  Badge, Button, Card, EmptyState, Field, IconButton, Modal, PageHeader, RowActions,
+  Sub, Table, Td, Th, inputClass,
+} from '@/components/ui/primitives';
+import { docSchemasApi, filesApi, foldersApi, settingsApi } from '@/lib/api';
+import { czasLokalny, kiedy } from '@/lib/czas';
 import { ROLE_ADMIN, isAdmin as czyAdmin, roleLabel, useRoles } from '@/lib/roles';
+import { useAuth } from '@/lib/store';
 
 interface File {
   id: number;
@@ -65,36 +75,35 @@ const ACCESS_LABELS: Record<string, string> = {
 // Ranga poziomu dostępu: brak < odczyt < zapis
 const accessRank = (lvl?: string): number => (lvl === 'write' ? 2 : lvl === 'read' ? 1 : 0);
 
-function formatFileSize(bytes: number | null): string {
-  if (bytes === null) return '-';
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
+// Ile pozycji bierzemy jednym żądaniem. Lista nie jest stronicowana po stronie
+// backendu, więc to jest zarazem twardy sufit widoczności — gdy folder go dobije,
+// mówimy o tym pod tabelą, zamiast po cichu chować resztę.
+const LIMIT_LISTY = 200;
 
-function getFileIcon(filename: string): string {
-  const ext = filename.split('.').pop()?.toLowerCase() || '';
-  const icons: Record<string, string> = {
-    pdf: '📕',
-    docx: '📘',
-    doc: '📘',
-    xlsx: '📗',
-    xls: '📗',
-    pptx: '📙',
-    ppt: '📙',
-  };
-  return icons[ext] || '📄';
-}
+const NA_STRONIE = [10, 25, 50, 100];
 
-function getFileColor(mimeType: string | null): string {
-  if (!mimeType) return 'text-gray-500';
-  if (mimeType.includes('pdf')) return 'text-red-600';
-  if (mimeType.includes('word')) return 'text-blue-600';
-  if (mimeType.includes('spreadsheet')) return 'text-green-600';
-  if (mimeType.includes('presentation')) return 'text-orange-600';
-  return 'text-gray-500';
+/** Kropka stanu przy wgrywanym pliku — kolorem, nie emoji (te same powody co
+ *  przy ikonach typów plików: emoji wygląda inaczej na każdym systemie). */
+const STAN_WGRYWANIA: Record<string, string> = {
+  pending: 'bg-app-line',
+  uploading: 'bg-app-blue animate-pulse',
+  done: 'bg-app-green',
+  error: 'bg-app-danger',
+};
+
+const OPIS_WGRYWANIA: Record<string, string> = {
+  pending: 'oczekuje',
+  uploading: 'wgrywanie…',
+  done: 'wgrany',
+  error: 'błąd',
+};
+
+/** 1 plik, 2 pliki, 5 plików. */
+function odmianaPlikow(n: number): string {
+  if (n === 1) return 'plik';
+  const ost = n % 10;
+  const dwie = n % 100;
+  return ost >= 2 && ost <= 4 && (dwie < 10 || dwie >= 20) ? 'pliki' : 'plików';
 }
 
 function FilesPageInner() {
@@ -114,6 +123,9 @@ function FilesPageInner() {
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [breadcrumbs, setBreadcrumbs] = useState<{ id: number; name: string }[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  // Stronicowanie jest po stronie przeglądarki — dzielimy listę, którą już mamy.
+  const [strona, setStrona] = useState(1);
+  const [naStronie, setNaStronie] = useState(25);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -190,7 +202,7 @@ function FilesPageInner() {
       // limit: backend domyślnie oddaje 50 pozycji, a lista plików nie ma
       // stronicowania — bierzemy maksymalną dozwoloną porcję, żeby przy większym
       // folderze nie chować plików bez śladu
-      const params: { folder_id?: number; search?: string; limit?: number } = { limit: 200 };
+      const params: { folder_id?: number; search?: string; limit?: number } = { limit: LIMIT_LISTY };
       if (folderId !== null) params.folder_id = folderId;
       if (searchQuery) params.search = searchQuery;
 
@@ -210,6 +222,7 @@ function FilesPageInner() {
   const resetFileView = () => {
     setFiles([]);
     setSelectedIds([]);
+    setStrona(1);
     setLoading(true);
   };
 
@@ -468,6 +481,23 @@ function FilesPageInner() {
     }
   };
 
+  // Podgląd PDF w nowej karcie. Pobieramy przez fetch, a nie przez zwykły
+  // odnośnik, bo endpoint wymaga nagłówka z tokenem — okno otwarte na goły URL
+  // dostałoby 401.
+  const handlePreview = async (file: File) => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+    try {
+      const response = await fetch(`/api/files/${file.id}/download`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Preview failed');
+      window.open(URL.createObjectURL(await response.blob()), '_blank');
+    } catch {
+      alert('Podgląd nie powiódł się.');
+    }
+  };
+
   // Download file
   const handleDownload = async (file: File) => {
     const token = localStorage.getItem('auth_token');
@@ -619,783 +649,653 @@ function FilesPageInner() {
   const permAvailableLevels =
     accessRank(permEffByRole[newPermRole]) === 1 ? ['write'] : ['read', 'write'];
 
-  return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Nagłówek strony (wzorzec jak Dashboard) */}
-      <h1 className="text-2xl font-bold text-gray-800 mb-4">Eksplorator plików</h1>
+  // Stronicowanie po stronie przeglądarki. Backend oddaje najwyżej `LIMIT_LISTY`
+  // pozycji jednym żądaniem, więc nie ma tu drugiego pobrania — dzielimy to,
+  // co już mamy. Gdy folder dobije do limitu, mówimy o tym wprost pod tabelą,
+  // zamiast po cichu chować resztę.
+  const stron = Math.max(1, Math.ceil(files.length / naStronie));
+  const stronaBezpieczna = Math.min(strona, stron);
+  const widoczne = files.slice((stronaBezpieczna - 1) * naStronie, stronaBezpieczna * naStronie);
+  const wszystkieWidoczneZaznaczone =
+    widoczne.length > 0 && widoczne.every((f) => selectedIds.includes(f.id));
+  const podfoldery = currentFolderId === null ? rootFolders : currentFolderChildren;
+  const zaznaczalne = isAdmin || canWriteHere;
 
-      {/* Moduł: ścieżka folderu + akcje (bez nagłówka → niższy) */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3">
-        <div className="flex items-center justify-between gap-3">
-          {/* Breadcrumbs (ścieżka od root) */}
-          <div className="flex items-center space-x-2 text-sm min-w-0 overflow-x-auto">
-            <button
-              onClick={navigateToRoot}
-              className={`text-blue-600 hover:underline whitespace-nowrap ${currentFolderId === null ? 'font-semibold' : ''}`}
-            >
-              🏠 Root
-            </button>
-            {breadcrumbs.map((crumb, index) => (
-              <span key={index} className="flex items-center whitespace-nowrap">
-                <span className="text-gray-400 mx-2">/</span>
-                <button
-                  onClick={() => navigateToBreadcrumb(index)}
-                  className="text-blue-600 hover:underline"
-                >
-                  {crumb.name}
+  return (
+    <div>
+      <PageHeader
+        title="Eksplorator plików"
+        description="Przegląd folderów i dokumentów w systemie."
+      />
+
+      {/* Ścieżka folderu + akcje */}
+      <Card className="mb-[18px] flex flex-wrap items-center justify-between gap-3 px-[18px] py-3.5">
+        <nav className="flex min-w-0 flex-wrap items-center gap-1.5 text-[14px]" aria-label="Ścieżka folderu">
+          <button
+            onClick={navigateToRoot}
+            className={`inline-flex items-center gap-1.5 rounded-ctl px-2 py-1 hover:bg-app-hover ${
+              currentFolderId === null ? 'font-bold text-app-blue' : 'text-app-text'
+            }`}
+          >
+            <IconHome size={16} />
+            Katalog główny
+          </button>
+          {breadcrumbs.map((crumb, index) => (
+            <span key={crumb.id} className="flex items-center gap-1.5">
+              <span className="text-app-muted">/</span>
+              <button
+                onClick={() => navigateToBreadcrumb(index)}
+                className={`rounded-ctl px-2 py-1 hover:bg-app-hover ${
+                  index === breadcrumbs.length - 1 ? 'font-bold text-app-blue' : 'text-app-text'
+                }`}
+              >
+                {crumb.name}
+              </button>
+            </span>
+          ))}
+        </nav>
+
+        {(isAdmin || canWriteHere) && (
+          <div className="flex shrink-0 gap-2">
+            {isAdmin && (
+              <Button onClick={openCreateFolderModal}>
+                <IconPlus size={16} />
+                Nowy folder
+              </Button>
+            )}
+            {canWriteHere && (
+              <Button
+                variant="primary"
+                onClick={() => setShowUploadModal(true)}
+                disabled={uploading}
+                title={currentFolderId === null ? 'Wybierz folder, aby wgrać pliki' : undefined}
+              >
+                <IconUpload size={16} />
+                {uploading ? 'Wczytywanie…' : 'Prześlij pliki'}
+              </Button>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* Foldery */}
+      {podfoldery.length > 0 && (
+        <Card className="mb-[18px] p-[18px]">
+          <h2 className="mb-3 flex items-center gap-2.5 text-[16px] font-bold text-app-text">
+            <IconFolder size={18} />
+            Foldery
+            <span className="text-[11px] font-normal text-app-muted">
+              {currentFolderId === null ? 'główne' : 'w tym folderze'}
+            </span>
+          </h2>
+          <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 xl:grid-cols-4">
+            {podfoldery.map((folder) => (
+              <div
+                key={folder.id}
+                // relative: ikony akcji leżą NAD kafelkiem, nie obok treści — ukryte
+                // przez `opacity-0` zabierałyby szerokość nazwie także wtedy, gdy ich
+                // nie widać, i nazwy łamałyby się mimo wolnego miejsca.
+                className="group relative flex h-full items-start gap-3.5 rounded-card border border-app-line bg-white p-[18px] transition-shadow hover:shadow-card"
+              >
+                <button onClick={() => navigateToFolder(folder)} className="flex w-full items-start gap-3.5 text-left">
+                  <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[12px] bg-[#fff6e2] text-[#d99b20]">
+                    <IconFolder size={22} />
+                  </span>
+                  <span className={`min-w-0 ${isAdmin ? 'pr-16' : ''}`}>
+                    <span className="block break-words text-[14px] font-bold text-app-text">{folder.name}</span>
+                    {folder.path !== `/${folder.name}` && (
+                      // Dla folderu głównego ścieżka to sama jego nazwa ze slashem —
+                      // powtarzanie jej pod spodem nic nie wnosi.
+                      <span className="mt-0.5 block break-words text-[11px] text-app-muted">{folder.path}</span>
+                    )}
+                    <span className="mt-1 block text-[11px] text-app-muted">
+                      {folder.file_count ?? 0} {odmianaPlikow(folder.file_count ?? 0)}
+                    </span>
+                  </span>
                 </button>
-              </span>
+                {isAdmin && (
+                  <div className="absolute right-3 top-3 flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                    <IconButton tone="edit" title="Zmień nazwę folderu" onClick={() => openRename(folder)}>
+                      <IconEdit size={16} />
+                    </IconButton>
+                    <IconButton tone="lock" title="Uprawnienia folderu" onClick={() => openPermissions(folder)}>
+                      <IconLock size={16} />
+                    </IconButton>
+                    <IconButton tone="danger" title="Usuń folder" onClick={() => handleDeleteFolder(folder.id)}>
+                      <IconTrash size={16} />
+                    </IconButton>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
+        </Card>
+      )}
 
-          {/* Akcje */}
-          {(isAdmin || canWriteHere) && (
-            <div className="flex gap-2 shrink-0">
-              {isAdmin && (
-                <button
-                  onClick={openCreateFolderModal}
-                  className="text-blue-600 hover:text-blue-800 hover:underline px-2 py-2 transition-colors"
-                >
-                  + Nowy folder
-                </button>
-              )}
-              {canWriteHere && (
-                <button
-                  onClick={() => setShowUploadModal(true)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-                  disabled={uploading}
-                  title={currentFolderId === null ? 'Wybierz folder, aby wgrać pliki' : undefined}
-                >
-                  {uploading ? 'Wczytywanie...' : '⬆️ Prześlij pliki'}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-6">
-        {/* Folders section — pokazuj tylko, gdy są foldery do wyświetlenia */}
-        {(currentFolderId === null ? rootFolders : currentFolderChildren).length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold text-gray-700">📁 Foldery</h2>
-              {isAdmin && (
-                <span className="text-xs text-gray-400">
-                  {currentFolderId === null ? 'Foldery główne' : `Podfoldery`}
-                </span>
-              )}
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {(currentFolderId === null ? rootFolders : currentFolderChildren).map((folder) => (
-                <div
-                  key={folder.id}
-                  // h-full: kafelki w rzędzie mają wspólną wysokość, wyznaczoną przez
-                  // najdłuższą nazwę — inaczej po zawinięciu tekstu rząd robi się poszarpany.
-                  // relative: ikony akcji leżą NAD kafelkiem (zob. niżej), nie obok treści.
-                  className="relative bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow group h-full"
-                >
-                  <button
-                    onClick={() => navigateToFolder(folder)}
-                    className="w-full text-left"
-                  >
-                    {/* Rząd z ikoną folderu zostawia miejsce na ikony akcji (pr-20),
-                        żeby po najechaniu nic na siebie nie nachodziło. Nazwa i ścieżka
-                        poniżej korzystają z PEŁNEJ szerokości kafelka. */}
-                    <div className={`text-3xl mb-2 ${isAdmin ? 'pr-20' : ''}`}>📁</div>
-                    <div className="font-medium text-gray-800 break-words">{folder.name}</div>
-                    <div className="text-xs text-gray-500 break-words">{folder.path}</div>
-                    <div className="text-xs text-gray-500">Liczba plików: {folder.file_count ?? 0}</div>
-                  </button>
-                  {isAdmin && (
-                    // Ikony ukryte przez `opacity-0` NADAL zajmowały miejsce w układzie,
-                    // więc kolumna z nazwą była węższa o ich szerokość — nazwy łamały się
-                    // na kilka wierszy mimo wolnego miejsca po prawej. Wyjęcie ich z toku
-                    // dokumentu (absolute) oddaje tę szerokość tekstowi i nie powoduje
-                    // przeskoku układu przy najechaniu.
-                    <div className="absolute top-3 right-3 flex items-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); openRename(folder); }}
-                        className="text-gray-400 hover:text-blue-600 p-1"
-                        title="Zmień nazwę folderu"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); openPermissions(folder); }}
-                        className="text-gray-400 hover:text-blue-600 p-1"
-                        title="Uprawnienia folderu"
-                      >
-                        🔒
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }}
-                        className="text-red-400 hover:text-red-600 p-1"
-                        title="Usuń folder"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {komunikat && (
-          <div className="mb-3 flex items-start justify-between gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-            <span>{komunikat}</span>
-            <button onClick={() => setKomunikat('')} className="text-green-700 hover:text-green-900">✕</button>
-          </div>
-        )}
-
-        {/* Files section */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg font-semibold text-gray-700">📄 Pliki</h2>
-              {selectedIds.length > 0 && (
-                <>
-                  <span className="text-sm text-gray-500">zaznaczono: {selectedIds.length}</span>
-                  {/* Jeden przycisk zamiast listy akcji: operacji zbiorczych będzie
-                      przybywać, a pasek nad tabelą nie jest miejscem na ich katalog. */}
-                  <div className="relative">
-                    <button
-                      onClick={() => setOknoAkcji((o) => !o)}
-                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                    >
-                      ⚙ Wykonaj akcję na zaznaczonych ▾
-                    </button>
-                    {oknoAkcji && (
-                      <div className="absolute left-0 z-20 mt-1 w-64 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                        <button
-                          onClick={() => { setOknoAkcji(false); setMoveTarget(selectedIds); setMoveFolderId(''); }}
-                          className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                        >
-                          📂 Przenieś do folderu
-                        </button>
-                        <button
-                          onClick={() => { setOknoAkcji(false); setRenameTarget(selectedIds); }}
-                          className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                        >
-                          🏷 Nadaj nazwy zgodne z kategorią
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => setSelectedIds([])}
-                    className="text-sm text-gray-400 hover:text-gray-600"
-                  >
-                    wyczyść
-                  </button>
-                </>
-              )}
-            </div>
-            <div className="flex items-center space-x-2">
-              {/* Search */}
-              <input
-                type="text"
-                placeholder="Szukaj pliku..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="border border-gray-300 rounded-md px-3 py-1 text-sm w-48"
-              />
-              {/* View mode toggle */}
-              <div className="flex border border-gray-300 rounded-md overflow-hidden">
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`px-3 py-1 text-sm ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`}
-                >
-                  ☰ Lista
-                </button>
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`px-3 py-1 text-sm ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`}
-                >
-                  ⊞ Kafelki
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* List View */}
-          {viewMode === 'list' && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {(isAdmin || canWriteHere) && (
-                      <th className="px-4 py-3 w-10">
-                        <input
-                          type="checkbox"
-                          checked={files.length > 0 && selectedIds.length === files.length}
-                          onChange={(e) => setSelectedIds(e.target.checked ? files.map((f) => f.id) : [])}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          title="Zaznacz wszystkie"
-                        />
-                      </th>
-                    )}
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ikona</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nazwa</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rozmiar</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kategoria</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data dodania</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Akcje</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {files.map((file) => (
-                    <tr
-                      key={file.id}
-                      className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => setSelectedFile(file)}
-                    >
-                      {(isAdmin || canWriteHere) && (
-                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.includes(file.id)}
-                            onChange={() => toggleSelect(file.id)}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                        </td>
-                      )}
-                      <td className="px-4 py-3">
-                        <span className="text-2xl">{getFileIcon(file.filename)}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-gray-800">{file.filename}</div>
-                        <div className="text-xs text-gray-500">{file.mime_type}</div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {formatFileSize(file.size)}
-                      </td>
-                      {/* Kategoria zamiast statusu: status pilnuje się w Kolejce plików,
-                          a na liście dokumentów szuka się rodzaju dokumentu. */}
-                      <td className="px-4 py-3">
-                        {file.doc_type && file.doc_type !== 'inny' ? (
-                          <span className="rounded-full bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-800">
-                            {etykietaKategorii(file.doc_type)}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400">nierozpoznana</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {dataLokalna(file.created_at)}
-                        {' '}
-                        {godzinaLokalna(file.created_at)}
-                      </td>
-                      <td className="px-4 py-3">
-                        {/* Akcje: ikona NAD podpisem — układ jawny (flex-col), żeby
-                            wszystkie trzy wyglądały tak samo niezależnie od długości słowa */}
-                        <div className="flex items-start space-x-4">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDownload(file); }}
-                            className="flex flex-col items-center gap-0.5 text-blue-600 hover:text-blue-800 text-sm"
-                          >
-                            <span className="text-base leading-none">⬇️</span>
-                            <span>Pobierz</span>
-                          </button>
-                          {(isAdmin || canWriteHere) && (
-                            <>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setMoveTarget([file.id]); setMoveFolderId(''); }}
-                                className="flex flex-col items-center gap-0.5 text-blue-600 hover:text-blue-800 text-sm"
-                              >
-                                <span className="text-base leading-none">📂</span>
-                                <span>Przenieś</span>
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleDelete(file.id); }}
-                                className="flex flex-col items-center gap-0.5 text-red-600 hover:text-red-800 text-sm"
-                              >
-                                <span className="text-base leading-none">🗑️</span>
-                                <span>Usuń</span>
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {files.length === 0 && !loading && (
-                    <tr>
-                      <td className="px-4 py-8 text-center text-gray-500" colSpan={(isAdmin || canWriteHere) ? 7 : 6}>
-                        Brak plików w tym folderze
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              {loading && (
-                <div className="px-4 py-8 text-center text-gray-500">
-                  Ładowanie...
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Grid View */}
-          {viewMode === 'grid' && (
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {files.map((file) => (
-                <div
-                  key={file.id}
-                  onClick={() => setSelectedFile(file)}
-                  className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
-                >
-                  <div className="text-4xl mb-3 text-center">
-                    {getFileIcon(file.filename)}
-                  </div>
-                  <div className="font-medium text-gray-800 text-sm truncate" title={file.filename}>
-                    {file.filename}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {formatFileSize(file.size)}
-                  </div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    {new Date(file.created_at).toLocaleDateString('pl-PL')}
-                  </div>
-                  <div className="flex space-x-1 mt-2">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDownload(file); }}
-                      className="text-xs text-blue-600 hover:text-blue-800"
-                    >
-                      ⬇️
-                    </button>
-                    {(isAdmin || canWriteHere) && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDelete(file.id); }}
-                        className="text-xs text-red-600 hover:text-red-800"
-                      >
-                        🗑️
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {files.length === 0 && !loading && (
-                <div className="col-span-full text-center text-gray-500 py-8">
-                  Brak plików w tym folderze
-                </div>
-              )}
-            </div>
-          )}
-          {loading && viewMode === 'grid' && (
-            <div className="text-center text-gray-500 py-8">Ładowanie...</div>
-          )}
-        </div>
-      </div>
-
-      {/* Create Folder Modal */}
-      {showCreateFolderModal && isAdmin && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-bold text-gray-800 mb-4">
-              📁 Nowy folder
-            </h2>
-            <p className="text-sm text-gray-600 mb-2">
-              Tworzony w: <strong>
-                {currentFolderName || 'Root'}
-              </strong>
-            </p>
-            <input
-              type="text"
-              placeholder="Nazwa folderu"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleCreateFolder(); }}
-              className="w-full border border-gray-300 rounded-md p-2 mb-4"
-              autoFocus
-            />
-
-            {/* Role odziedziczone po folderze nadrzędnym (tylko dla podfolderu, do wglądu) */}
-            {currentFolderId !== null && (
-              <div className="mb-4">
-                <p className="text-xs text-gray-500 mb-1">
-                  Nowy podfolder odziedziczy dostęp folderu nadrzędnego:
-                </p>
-                {inheritedPerms.length === 0 ? (
-                  <p className="text-xs text-gray-400">
-                    Brak ról z dostępem (poza administratorem).
-                  </p>
-                ) : (
-                  <ul className="text-sm text-gray-700 border border-gray-200 rounded-md divide-y divide-gray-100">
-                    {inheritedPerms.map((p) => (
-                      <li key={p.role} className="px-3 py-1.5">
-                        {roleLabel(roles, p.role)}
-                        <span className="text-gray-400"> · </span>
-                        <span className="text-gray-600">
-                          {ACCESS_LABELS[p.access_level] || p.access_level}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <p className="text-[11px] text-gray-400 mt-1">
-                  Dostęp dziedziczony (tylko do wglądu). Zmienisz go później przez 🔒 na folderze.
-                </p>
-              </div>
-            )}
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => { setShowCreateFolderModal(false); setNewFolderName(''); setInheritedPerms([]); }}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
-                disabled={folderCreating}
-              >
-                Anuluj
-              </button>
-              <button
-                onClick={handleCreateFolder}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                disabled={folderCreating || !newFolderName.trim()}
-              >
-                {folderCreating ? 'Tworzenie...' : 'Utwórz'}
-              </button>
-            </div>
-          </div>
+      {komunikat && (
+        <div className="mb-[18px] flex items-start justify-between gap-3 rounded-ctl border border-[#bfe6d2] bg-app-greenbg px-4 py-3 text-sm text-[#148a57]">
+          <span>{komunikat}</span>
+          <button onClick={() => setKomunikat('')} aria-label="Zamknij komunikat">
+            <IconClose size={16} />
+          </button>
         </div>
       )}
 
-      {/* Permissions Modal (RBAC) */}
-      {permFolder && isAdmin && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
-            <div className="flex items-center justify-between mb-1">
-              <h2 className="text-lg font-bold text-gray-800">🔒 Uprawnienia folderu</h2>
+      {/* Pliki */}
+      <Card className="mb-[18px] overflow-hidden">
+        <div className="flex flex-wrap items-center gap-2.5 border-b border-app-line px-[18px] py-3.5">
+          <h2 className="mr-auto flex items-center gap-2.5 text-[16px] font-bold text-app-text">
+            <IconDoc size={18} />
+            Pliki
+          </h2>
+
+          {selectedIds.length > 0 && (
+            <div className="flex items-center gap-2.5">
+              <span className="text-[12px] text-app-muted">zaznaczono: {selectedIds.length}</span>
+              {/* Jeden przycisk zamiast listy akcji: operacji zbiorczych będzie
+                  przybywać, a pasek nad tabelą nie jest miejscem na ich katalog. */}
+              <div className="relative">
+                <Button small onClick={() => setOknoAkcji((o) => !o)}>
+                  Wykonaj akcję na zaznaczonych
+                  <IconChevronDown size={14} />
+                </Button>
+                {oknoAkcji && (
+                  <div className="absolute left-0 z-20 mt-1 w-64 overflow-hidden rounded-ctl border border-app-line bg-white py-1 shadow-card">
+                    <button
+                      onClick={() => { setOknoAkcji(false); setMoveTarget(selectedIds); setMoveFolderId(''); }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-app-text hover:bg-app-hover"
+                    >
+                      <IconMove size={16} />
+                      Przenieś do folderu
+                    </button>
+                    <button
+                      onClick={() => { setOknoAkcji(false); setRenameTarget(selectedIds); }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-app-text hover:bg-app-hover"
+                    >
+                      <IconEdit size={16} />
+                      Nadaj nazwy zgodne z kategorią
+                    </button>
+                  </div>
+                )}
+              </div>
               <button
-                onClick={() => setPermFolder(null)}
-                className="text-gray-500 hover:text-gray-700"
+                onClick={() => setSelectedIds([])}
+                className="text-[12px] text-app-muted hover:text-app-text"
               >
-                ✕
+                wyczyść
               </button>
             </div>
-            <p className="text-sm text-gray-600 mb-4">
-              Folder: <strong>{permFolder.name}</strong> ({permFolder.path})
-            </p>
-            <p className="text-xs text-gray-500 mb-4">
-              Rola z uprawnieniem widzi pliki w tym folderze <strong>i jego
-              podfolderach</strong>. Uprawnienia oznaczone „(dziedziczone)" pochodzą
-              z folderu nadrzędnego — zmienisz je na tamtym folderze. Administrator
-              ma zawsze pełny dostęp; pliki w folderze głównym (root) widzi tylko
-              administrator.
-            </p>
+          )}
 
-            {/* Lista uprawnień efektywnych: własne (usuwalne) + dziedziczone (do wglądu) */}
-            <div className="mb-4">
-              {permLoading ? (
-                <div className="text-sm text-gray-500 py-3">Ładowanie...</div>
-              ) : permEffective.length === 0 ? (
-                <div className="text-sm text-gray-500 py-3 border border-dashed border-gray-200 rounded-md text-center">
-                  Brak uprawnień — tylko administrator widzi ten folder.
-                </div>
-              ) : (
-                <ul className="divide-y divide-gray-100 border border-gray-200 rounded-md">
-                  {permEffective.map((eff) => {
-                    // Własne rozszerzenie = bezpośrednie uprawnienie WYŻSZE niż dziedziczone.
-                    // Bezpośrednie ≤ dziedziczone jest zdominowane → traktujemy jak dziedziczone.
-                    const direct = permissions.find((p) => p.role === eff.role);
-                    const isOwn =
-                      !!direct &&
-                      accessRank(direct.access_level) > accessRank(permInhByRole[eff.role]);
-                    return (
-                      <li key={eff.role} className="flex items-center justify-between px-3 py-2 text-sm">
-                        <span className="text-gray-800">
-                          {roleLabel(roles, eff.role)}
-                          <span className="text-gray-400"> · </span>
-                          <span className="text-gray-600">
-                            {ACCESS_LABELS[eff.access_level] || eff.access_level}
-                          </span>
-                          {!isOwn && (
-                            <span className="ml-2 text-xs text-gray-400">
-                              (dziedziczone z nadrzędnego)
-                            </span>
-                          )}
-                        </span>
-                        {isOwn && direct ? (
-                          <button
-                            onClick={() => handleDeletePermission(direct.id)}
-                            className="text-red-500 hover:text-red-700 text-xs"
-                          >
-                            Usuń
-                          </button>
-                        ) : (
-                          <span className="text-xs text-gray-300">—</span>
+          <input
+            type="text"
+            placeholder="Szukaj pliku…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className={`${inputClass} h-9 w-48`}
+            aria-label="Szukaj pliku"
+          />
+
+          {/* Przełącznik widoku. Stan zaznaczamy jasnym tłem, nie niebieskim
+              wypełnieniem — niebieski jest w tym layoucie kolorem AKCJI. */}
+          <div className="flex overflow-hidden rounded-ctl border border-app-line" role="group" aria-label="Widok listy plików">
+            {([['list', 'Lista', IconList], ['grid', 'Kafelki', IconGrid]] as const).map(([tryb, etykieta, Ikona]) => (
+              <button
+                key={tryb}
+                onClick={() => setViewMode(tryb)}
+                aria-pressed={viewMode === tryb}
+                className={`flex items-center gap-1.5 px-3 py-2 text-[12px] ${
+                  viewMode === tryb ? 'bg-[#edf4ff] font-bold text-app-blue' : 'bg-white text-app-text hover:bg-app-hover'
+                }`}
+              >
+                <Ikona size={15} />
+                {etykieta}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="px-[18px] py-10 text-center text-sm text-app-muted">Ładowanie…</div>
+        ) : files.length === 0 ? (
+          <EmptyState
+            title={searchQuery ? 'Brak plików pasujących do wyszukiwania' : 'Brak plików w tym folderze'}
+            hint={searchQuery ? 'Spróbuj innego fragmentu nazwy.' : canWriteHere ? 'Użyj przycisku „Prześlij pliki".' : undefined}
+          />
+        ) : viewMode === 'list' ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <thead>
+                <tr>
+                  {zaznaczalne && (
+                    <Th className="w-[52px]">
+                      <input
+                        type="checkbox"
+                        checked={wszystkieWidoczneZaznaczone}
+                        onChange={(e) =>
+                          setSelectedIds(
+                            e.target.checked
+                              // Zaznaczamy TĘ stronę, nie całą listę: pole nad kolumną
+                              // odnosi się do tego, co widać, a nie do stu ukrytych wierszy.
+                              ? Array.from(new Set([...selectedIds, ...widoczne.map((f) => f.id)]))
+                              : selectedIds.filter((id) => !widoczne.some((f) => f.id === id)),
+                          )
+                        }
+                        aria-label="Zaznacz pliki na tej stronie"
+                      />
+                    </Th>
+                  )}
+                  <Th className="w-[62px]">Typ</Th>
+                  <Th>Nazwa</Th>
+                  <Th className="whitespace-nowrap">Rozmiar</Th>
+                  <Th>Kategoria</Th>
+                  <Th className="whitespace-nowrap">Data dodania</Th>
+                  <Th className="w-[120px]" />
+                </tr>
+              </thead>
+              <tbody>
+                {widoczne.map((file) => (
+                  <tr
+                    key={file.id}
+                    className="group cursor-pointer hover:bg-app-hover"
+                    onClick={() => setSelectedFile(file)}
+                  >
+                    {zaznaczalne && (
+                      <Td onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(file.id)}
+                          onChange={() => toggleSelect(file.id)}
+                          aria-label={`Zaznacz ${file.filename}`}
+                        />
+                      </Td>
+                    )}
+                    <Td><FileTypeIcon filename={file.filename} /></Td>
+                    <Td>
+                      <span className="block break-words font-bold text-app-text">{file.filename}</span>
+                      {file.original_filename && file.original_filename !== file.filename && (
+                        <Sub>pierwotnie: {file.original_filename}</Sub>
+                      )}
+                    </Td>
+                    <Td className="whitespace-nowrap text-app-muted">{rozmiarPliku(file.size)}</Td>
+                    {/* Kategoria zamiast statusu: status pilnuje się w Kolejce plików,
+                        a na liście dokumentów szuka się rodzaju dokumentu. */}
+                    <Td>
+                      {file.doc_type && file.doc_type !== 'inny' ? (
+                        <Badge tone="purple">{etykietaKategorii(file.doc_type)}</Badge>
+                      ) : (
+                        <span className="text-[11px] text-app-muted">nierozpoznana</span>
+                      )}
+                    </Td>
+                    <Td className="whitespace-nowrap text-app-muted">{kiedy(file.created_at)}</Td>
+                    <Td onClick={(e) => e.stopPropagation()}>
+                      <RowActions>
+                        <IconButton tone="action" title="Pobierz plik" onClick={() => handleDownload(file)}>
+                          <IconDownload size={16} />
+                        </IconButton>
+                        {zaznaczalne && (
+                          <>
+                            <IconButton
+                              tone="action"
+                              title="Przenieś do innego folderu"
+                              onClick={() => { setMoveTarget([file.id]); setMoveFolderId(''); }}
+                            >
+                              <IconMove size={16} />
+                            </IconButton>
+                            <IconButton tone="danger" title="Usuń plik" onClick={() => handleDelete(file.id)}>
+                              <IconTrash size={16} />
+                            </IconButton>
+                          </>
                         )}
-                      </li>
-                    );
-                  })}
+                      </RowActions>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-[18px] p-[18px] md:grid-cols-4 xl:grid-cols-6">
+            {widoczne.map((file) => (
+              <button
+                key={file.id}
+                onClick={() => setSelectedFile(file)}
+                className="rounded-card border border-app-line bg-white p-4 text-left transition-shadow hover:shadow-card"
+              >
+                <FileTypeIcon filename={file.filename} size={44} className="mb-3" />
+                <span className="block break-words text-[13px] font-bold text-app-text">{file.filename}</span>
+                <span className="mt-1 block text-[11px] text-app-muted">{rozmiarPliku(file.size)}</span>
+                <span className="mt-0.5 block text-[11px] text-app-muted">{kiedy(file.created_at)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {files.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-app-line px-[18px] py-3.5 text-[12px] text-app-muted">
+            <span>
+              {widoczne.length === files.length
+                ? `${files.length} ${odmianaPlikow(files.length)}`
+                : `${(stronaBezpieczna - 1) * naStronie + 1}–${(stronaBezpieczna - 1) * naStronie + widoczne.length} z ${files.length}`}
+              {files.length >= LIMIT_LISTY && (
+                // Ucięcie musi być widoczne: bez tej informacji lista wygląda na
+                // kompletną, a część plików po prostu nie dojechała.
+                <span className="ml-1 text-app-danger">
+                  (pokazujemy pierwsze {LIMIT_LISTY} — zawęź wyszukiwanie)
+                </span>
+              )}
+            </span>
+
+            {stron > 1 && (
+              <span className="flex items-center gap-1.5">
+                <Button small disabled={stronaBezpieczna === 1} onClick={() => setStrona(stronaBezpieczna - 1)}>‹</Button>
+                <span className="px-1">strona {stronaBezpieczna} z {stron}</span>
+                <Button small disabled={stronaBezpieczna === stron} onClick={() => setStrona(stronaBezpieczna + 1)}>›</Button>
+              </span>
+            )}
+
+            <label className="flex items-center gap-2">
+              Pokaż:
+              <select
+                value={naStronie}
+                onChange={(e) => { setNaStronie(Number(e.target.value)); setStrona(1); }}
+                className={`${inputClass} h-8 w-auto py-0`}
+              >
+                {NA_STRONIE.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </label>
+          </div>
+        )}
+      </Card>
+
+      {/* ------------------------------------------------------------ okna */}
+
+      {showCreateFolderModal && isAdmin && (
+        <Modal
+          title="Nowy folder"
+          onClose={() => { setShowCreateFolderModal(false); setNewFolderName(''); setInheritedPerms([]); }}
+          footer={
+            <>
+              <Button
+                onClick={() => { setShowCreateFolderModal(false); setNewFolderName(''); setInheritedPerms([]); }}
+                disabled={folderCreating}
+              >
+                Anuluj
+              </Button>
+              <Button variant="primary" onClick={handleCreateFolder} disabled={folderCreating || !newFolderName.trim()}>
+                {folderCreating ? 'Tworzenie…' : 'Utwórz'}
+              </Button>
+            </>
+          }
+        >
+          <p className="mb-3 text-[13px] text-app-muted">
+            Tworzony w: <strong className="text-app-text">{currentFolderName || 'katalog główny'}</strong>
+          </p>
+          <Field label="Nazwa folderu">
+            <input
+              type="text"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleCreateFolder(); }}
+              className={inputClass}
+              autoFocus
+            />
+          </Field>
+
+          {/* Role odziedziczone po folderze nadrzędnym (tylko do wglądu) */}
+          {currentFolderId !== null && (
+            <div className="mt-4">
+              <p className="mb-1 text-[11px] text-app-muted">
+                Nowy podfolder odziedziczy dostęp folderu nadrzędnego:
+              </p>
+              {inheritedPerms.length === 0 ? (
+                <p className="text-[11px] text-app-muted">Brak ról z dostępem (poza administratorem).</p>
+              ) : (
+                <ul className="divide-y divide-app-line rounded-ctl border border-app-line text-[13px] text-app-text">
+                  {inheritedPerms.map((p) => (
+                    <li key={p.role} className="px-3 py-1.5">
+                      {roleLabel(roles, p.role)}
+                      <span className="text-app-muted"> · {ACCESS_LABELS[p.access_level] || p.access_level}</span>
+                    </li>
+                  ))}
                 </ul>
               )}
+              <p className="mt-1 text-[11px] text-app-muted">
+                Dostęp dziedziczony jest tylko do wglądu. Zmienisz go później ikoną kłódki na folderze.
+              </p>
             </div>
+          )}
+        </Modal>
+      )}
 
-            {/* Formularz dodania uprawnienia — tylko role/poziomy, które coś zmienią.
-                Można wyłącznie ROZSZERZAĆ dostęp (dodać rolę lub podnieść Odczyt→Zapis);
-                zawężać poniżej dziedziczonego nie można. */}
-            {permAvailableRoles.length === 0 ? (
-              <div className="border-t border-gray-100 pt-4 text-xs text-gray-500">
-                Wszystkie role mają już maksymalny dostęp (Zapis) — dziedziczony lub
-                własny. Nie ma czego dodać.
+      {permFolder && isAdmin && (
+        <Modal title="Uprawnienia folderu" size="lg" onClose={() => setPermFolder(null)}>
+          <p className="mb-3 text-[13px] text-app-text">
+            Folder: <strong>{permFolder.name}</strong>{' '}
+            <span className="text-app-muted">({permFolder.path})</span>
+          </p>
+          <p className="mb-4 text-[11px] leading-relaxed text-app-muted">
+            Rola z uprawnieniem widzi pliki w tym folderze <strong>i jego podfolderach</strong>.
+            Uprawnienia oznaczone jako dziedziczone pochodzą z folderu nadrzędnego — zmienisz je
+            na tamtym folderze. Administrator ma zawsze pełny dostęp; pliki w katalogu głównym
+            widzi tylko administrator.
+          </p>
+
+          <div className="mb-4">
+            {permLoading ? (
+              <div className="py-3 text-[13px] text-app-muted">Ładowanie…</div>
+            ) : permEffective.length === 0 ? (
+              <div className="rounded-ctl border border-dashed border-app-line py-3 text-center text-[13px] text-app-muted">
+                Brak uprawnień — tylko administrator widzi ten folder.
               </div>
             ) : (
-              <div className="flex items-end gap-2 border-t border-gray-100 pt-4">
-                <label className="flex-1 text-xs text-gray-500">
-                  Rola
-                  <select
-                    value={newPermRole}
-                    onChange={(e) => setNewPermRole(e.target.value)}
-                    className="mt-1 w-full border border-gray-300 rounded-md p-2 text-sm text-gray-800"
-                  >
+              <ul className="divide-y divide-app-line rounded-ctl border border-app-line">
+                {permEffective.map((eff) => {
+                  // Własne rozszerzenie = bezpośrednie uprawnienie WYŻSZE niż dziedziczone.
+                  // Bezpośrednie ≤ dziedziczone jest zdominowane → traktujemy jak dziedziczone.
+                  const direct = permissions.find((p) => p.role === eff.role);
+                  const isOwn =
+                    !!direct && accessRank(direct.access_level) > accessRank(permInhByRole[eff.role]);
+                  return (
+                    <li key={eff.role} className="flex items-center justify-between gap-3 px-3 py-2 text-[13px]">
+                      <span className="text-app-text">
+                        {roleLabel(roles, eff.role)}
+                        <span className="text-app-muted"> · {ACCESS_LABELS[eff.access_level] || eff.access_level}</span>
+                        {!isOwn && (
+                          <span className="ml-2 text-[11px] text-app-muted">(dziedziczone z nadrzędnego)</span>
+                        )}
+                      </span>
+                      {isOwn && direct ? (
+                        <button
+                          onClick={() => handleDeletePermission(direct.id)}
+                          className="text-[11px] font-bold text-app-danger hover:underline"
+                        >
+                          Usuń
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-app-line">—</span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          {/* Formularz dodania uprawnienia — tylko role/poziomy, które coś zmienią.
+              Można wyłącznie ROZSZERZAĆ dostęp (dodać rolę lub podnieść Odczyt→Zapis);
+              zawężać poniżej dziedziczonego nie można. */}
+          {permAvailableRoles.length === 0 ? (
+            <div className="border-t border-app-line pt-4 text-[11px] text-app-muted">
+              Wszystkie role mają już maksymalny dostęp (Zapis) — dziedziczony albo własny.
+              Nie ma czego dodać.
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-end gap-2 border-t border-app-line pt-4">
+              <div className="min-w-[160px] flex-1">
+                <Field label="Rola">
+                  <select value={newPermRole} onChange={(e) => setNewPermRole(e.target.value)} className={inputClass}>
                     {permAvailableRoles.map((r) => (
                       <option key={r.value} value={r.value}>{r.label}</option>
                     ))}
                   </select>
-                </label>
-                <label className="text-xs text-gray-500">
-                  Poziom
-                  <select
-                    value={newPermAccess}
-                    onChange={(e) => setNewPermAccess(e.target.value)}
-                    className="mt-1 border border-gray-300 rounded-md p-2 text-sm text-gray-800"
-                  >
+                </Field>
+              </div>
+              <div>
+                <Field label="Poziom">
+                  <select value={newPermAccess} onChange={(e) => setNewPermAccess(e.target.value)} className={`${inputClass} w-auto`}>
                     {permAvailableLevels.map((lvl) => (
                       <option key={lvl} value={lvl}>{ACCESS_LABELS[lvl]}</option>
                     ))}
                   </select>
-                </label>
-                <button
-                  onClick={handleAddPermission}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm"
-                >
-                  Dodaj
-                </button>
+                </Field>
               </div>
-            )}
-          </div>
-        </div>
+              <Button variant="primary" onClick={handleAddPermission}>Dodaj</Button>
+            </div>
+          )}
+        </Modal>
       )}
 
-      {/* Upload Modal */}
       {showUploadModal && canWriteHere && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-bold text-gray-800 mb-2">Prześlij pliki</h2>
-            <p className="text-sm text-gray-600 mb-1">
-              Dozwolone typy: {allowedExts.map((e) => e.toUpperCase()).join(', ')} (max
-              100MB). Możesz wybrać wiele plików naraz.
-            </p>
-            <p className="text-sm text-gray-600 mb-4">
-              Docelowy folder: <strong>
-                {currentFolderName || 'Root (brak folderu)'}
-              </strong>
-            </p>
-            <input
-              type="file"
-              multiple
-              accept={allowedExts.map((e) => `.${e}`).join(',')}
-              onChange={handleUpload}
-              className="w-full border border-gray-300 rounded-md p-2"
-              disabled={uploading}
-            />
+        <Modal
+          title="Prześlij pliki"
+          onClose={() => { setShowUploadModal(false); setUploadItems([]); }}
+          footer={
+            <Button onClick={() => { setShowUploadModal(false); setUploadItems([]); }} disabled={uploading}>
+              {uploading ? 'Wgrywanie…' : uploadItems.length > 0 ? 'Zamknij' : 'Anuluj'}
+            </Button>
+          }
+        >
+          <p className="mb-1 text-[13px] text-app-muted">
+            Dozwolone typy: {allowedExts.map((e) => e.toUpperCase()).join(', ')} (do 100 MB).
+            Możesz wybrać wiele plików naraz.
+          </p>
+          <p className="mb-4 text-[13px] text-app-muted">
+            Folder docelowy: <strong className="text-app-text">{currentFolderName || 'katalog główny'}</strong>
+          </p>
+          <input
+            type="file"
+            multiple
+            accept={allowedExts.map((e) => `.${e}`).join(',')}
+            onChange={handleUpload}
+            className="w-full rounded-ctl border border-app-line p-2 text-[13px]"
+            disabled={uploading}
+          />
 
-            {/* Postęp wgrywania (jeden wiersz na plik) */}
-            {uploadItems.length > 0 && (
-              <div className="mt-4">
-                <div className="text-sm font-medium text-gray-700 mb-2">
-                  Postęp: {uploadItems.filter((it) => it.status === 'done').length}/
-                  {uploadItems.length} wgranych
-                  {uploadItems.some((it) => it.status === 'error') && (
-                    <span className="text-red-600">
-                      {' '}
-                      ({uploadItems.filter((it) => it.status === 'error').length} z błędem)
+          {uploadItems.length > 0 && (
+            <div className="mt-4">
+              <div className="mb-2 text-[13px] font-medium text-app-text">
+                Postęp: {uploadItems.filter((it) => it.status === 'done').length}/{uploadItems.length} wgranych
+                {uploadItems.some((it) => it.status === 'error') && (
+                  <span className="text-app-danger">
+                    {' '}({uploadItems.filter((it) => it.status === 'error').length} z błędem)
+                  </span>
+                )}
+              </div>
+              <ul className="max-h-48 divide-y divide-app-line overflow-y-auto rounded-ctl border border-app-line">
+                {uploadItems.map((it, idx) => (
+                  <li key={idx} className="flex items-start gap-2 px-3 py-2 text-[13px]">
+                    <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${STAN_WGRYWANIA[it.status]}`} aria-hidden="true" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-app-text" title={it.name}>{it.name}</span>
+                      <span className="block text-[11px] text-app-muted">{OPIS_WGRYWANIA[it.status]}</span>
+                      {it.status === 'error' && it.error && (
+                        <span className="block text-[11px] text-app-danger">{it.error}</span>
+                      )}
                     </span>
-                  )}
-                </div>
-                <ul className="max-h-48 overflow-y-auto divide-y divide-gray-100 border border-gray-200 rounded-md">
-                  {uploadItems.map((it, idx) => (
-                    <li key={idx} className="flex items-start gap-2 px-3 py-2 text-sm">
-                      <span className="mt-0.5">
-                        {it.status === 'done'
-                          ? '✅'
-                          : it.status === 'error'
-                          ? '❌'
-                          : it.status === 'uploading'
-                          ? '⏳'
-                          : '⬜'}
-                      </span>
-                      <span className="flex-1 min-w-0">
-                        <span className="block truncate text-gray-800" title={it.name}>
-                          {it.name}
-                        </span>
-                        {it.status === 'error' && it.error && (
-                          <span className="block text-xs text-red-600">{it.error}</span>
-                        )}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div className="flex justify-end space-x-2 mt-4">
-              <button
-                onClick={() => {
-                  setShowUploadModal(false);
-                  setUploadItems([]);
-                }}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
-                disabled={uploading}
-              >
-                {uploading
-                  ? 'Wgrywanie...'
-                  : uploadItems.length > 0
-                  ? 'Zamknij'
-                  : 'Anuluj'}
-              </button>
+                  </li>
+                ))}
+              </ul>
             </div>
-          </div>
-        </div>
+          )}
+        </Modal>
       )}
 
-      {/* File Preview Modal */}
       {selectedFile && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                <span>{getFileIcon(selectedFile.filename)}</span>
-                {selectedFile.filename}
-              </h2>
-              <button
-                onClick={() => setSelectedFile(null)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                ✕
-              </button>
-            </div>
-
-            <dl className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <dt className="text-sm text-gray-500">Typ pliku</dt>
-                <dd className="text-gray-800">{selectedFile.mime_type || 'Nieznany'}</dd>
-              </div>
-              <div>
-                <dt className="text-sm text-gray-500">Rozmiar</dt>
-                <dd className="text-gray-800">{formatFileSize(selectedFile.size)}</dd>
-              </div>
-              <div>
-                <dt className="text-sm text-gray-500">Status</dt>
-                <dd className="text-gray-800">{selectedFile.status}</dd>
-              </div>
-              <div>
-                <dt className="text-sm text-gray-500">Data dodania</dt>
-                <dd className="text-gray-800">
-                  {czasLokalny(selectedFile.created_at, { dateStyle: 'long', timeStyle: 'short' })}
-                </dd>
-              </div>
-              {selectedFile.folder && (
-                <div>
-                  <dt className="text-sm text-gray-500">Folder</dt>
-                  <dd className="text-gray-800">{selectedFile.folder.name}</dd>
-                </div>
-              )}
-              {selectedFile.uploader && (
-                <div>
-                  <dt className="text-sm text-gray-500">Wczytał</dt>
-                  <dd className="text-gray-800">{selectedFile.uploader.username}</dd>
-                </div>
-              )}
-            </dl>
-
-            <div className="flex space-x-2">
-              <button
-                onClick={() => handleDownload(selectedFile)}
-                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-              >
-                ⬇️ Pobierz plik
-              </button>
-              {selectedFile.mime_type === 'application/pdf' && (
-                <button
-                  onClick={async () => {
-                    const token = localStorage.getItem('auth_token');
-                    if (!token) return;
-                    try {
-                      const response = await fetch(`/api/files/${selectedFile.id}/download`, {
-                        headers: { 'Authorization': `Bearer ${token}` },
-                      });
-                      if (!response.ok) throw new Error('Preview failed');
-                      const blob = await response.blob();
-                      const url = URL.createObjectURL(blob);
-                      window.open(url, '_blank');
-                    } catch (e) {
-                      alert('Podgląd nie powiódł się');
-                    }
-                  }}
-                  className="flex-1 bg-gray-100 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-200"
-                >
-                  👁️ Podgląd PDF
-                </button>
-              )}
+        <Modal
+          size="xl"
+          onClose={() => setSelectedFile(null)}
+          title={
+            <span className="flex items-center gap-2.5">
+              <FileTypeIcon filename={selectedFile.filename} size={30} />
+              <span className="min-w-0 break-words">{selectedFile.filename}</span>
+            </span>
+          }
+          footer={
+            <>
               {(isAdmin || canWriteHere) && (
-                <button
-                  onClick={() => { handleDelete(selectedFile.id); setSelectedFile(null); }}
-                  className="flex-1 bg-red-100 text-red-800 px-4 py-2 rounded-md hover:bg-red-200"
-                >
-                  🗑️ Usuń
-                </button>
+                <Button variant="danger" onClick={() => { handleDelete(selectedFile.id); setSelectedFile(null); }}>
+                  <IconTrash size={16} />
+                  Usuń
+                </Button>
               )}
-            </div>
-          </div>
-        </div>
+              {selectedFile.mime_type === 'application/pdf' && (
+                <Button onClick={() => handlePreview(selectedFile)}>
+                  <IconEye size={16} />
+                  Podgląd
+                </Button>
+              )}
+              <Button variant="primary" onClick={() => handleDownload(selectedFile)}>
+                <IconDownload size={16} />
+                Pobierz plik
+              </Button>
+            </>
+          }
+        >
+          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Szczegol etykieta="Typ pliku" wartosc={selectedFile.mime_type || 'nieznany'} />
+            <Szczegol etykieta="Rozmiar" wartosc={rozmiarPliku(selectedFile.size)} />
+            <Szczegol etykieta="Status przetwarzania" wartosc={selectedFile.status} />
+            <Szczegol
+              etykieta="Data dodania"
+              wartosc={czasLokalny(selectedFile.created_at, { dateStyle: 'long', timeStyle: 'short' })}
+            />
+            <Szczegol etykieta="Folder" wartosc={selectedFile.folder?.path || 'katalog główny'} />
+            <Szczegol etykieta="Wczytał" wartosc={selectedFile.uploader?.username || '—'} />
+            <Szczegol etykieta="Kategoria" wartosc={etykietaKategorii(selectedFile.doc_type)} />
+            {selectedFile.original_filename && selectedFile.original_filename !== selectedFile.filename && (
+              <Szczegol etykieta="Nazwa pierwotna" wartosc={selectedFile.original_filename} />
+            )}
+          </dl>
+        </Modal>
       )}
 
-      {/* Zmiana nazwy folderu (admin) */}
       {renameFolder && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Zmień nazwę folderu</h2>
+        <Modal
+          title="Zmień nazwę folderu"
+          onClose={() => setRenameFolder(null)}
+          footer={
+            <>
+              <Button onClick={() => setRenameFolder(null)}>Anuluj</Button>
+              <Button
+                variant="primary"
+                onClick={submitRename}
+                disabled={renaming || !renameValue.trim() || renameValue.trim() === renameFolder.name}
+              >
+                {renaming ? 'Zapisywanie…' : 'Zapisz'}
+              </Button>
+            </>
+          }
+        >
+          <Field label="Nazwa folderu">
             <input
               type="text"
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') submitRename(); }}
               autoFocus
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={inputClass}
             />
+          </Field>
+          <p className="mt-2 text-[11px] text-app-muted">
             {(() => {
               const subs = folders.filter((f) => f.path.startsWith(renameFolder.path + '/')).length;
-              return (
-                <p className="text-xs text-gray-500 mt-2">
-                  Zmiana obejmie ścieżkę tego folderu
-                  {subs > 0 ? ` oraz ${subs} podfolder(ów)` : ''}. Pliki i uprawnienia pozostają
-                  przypisane bez zmian.
-                </p>
-              );
+              return `Zmiana obejmie ścieżkę tego folderu${subs > 0 ? ` oraz ${subs} podfolderów` : ''}. Pliki i uprawnienia pozostają przypisane bez zmian.`;
             })()}
-            <div className="flex justify-end gap-2 mt-5">
-              <button
-                onClick={() => setRenameFolder(null)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-              >
-                Anuluj
-              </button>
-              <button
-                onClick={submitRename}
-                disabled={renaming || !renameValue.trim() || renameValue.trim() === renameFolder.name}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed"
-              >
-                {renaming ? 'Zapisywanie…' : 'Zapisz'}
-              </button>
-            </div>
-          </div>
-        </div>
+          </p>
+        </Modal>
       )}
 
-      {/* Przeniesienie plików do innego folderu */}
       {renameTarget && (
         <RenameDialog
           fileIds={renameTarget}
@@ -1411,19 +1311,20 @@ function FilesPageInner() {
       )}
 
       {moveTarget && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold text-gray-800 mb-1">
-              Przenieś {moveTarget.length === 1 ? 'plik' : `pliki (${moveTarget.length})`}
-            </h2>
-            <p className="text-xs text-gray-500 mb-4">
-              Wybierz folder docelowy. Widoczne są tylko foldery z prawem zapisu.
-            </p>
-            <select
-              value={moveFolderId}
-              onChange={(e) => setMoveFolderId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500"
-            >
+        <Modal
+          title={`Przenieś ${moveTarget.length === 1 ? 'plik' : `pliki (${moveTarget.length})`}`}
+          onClose={() => setMoveTarget(null)}
+          footer={
+            <>
+              <Button onClick={() => setMoveTarget(null)}>Anuluj</Button>
+              <Button variant="primary" onClick={submitMove} disabled={moving || (!isAdmin && moveFolderId === '')}>
+                {moving ? 'Przenoszenie…' : 'Przenieś'}
+              </Button>
+            </>
+          }
+        >
+          <Field label="Folder docelowy" hint="Widoczne są tylko foldery z prawem zapisu.">
+            <select value={moveFolderId} onChange={(e) => setMoveFolderId(e.target.value)} className={inputClass}>
               <option value="">{isAdmin ? '— katalog główny —' : '— wybierz folder —'}</option>
               {folders
                 .filter((f) => (isAdmin || f.can_write) && f.id !== currentFolderId)
@@ -1431,24 +1332,19 @@ function FilesPageInner() {
                   <option key={f.id} value={String(f.id)}>{f.path}</option>
                 ))}
             </select>
-            <div className="flex justify-end gap-2 mt-5">
-              <button
-                onClick={() => setMoveTarget(null)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-              >
-                Anuluj
-              </button>
-              <button
-                onClick={submitMove}
-                disabled={moving || (!isAdmin && moveFolderId === '')}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed"
-              >
-                {moving ? 'Przenoszenie…' : 'Przenieś'}
-              </button>
-            </div>
-          </div>
-        </div>
+          </Field>
+        </Modal>
       )}
+    </div>
+  );
+}
+
+/** Jedna pozycja w oknie szczegółów pliku. */
+function Szczegol({ etykieta, wartosc }: { etykieta: string; wartosc: string }) {
+  return (
+    <div>
+      <dt className="text-[11px] uppercase tracking-[.02em] text-app-muted">{etykieta}</dt>
+      <dd className="mt-0.5 break-words text-[13px] text-app-text">{wartosc}</dd>
     </div>
   );
 }

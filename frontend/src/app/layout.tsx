@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { MarkaProvider } from '@/components/marka-provider';
-import { markaZeSrodowiska } from '@/lib/marka';
+import { markaAktualna } from '@/lib/marka';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -10,8 +10,8 @@ const inter = Inter({ subsets: ['latin'] });
 // a nie w czasie budowy obrazu — inaczej ten sam obraz nie obsłużyłby dwóch wdrożeń.
 export const dynamic = 'force-dynamic';
 
-export function generateMetadata(): Metadata {
-  const marka = markaZeSrodowiska();
+export async function generateMetadata(): Promise<Metadata> {
+  const marka = await markaAktualna();
   return {
     title: `${marka.nazwa} - System zarządzania dokumentami`,
     description: marka.opis,
@@ -23,12 +23,12 @@ export function generateMetadata(): Metadata {
   };
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const marka = markaZeSrodowiska();
+  const marka = await markaAktualna();
   // Kolory jadą jako zmienne CSS: klasy Tailwinda są ustalane w czasie budowy, więc
   // wartość koloru musi wejść do drzewa stylów, a nie do nazwy klasy.
   const zmienneKoloru = {

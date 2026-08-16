@@ -197,3 +197,50 @@ class TestNaglowkaPobierania:
     def test_nazwa_bez_ani_jednego_znaku_ascii(self):
         """Sama transliteracja moglaby dac pusty napis — wtedy potrzebny jest zapas."""
         assert 'filename="lista-dokumentow.xlsx"' in naglowek_pobierania("日本語.xlsx")
+
+
+SCHEMAT_FAKTURY = {
+    "faktura": {
+        "slug": "faktura", "name": "Faktura",
+        "fields": [{"name": "kwota_brutto", "type": "money"}],
+    },
+}
+
+
+def faktura(zapis):
+    return {"filename": "f.pdf", "doc_type": "faktura", "doc_fields": {"kwota_brutto": zapis}}
+
+
+class TestKwoty:
+    """Typ „money" istnieje po to, żeby kolumna z kwotami dała się ZSUMOWAĆ.
+    Gdyby wartość trafiała do arkusza jako tekst, cały ten typ byłby ozdobą."""
+
+    @pytest.mark.parametrize("zapis,oczekiwana", [
+        ("1234,56", 1234.56),
+        ("1 234,56 zł", 1234.56),          # spacja grupująca i symbol waluty
+        ("1\u00a0234,56 PLN", 1234.56),    # spacja niełamliwa z dokumentu
+        ("1.234,56", 1234.56),             # kropka jako tysiące, przecinek jako grosze
+        ("1,234.56", 1234.56),             # zapis angielski — ostatni separator rządzi
+        ("12.345.678", 12345678.0),        # same tysiące, bez groszy
+        ("1.5", 1.5),                      # kropka dziesiętna, nie tysiące
+        ("980", 980.0),
+        ("-45,20", -45.2),
+    ])
+    def test_rozne_zapisy_kwoty(self, zapis, oczekiwana):
+        ws = wczytaj([faktura(zapis)], SCHEMAT_FAKTURY)["Faktura"]
+        assert ws.cell(row=2, column=2).value == pytest.approx(oczekiwana)
+
+    def test_kwota_dostaje_format_z_groszami(self):
+        ws = wczytaj([faktura("1234,5")], SCHEMAT_FAKTURY)["Faktura"]
+        assert ws.cell(row=2, column=2).number_format == "#,##0.00"
+
+    def test_nierozpoznana_kwota_zostaje_tekstem(self):
+        # Lepiej pokazać, co było w dokumencie, niż zamienić śmieć na zero.
+        ws = wczytaj([faktura("do uzgodnienia")], SCHEMAT_FAKTURY)["Faktura"]
+        komorka = ws.cell(row=2, column=2)
+        assert komorka.value == "do uzgodnienia"
+        assert komorka.number_format != "#,##0.00", "tekst nie może udawać kwoty"
+
+    def test_brak_kwoty_to_pusta_komorka(self):
+        ws = wczytaj([faktura(None)], SCHEMAT_FAKTURY)["Faktura"]
+        assert ws.cell(row=2, column=2).value is None

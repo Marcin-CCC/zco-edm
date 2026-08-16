@@ -1,12 +1,13 @@
 import os
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth.auth import get_current_user
 from app.models import User, Setting
 from app.schemas import SettingsResponse, SettingsUpdate
+from app.branding import sprawdz_kolor, wczytaj_ikone
 from app.config import settings as app_settings
 
 router = APIRouter(prefix="/api/settings", tags=["Settings"])
@@ -88,8 +89,33 @@ def get_idle_timeout() -> int:
 
 
 # Klucze ustawień możliwe do edycji przez API
-_UPDATABLE_KEYS = {"n8n_webhook_url", "chat_webhook_url", "allowed_extensions", "idle_timeout_minutes"}
+# Identyfikacja instancji przeniesiona ze zmiennych środowiskowych do bazy
+# (zob. app/branding.py) oraz dane serwera poczty dla ekranu „Skontaktuj się".
+_BRANDING_KEYS = {"app_name", "app_name_color"}
+_SMTP_KEYS = {"smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_from", "support_email"}
+_UPDATABLE_KEYS = (
+    {"n8n_webhook_url", "chat_webhook_url", "allowed_extensions", "idle_timeout_minutes"}
+    | _BRANDING_KEYS | _SMTP_KEYS
+)
 _URL_KEYS = {"n8n_webhook_url", "chat_webhook_url"}
+
+# Hasła do poczty NIE zwracamy nigdy — interfejs dostaje tylko informację,
+# czy jest ustawione. Inaczej wystarczyłby podgląd źródła strony ustawień.
+_TAJNE_KEYS = {"smtp_password"}
+
+
+def ustawienie(klucz: str, domyslne: str = "") -> str:
+    """Wartość ustawienia z pamięci podręcznej (pusta, gdy nie ustawiono)."""
+    return _settings_cache.get(klucz) or domyslne
+
+
+def marka() -> dict:
+    """Nazwa, kolor nazwy i ikona instancji — z bazy, z awaryjnym powrotem do env."""
+    return {
+        "nazwa": ustawienie("app_name", app_settings.APP_NAME),
+        "kolor_nazwy": ustawienie("app_name_color"),
+        "ikona": ustawienie("app_icon"),
+    }
 
 
 @router.get("/", response_model=SettingsResponse)
@@ -106,6 +132,15 @@ def get_settings(
         chat_webhook_url=_settings_cache.get("chat_webhook_url", "") or "",
         allowed_extensions=_settings_cache.get("allowed_extensions", _DEFAULT_ALLOWED_EXTENSIONS) or "",
         idle_timeout_minutes=get_idle_timeout(),
+        app_name=ustawienie("app_name", app_settings.APP_NAME),
+        app_name_color=ustawienie("app_name_color"),
+        app_icon=ustawienie("app_icon"),
+        smtp_host=ustawienie("smtp_host"),
+        smtp_port=ustawienie("smtp_port"),
+        smtp_user=ustawienie("smtp_user"),
+        smtp_from=ustawienie("smtp_from"),
+        support_email=ustawienie("support_email"),
+        smtp_password_set=bool(ustawienie("smtp_password")),
     )
 
 
@@ -128,6 +163,45 @@ def get_session_settings(
         "idle_timeout_minutes": get_idle_timeout(),
         "allowed_extensions": sorted(get_allowed_extensions()),
     }
+
+
+@router.post("/app-icon")
+async def upload_app_icon(
+    plik: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Wgranie ikony aplikacji (PNG albo SVG, kwadratowa).
+
+    Ikonę trzymamy w bazie jako data URI — zob. uzasadnienie w app/branding.py.
+    """
+    global _settings_cache, _cache_loaded
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tylko administrator może zmieniać ikonę.")
+    if not _cache_loaded:
+        _load_cache_from_db(db)
+
+    _settings_cache["app_icon"] = await wczytaj_ikone(plik)
+    _cache_loaded = True
+    _save_cache_to_db(db)
+    return {"app_icon": _settings_cache["app_icon"]}
+
+
+@router.delete("/app-icon")
+def reset_app_icon(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Przywrócenie ikony domyślnej (tej z obrazu aplikacji)."""
+    global _settings_cache, _cache_loaded
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Tylko administrator może zmieniać ikonę.")
+    if not _cache_loaded:
+        _load_cache_from_db(db)
+    _settings_cache["app_icon"] = ""
+    _cache_loaded = True
+    _save_cache_to_db(db)
+    return {"app_icon": ""}
 
 
 @router.put("/{key}")
@@ -162,6 +236,23 @@ def update_setting(
     elif key in _URL_KEYS:
         if not new_value.startswith(("http://", "https://")):
             raise HTTPException(status_code=400, detail="Invalid URL format. Must start with http:// or https://")
+    elif key == "app_name_color":
+        new_value = sprawdz_kolor(new_value)
+    elif key == "app_name":
+        new_value = new_value.strip()
+        if not 1 <= len(new_value) <= 40:
+            raise HTTPException(status_code=400, detail="Nazwa aplikacji: od 1 do 40 znaków.")
+    elif key == "smtp_port":
+        try:
+            port = int(new_value)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Port SMTP musi być liczbą.")
+        if not 1 <= port <= 65535:
+            raise HTTPException(status_code=400, detail="Port SMTP musi mieścić się w zakresie 1–65535.")
+        new_value = str(port)
+    elif key in {"smtp_from", "support_email"}:
+        if "@" not in new_value:
+            raise HTTPException(status_code=400, detail="Podaj poprawny adres e-mail.")
     elif key == "allowed_extensions":
         exts = _parse_extensions(new_value)
         if not exts:

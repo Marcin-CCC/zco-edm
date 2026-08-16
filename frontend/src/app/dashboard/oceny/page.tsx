@@ -9,7 +9,9 @@
  * „streszczenia") mówi, gdzie zaczynać dochodzenie.
  */
 import { useCallback, useEffect, useState } from 'react';
+import { IconDoc } from '@/components/icons';
 import { czasLokalny } from '@/lib/czas';
+import { Card, EmptyState, PageHeader, inputClass } from '@/components/ui/primitives';
 import { roleLabel, useRoles } from '@/lib/roles';
 
 interface Diagnostyka {
@@ -127,12 +129,12 @@ function ListaZrodel({ zrodla, dobrane = [], uklad = 'pion' }: {
               <button
                 onClick={() => otworzDokument(z.file_id!)}
                 title="Otwórz dokument"
-                className={`text-left hover:underline ${nieuzyte ? 'text-gray-400' : 'text-blue-600'}`}
+                className={`inline-flex items-center gap-1 text-left hover:underline ${nieuzyte ? 'text-app-muted' : 'text-app-blue'}`}
               >
-                📄 {nazwa}
+                <IconDoc size={13} /> {nazwa}
               </button>
             ) : (
-              <span className={nieuzyte ? 'text-gray-400' : 'text-gray-600'}>📄 {nazwa}</span>
+              <span className={`inline-flex items-center gap-1 ${nieuzyte ? 'text-app-muted' : 'text-app-text'}`}><IconDoc size={13} /> {nazwa}</span>
             )}
             {dobrany ? (
               <span
@@ -143,7 +145,7 @@ function ListaZrodel({ zrodla, dobrane = [], uklad = 'pion' }: {
               </span>
             ) : (
               typeof z.score === 'number' && z.score > 0 && (
-                <span className="ml-1 text-gray-400">— {z.score.toFixed(2)}</span>
+                <span className="ml-1 text-app-muted">— {z.score.toFixed(2)}</span>
               )
             )}
           </li>
@@ -156,9 +158,9 @@ function ListaZrodel({ zrodla, dobrane = [], uklad = 'pion' }: {
 /** Objaśnienie kolorów i etykiet — raz na ekran, nie przy każdym wierszu. */
 function Legenda() {
   return (
-    <p className="text-xs text-gray-500 mb-3 flex flex-wrap gap-x-4 gap-y-1">
-      <span><span className="text-blue-600">📄 niebieski</span> — model powołał się na ten fragment znacznikiem [Źródło N]</span>
-      <span><span className="text-gray-400">📄 szary</span> — fragment był w kontekście, ale model go nie oznaczył (mógł z niego skorzystać bez znacznika)</span>
+    <p className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-app-muted">
+      <span><span className="text-app-blue">niebieski</span> — model powołał się na ten fragment znacznikiem [Źródło N]</span>
+      <span><span className="text-app-muted">szary</span> — fragment był w kontekście, ale model go nie oznaczył (mógł z niego skorzystać bez znacznika)</span>
       <span><span className="rounded bg-amber-50 text-amber-700 px-1">dobrany</span> — doklejony celowo z rozpoznanego dokumentu, poza progiem trafności</span>
     </p>
   );
@@ -217,23 +219,26 @@ export default function OcenyPage() {
   const razem = Object.values(podsumowanie).reduce((a, b) => a + b, 0);
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-1">Lista odpowiedzi</h1>
-      <p className="text-sm text-gray-600 mb-4">
-        {widok === 'oceny'
-          ? 'Materiał do poprawiania wyszukiwania. Przy ocenie negatywnej warto zacząć od pola „ścieżka” — mówi, którym trybem aplikacja szukała dokumentów.'
-          : 'Wszystkie zadane pytania, także te bez oceny. W fazie testów pokazuje, o co ludzie faktycznie pytają i kto z systemu korzysta.'}
-      </p>
+    <div>
+      <PageHeader
+        title="Lista odpowiedzi"
+        description={
+          widok === 'oceny'
+            ? 'Materiał do poprawiania wyszukiwania. Przy ocenie negatywnej warto zacząć od pola „ścieżka” — mówi, którym trybem aplikacja szukała dokumentów.'
+            : 'Wszystkie zadane pytania, także te bez oceny. W fazie testów pokazuje, o co ludzie faktycznie pytają i kto z systemu korzysta.'
+        }
+      />
 
-      <div className="flex gap-1 mb-4 border-b border-gray-200">
+      {/* Wybrana zakładka na szarym tle z białym elementem aktywnym — niebieskie
+          wypełnienie jest w tym layoucie zarezerwowane dla akcji. */}
+      <div className="mb-4 inline-flex gap-1 rounded-ctl bg-[#eef1f6] p-1">
         {([['oceny', 'Oceny'], ['rejestr', 'Wszystkie pytania']] as const).map(([k, etykieta]) => (
           <button
             key={k}
             onClick={() => setWidok(k)}
-            className={`px-3 py-1.5 text-sm -mb-px border-b-2 ${
-              widok === k
-                ? 'border-blue-600 text-blue-700 font-medium'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+            aria-pressed={widok === k}
+            className={`rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-colors ${
+              widok === k ? 'bg-white text-app-text shadow-sm' : 'text-app-muted hover:text-app-text'
             }`}
           >
             {etykieta}
@@ -244,11 +249,11 @@ export default function OcenyPage() {
       {/* Filtr osoby dotyczy OBU zakładek — administrator śledzi jedną osobę
           niezależnie od tego, czy patrzy na oceny, czy na cały ruch. */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <label className="text-sm text-gray-600">Użytkownik:</label>
+        <label className="text-[13px] text-app-muted">Użytkownik:</label>
         <select
           value={ktoryUzytkownik}
           onChange={(e) => setKtoryUzytkownik(e.target.value)}
-          className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+          className={`${inputClass} h-9 w-auto`}
         >
           <option value="">wszyscy</option>
           {pytajacy.map((u) => (
@@ -260,7 +265,7 @@ export default function OcenyPage() {
         {ktoryUzytkownik && (
           <button
             onClick={() => setKtoryUzytkownik('')}
-            className="text-sm text-blue-600 hover:underline"
+            className="text-[13px] font-semibold text-app-blue hover:underline"
           >
             wyczyść
           </button>
@@ -273,10 +278,10 @@ export default function OcenyPage() {
             {(['dobra', 'neutralna', 'zla'] as const).map((k) => (
               <span key={k} className="text-sm">
                 {IKONA[k]} <strong>{podsumowanie[k] ?? 0}</strong>{' '}
-                <span className="text-gray-500">{NAZWA[k]}</span>
+                <span className="text-app-muted">{NAZWA[k]}</span>
               </span>
             ))}
-            <span className="text-sm text-gray-500">razem: {razem}</span>
+            <span className="text-[13px] text-app-muted">razem: {razem}</span>
             <label className="text-sm flex items-center gap-2 ml-auto">
               <input
                 type="checkbox"
@@ -289,7 +294,7 @@ export default function OcenyPage() {
         ) : (
           <>
             {Object.entries(wgRoli).map(([rola, ile]) => (
-              <span key={rola} className="text-sm text-gray-600">
+              <span key={rola} className="text-[13px] text-app-muted">
                 {roleLabel(roles, rola).toLowerCase()}: <strong>{ile}</strong>
               </span>
             ))}
@@ -307,15 +312,17 @@ export default function OcenyPage() {
 
       <Legenda />
 
-      {blad && <p className="text-red-600 text-sm mb-3">{blad}</p>}
-      {ladowanie && <p className="text-gray-500 text-sm">Wczytywanie…</p>}
+      {blad && <p className="mb-3 text-sm text-app-danger">{blad}</p>}
+      {ladowanie && <Card><EmptyState title="Wczytywanie…" /></Card>}
       {!ladowanie && !blad && widok === 'oceny' && oceny.length === 0 && (
-        <p className="text-gray-500 text-sm">Nie ma jeszcze żadnych ocen.</p>
+        <Card><EmptyState title="Nie ma jeszcze żadnych ocen." hint="Oceny pojawią się, gdy użytkownicy zaczną oceniać odpowiedzi w Chacie z AI." /></Card>
       )}
       {!ladowanie && !blad && widok === 'rejestr' && pytania.length === 0 && (
-        <p className="text-gray-500 text-sm">
-          {tylkoOcenione ? 'Żadne z pytań nie zostało jeszcze ocenione.' : 'Nie zadano jeszcze żadnych pytań.'}
-        </p>
+        <Card>
+          <EmptyState
+            title={tylkoOcenione ? 'Żadne z pytań nie zostało jeszcze ocenione.' : 'Nie zadano jeszcze żadnych pytań.'}
+          />
+        </Card>
       )}
 
       {widok === 'rejestr' && (
@@ -324,28 +331,28 @@ export default function OcenyPage() {
             const otwarte = !!rozwiniete[p.message_id];
             const d = p.diagnostyka || {};
             return (
-              <div key={p.message_id} className="border border-gray-200 rounded-md p-3">
+              <div key={p.message_id} className="rounded-card border border-app-line bg-white p-3.5 shadow-card">
                 <div className="flex flex-wrap items-baseline gap-2 text-sm">
                   {p.ocena ? <span title={NAZWA[p.ocena]}>{IKONA[p.ocena]}</span>
-                           : <span className="text-gray-300" title="bez oceny">·</span>}
+                           : <span className="text-app-line" title="bez oceny">·</span>}
                   {p.powod && (
-                    <span className="rounded-full bg-red-50 text-red-700 px-2 py-0.5 text-xs">
+                    <span className="rounded-full bg-app-dangerbg px-2 py-0.5 text-[11px] font-bold text-app-danger">
                       {p.powod}
                     </span>
                   )}
                   <strong className="flex-1">{p.pytanie || '(brak pytania w historii)'}</strong>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-[11px] text-app-muted">
                     {p.uzytkownik} · {roleLabel(roles, p.rola).toLowerCase()}
                   </span>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-[11px] text-app-muted">
                     {czasLokalny(p.created_at)}
                   </span>
                 </div>
-                <div className="mt-1 text-xs text-gray-600 flex flex-wrap gap-3">
+                <div className="mt-1.5 flex flex-wrap gap-3 text-[11px] text-app-muted">
                   {d.sciezka && <span>ścieżka: <strong>{d.sciezka}</strong></span>}
                   <button
                     onClick={() => setRozwiniete((s) => ({ ...s, [p.message_id]: !otwarte }))}
-                    className="text-blue-600 hover:underline ml-auto"
+                    className="ml-auto font-semibold text-app-blue hover:underline"
                   >
                     {otwarte ? 'Zwiń' : 'Pokaż odpowiedź'}
                   </button>
@@ -354,7 +361,7 @@ export default function OcenyPage() {
                 <ListaZrodel zrodla={p.zrodla} dobrane={d.dobrane} uklad="poziom" />
 
                 {otwarte && (
-                  <p className="mt-2 border-t border-gray-100 pt-2 text-xs whitespace-pre-wrap text-gray-700">
+                  <p className="mt-2 whitespace-pre-wrap border-t border-app-line pt-2 text-xs text-app-text">
                     {p.odpowiedz}
                   </p>
                 )}
@@ -369,27 +376,27 @@ export default function OcenyPage() {
           const d = o.diagnostyka || {};
           const otwarte = !!rozwiniete[o.id];
           return (
-            <div key={o.id} className="border border-gray-200 rounded-md p-3">
+            <div key={o.id} className="rounded-card border border-app-line bg-white p-3.5 shadow-card">
               <div className="flex flex-wrap items-baseline gap-2 text-sm">
                 <span title={NAZWA[o.ocena]}>{IKONA[o.ocena] || '?'}</span>
                 {o.powod && (
-                  <span className="rounded-full bg-red-50 text-red-700 px-2 py-0.5 text-xs">
+                  <span className="rounded-full bg-app-dangerbg px-2 py-0.5 text-[11px] font-bold text-app-danger">
                     {o.powod}
                   </span>
                 )}
                 <strong className="flex-1">{o.pytanie || '(brak zapisanego pytania)'}</strong>
-                {o.uzytkownik && <span className="text-xs text-gray-500">{o.uzytkownik}</span>}
-                <span className="text-xs text-gray-400">{czasLokalny(o.created_at)}</span>
+                {o.uzytkownik && <span className="text-[11px] text-app-muted">{o.uzytkownik}</span>}
+                <span className="text-[11px] text-app-muted">{czasLokalny(o.created_at)}</span>
               </div>
 
-              <div className="mt-1 text-xs text-gray-600 flex flex-wrap gap-3">
+              <div className="mt-1.5 flex flex-wrap gap-3 text-[11px] text-app-muted">
                 <span>ścieżka: <strong>{d.sciezka || '?'}</strong></span>
                 <span>nad progiem: {d.nad_progiem ?? '?'}</span>
                 <span>w kontekście: {d.w_kontekscie ?? '?'}</span>
                 {!!d.dobrane?.length && <span>dobrane: {d.dobrane.length}</span>}
                 {!!d.terminy?.length && <span>zawężenie: {d.terminy.join(', ')}</span>}
                 {d.historia && <span>z historią wątku</span>}
-                {d.wersja && <span className="text-gray-400">v{d.wersja}</span>}
+                {d.wersja && <span className="text-app-muted">v{d.wersja}</span>}
                 <button
                   onClick={() => setRozwiniete((p) => ({ ...p, [o.id]: !otwarte }))}
                   className="text-blue-600 hover:underline ml-auto"
@@ -399,13 +406,13 @@ export default function OcenyPage() {
               </div>
 
               {otwarte && (
-                <div className="mt-2 border-t border-gray-100 pt-2 text-xs">
+                <div className="mt-2 border-t border-app-line pt-2 text-xs">
                   {d.search_query && (
-                    <p className="text-gray-500 mb-1">
+                    <p className="mb-1 text-app-muted">
                       pytanie przepisane do wyszukiwania: <em>{d.search_query}</em>
                     </p>
                   )}
-                  <p className="whitespace-pre-wrap text-gray-700">{o.odpowiedz}</p>
+                  <p className="whitespace-pre-wrap text-app-text">{o.odpowiedz}</p>
                   <ListaZrodel zrodla={d.zrodla} dobrane={d.dobrane} />
                 </div>
               )}

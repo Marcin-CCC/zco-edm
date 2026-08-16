@@ -57,3 +57,50 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ============================================================
+   Tokeny layoutu 1.5 — jedyne źródło wartości wizualnych.
+   ------------------------------------------------------------
+   Wprost z makiet (`mockup/wersja 1.5/`). Przedrostek `--app-`, bo nazwy
+   z makiety (`--card`, `--muted`) kolidują z istniejącymi zmiennymi shadcn,
+   które trzymają barwy w formacie HSL bez `hsl()`.
+
+   Kolorów spoza tej listy nie wprowadzamy. Niebieski jest zarezerwowany dla
+   AKCJI — stanu (aktywna zakładka, bieżąca strona, wybrany widok) nigdy nie
+   oznaczamy niebieskim wypełnieniem.
+   ============================================================ */
+:root {
+  --app-navy: #0b2347;
+  --app-navy2: #0a2b5c;
+  --app-blue: #2563eb;
+  --app-blue2: #1d4ed8;
+  --app-blue-active: #1a45c0;
+  --app-bg: #f5f7fb;
+  --app-card: #ffffff;
+  --app-text: #13233f;
+  --app-muted: #6f7f99;
+  --app-line: #e5ebf4;
+  --app-green: #16a36a;
+  --app-green-bg: #e8f8ef;
+  --app-teal: #13b9b1;
+  --app-orange: #e8843c;
+  --app-purple: #7258ef;
+  --app-purple-bg: #efeafe;
+  --app-danger: #ef4444;
+  --app-danger-bg: #fff1f2;
+  --app-shadow: 0 6px 18px rgba(19, 35, 63, .06);
+  --app-hover: #f6f8fc;
+
+  /* Tło menu bocznego — gradient, nie płaski kolor. */
+  --app-sidebar: linear-gradient(180deg, #0b2d61 0%, #0a2146 100%);
+
+  /* Ikony typów plików (zawsze kwadratowe 32×32). */
+  --app-file-pdf: #d62828;
+  --app-file-doc: #2f66dc;
+  --app-file-xls: #20a25a;
+
+  /* Szerokości menu bocznego: rozwinięte i zwinięte. */
+  --app-sidebar-w: 244px;
+  --app-sidebar-w-collapsed: 72px;
+}
+

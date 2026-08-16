@@ -1,11 +1,31 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+/** Lista dostępów — dostęp efektywny każdej roli do folderów (layout 1.5).
+ *
+ * Logika zarządzania rolami pochodzi z 1.1.0 i zostaje bez zmian: kod roli jest
+ * niezmienny, roli systemowej nie da się usunąć, a usunięcie przenosi użytkowników
+ * i kasuje uprawnienia w jednej transakcji (zob. app/roles/router.py).
+ */
 import Link from 'next/link';
-import { foldersApi } from '@/lib/api';
-import { useAuth } from '@/lib/store';
-import { ROLE_ADMIN, isAdmin as czyAdmin, roleLabel, useRoles, type Role } from '@/lib/roles';
+import { useCallback, useEffect, useState } from 'react';
+
+import { IconEdit, IconPlus, IconTrash } from '@/components/icons';
 import { RoleDialog, type RoleDialogMode } from '@/components/role-dialogs';
+import {
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  EmptyState,
+  IconButton,
+  PageHeader,
+  Table,
+  Td,
+  Th,
+} from '@/components/ui/primitives';
+import { foldersApi } from '@/lib/api';
+import { ROLE_ADMIN, isAdmin as czyAdmin, roleLabel, useRoles, type Role } from '@/lib/roles';
+import { useAuth } from '@/lib/store';
 
 interface AccessItem {
   folder_id: number;
@@ -14,7 +34,6 @@ interface AccessItem {
   access_level: string;
   source: string; // 'direct' | 'inherited'
 }
-
 
 const ACCESS_LABELS: Record<string, string> = { read: 'Odczyt', write: 'Zapis' };
 
@@ -40,13 +59,11 @@ export default function AccessListPage() {
       .finally(() => setLoading(false));
   }, [isAdmin]);
 
-  useEffect(() => {
-    wczytajDostepy();
-  }, [wczytajDostepy]);
+  useEffect(() => { wczytajDostepy(); }, [wczytajDostepy]);
 
-  // Po każdej zmianie w słowniku odświeżamy TAKŻE zestawienie dostępów: utworzenie
-  // roli z kopią uprawnień i usunięcie roli zmieniają je natychmiast, a tabela
-  // pokazująca stan sprzed operacji byłaby myląca akurat tam, gdzie chodzi o audyt.
+  // Po zmianie w słowniku odświeżamy TAKŻE zestawienie dostępów: utworzenie roli
+  // z kopią uprawnień i usunięcie roli zmieniają je natychmiast, a tabela sprzed
+  // operacji byłaby myląca akurat tam, gdzie chodzi o audyt.
   const poZmianie = (tekst: string) => {
     setOkno(null);
     setKomunikat(tekst);
@@ -55,146 +72,127 @@ export default function AccessListPage() {
   };
 
   if (!isAdmin) {
-    return (
-      <div className="text-sm text-gray-600">
-        Ta strona jest dostępna tylko dla administratora.
-      </div>
-    );
+    return <div className="text-sm text-app-muted">Ta strona jest dostępna tylko dla administratora.</div>;
   }
 
   // Kolejność ze słownika ról; administratora pomijamy, bo ma pełny dostęp
   // z definicji. Kody obecne w odpowiedzi, a nieznane słownikowi, dokładamy na
   // koniec — lepiej pokazać rolę bez etykiety niż ukryć jej dostępy.
   const kodyZeSlownika = roles.filter((r) => r.code !== ROLE_ADMIN).map((r) => r.code);
-  const kody = [
-    ...kodyZeSlownika,
-    ...Object.keys(data).filter((r) => !kodyZeSlownika.includes(r)),
-  ];
+  const kody = [...kodyZeSlownika, ...Object.keys(data).filter((r) => !kodyZeSlownika.includes(r))];
 
   return (
     <div>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Lista dostępów</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Dostęp efektywny każdej roli do folderów (z uwzględnieniem dziedziczenia).
-            Administrator ma zawsze pełny dostęp do wszystkiego.
-          </p>
-        </div>
-        <button
-          onClick={() => { setKomunikat(''); setOkno({ mode: 'create' }); }}
-          className="shrink-0 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          + Dodaj rolę
-        </button>
-      </div>
+      <PageHeader
+        title="Lista dostępów"
+        description="Dostęp efektywny każdej roli do folderów, z uwzględnieniem dziedziczenia. Administrator ma zawsze pełny dostęp."
+        actions={
+          <Button variant="primary" onClick={() => { setKomunikat(''); setOkno({ mode: 'create' }); }}>
+            <IconPlus size={18} />
+            Dodaj rolę
+          </Button>
+        }
+      />
 
       {komunikat && (
-        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+        <div className="mb-4 rounded-ctl border border-[#bfe6d2] bg-app-greenbg px-4 py-3 text-sm text-[#148a57]">
           {komunikat}
         </div>
       )}
-
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+        <div className="mb-4 rounded-ctl border border-[#fecdd3] bg-app-dangerbg px-4 py-3 text-sm text-app-danger">
           {error}
         </div>
       )}
 
       {loading ? (
-        <div className="text-center py-8 text-gray-500">Ładowanie...</div>
+        <Card><EmptyState title="Ładowanie…" /></Card>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {kody.map((kod) => {
             const items = data[kod] || [];
             const rola = roles.find((r) => r.code === kod);
             return (
-              <div key={kod} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <h2 className="font-semibold text-gray-800">{roleLabel(roles, kod)}</h2>
+              <Card key={kod} className="overflow-hidden">
+                <CardHeader>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <h2 className="text-[15px] font-bold text-app-text">{roleLabel(roles, kod)}</h2>
                     {rola?.is_system && (
-                      <span
-                        className="rounded-full border border-gray-300 px-2 py-0.5 text-[11px] text-gray-500"
-                        title="Rola wbudowana — aplikacja się do niej odwołuje, więc nie można jej usunąć"
-                      >
-                        rola systemowa
-                      </span>
+                      <Badge tone="gray">
+                        <span title="Rola wbudowana — aplikacja się do niej odwołuje, więc nie można jej usunąć">
+                          rola systemowa
+                        </span>
+                      </Badge>
                     )}
-                    <span className="text-xs text-gray-400">
-                      {items.length === 0 ? 'brak dostępu' : `folderów: ${items.length}`}
+                    <span className="text-xs text-app-muted">
+                      folderów: {items.length}
                       {rola ? ` · użytkowników: ${rola.users_count}` : ''}
                     </span>
                   </div>
                   {rola && (
-                    <div className="flex items-center gap-2">
-                      <button
+                    <div className="flex items-center gap-1.5">
+                      <IconButton
+                        tone="edit"
+                        title="Zmień nazwę"
                         onClick={() => { setKomunikat(''); setOkno({ mode: 'rename', role: rola }); }}
-                        className="rounded-md border border-gray-300 px-2.5 py-1 text-xs text-gray-700 hover:bg-white"
                       >
-                        Zmień nazwę
-                      </button>
+                        <IconEdit size={16} />
+                      </IconButton>
                       {rola.is_system ? (
-                        <span className="px-2.5 py-1 text-xs text-gray-400">bez usuwania</span>
+                        <span className="px-1 text-[11px] text-app-muted">bez usuwania</span>
                       ) : (
-                        <button
+                        <IconButton
+                          tone="danger"
+                          title="Usuń rolę"
                           onClick={() => { setKomunikat(''); setOkno({ mode: 'delete', role: rola }); }}
-                          className="rounded-md border border-red-200 px-2.5 py-1 text-xs text-red-600 hover:bg-red-50"
                         >
-                          Usuń
-                        </button>
+                          <IconTrash size={16} />
+                        </IconButton>
                       )}
                     </div>
                   )}
-                </div>
+                </CardHeader>
+
                 {items.length === 0 ? (
-                  <div className="px-4 py-4 text-sm text-gray-500">
-                    Ta rola nie ma dostępu do żadnego folderu.
-                  </div>
+                  <EmptyState title="Ta rola nie ma dostępu do żadnego folderu." />
                 ) : (
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-white">
+                  <Table>
+                    <thead>
                       <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Folder</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ścieżka</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Poziom</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Źródło</th>
-                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Akcja</th>
+                        <Th>Folder</Th>
+                        <Th>Ścieżka</Th>
+                        <Th>Poziom</Th>
+                        <Th>Źródło</Th>
+                        <Th className="text-right" />
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody>
                       {items.map((it) => (
-                        <tr key={it.folder_id} className="hover:bg-gray-50">
-                          <td className="px-4 py-2 text-sm text-gray-800 font-medium">📁 {it.name}</td>
-                          <td className="px-4 py-2 text-sm text-gray-500">{it.path}</td>
-                          <td className="px-4 py-2 text-sm">
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                it.access_level === 'write'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-gray-100 text-gray-700'
-                              }`}
-                            >
+                        <tr key={it.folder_id} className="hover:bg-app-hover">
+                          <Td className="font-semibold text-app-text">{it.name}</Td>
+                          <Td className="text-app-muted">{it.path}</Td>
+                          <Td>
+                            <Badge tone={it.access_level === 'write' ? 'blue' : 'gray'}>
                               {ACCESS_LABELS[it.access_level] || it.access_level}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2 text-sm text-gray-500">
+                            </Badge>
+                          </Td>
+                          <Td className="text-app-muted">
                             {it.source === 'inherited' ? 'dziedziczony' : 'bezpośredni'}
-                          </td>
-                          <td className="px-4 py-2 text-sm text-right">
+                          </Td>
+                          <Td className="text-right">
                             <Link
                               href={`/dashboard/files?folder=${it.folder_id}`}
-                              className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                              className="text-xs font-semibold text-app-blue hover:underline"
                             >
-                              Otwórz w Plikach →
+                              Otwórz w Plikach ›
                             </Link>
-                          </td>
+                          </Td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </Table>
                 )}
-              </div>
+              </Card>
             );
           })}
         </div>

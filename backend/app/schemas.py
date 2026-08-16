@@ -182,6 +182,14 @@ class DashboardStats(BaseModel):
     documents: int
     folders: int
     processed: int
+    processed_percent: float = 0.0
+    # Zmiana wobec stanu sprzed `trend_days` dni. None = brak odniesienia albo brak
+    # zmiany; interfejs pokazuje wtedy sam licznik, bez drugiej linijki.
+    trend_users: Optional[float] = None
+    trend_folders: Optional[float] = None
+    trend_documents: Optional[float] = None
+    trend_processed: Optional[float] = None   # w punktach procentowych
+    trend_days: int = 30
 
 
 # ==================== Settings ====================
@@ -190,6 +198,18 @@ class SettingsResponse(BaseModel):
     chat_webhook_url: str = ""
     allowed_extensions: str = ""  # dozwolone rozszerzenia, np. "pdf,docx,xlsx"
     idle_timeout_minutes: int = 15  # auto-wylogowanie po bezczynności (frontend)
+    # Identyfikacja instancji (od 1.5 w bazie, nie w zmiennych środowiskowych)
+    app_name: str = ""
+    app_name_color: str = ""
+    app_icon: str = ""          # data URI albo puste = ikona domyślna z obrazu
+    # Poczta wychodząca dla ekranu „Skontaktuj się"
+    smtp_host: str = ""
+    smtp_port: str = ""
+    smtp_user: str = ""
+    smtp_from: str = ""
+    support_email: str = ""
+    # Hasła nie zwracamy — tylko informację, czy jest ustawione.
+    smtp_password_set: bool = False
 
 
 class SettingsUpdate(BaseModel):
@@ -197,6 +217,14 @@ class SettingsUpdate(BaseModel):
     chat_webhook_url: Optional[str] = None
     allowed_extensions: Optional[str] = None
     idle_timeout_minutes: Optional[int] = None
+    app_name: Optional[str] = None
+    app_name_color: Optional[str] = None
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[str] = None
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_from: Optional[str] = None
+    support_email: Optional[str] = None
 
 
 # ==================== Chat ====================
