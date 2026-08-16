@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.5.4",
+      "date": "2026-08-16",
+      "title": "Drobne poprawki w czacie",
+      "changes": [
+        "Pod odpowiedzia bedaca WYPISEM dokumentow zniknal naglowek „Dokumenty uzyte w odpowiedzi\". Sama odpowiedz mowi juz dwa wiersze wyzej, ile dokumentow znaleziono, a kafelki ponizej sa tymi dokumentami, nie przypisami do wywodu. Pod odpowiedzia z tresci naglowek zostaje - tam zrodla trzeba nazwac.",
+        "Podpowiedzi „Wyprobuj przykladowe pytania\" w pustym oknie czatu sa na razie ukryte, do czasu ustalenia, skad maja pochodzic."
+      ]
+    },
+    {
       "version": "1.5.3",
       "date": "2026-08-16",
       "title": "Wyrownanie kafelkow plikow",

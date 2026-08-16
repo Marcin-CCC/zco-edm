@@ -865,11 +865,15 @@ export default function ChatPage() {
     }
   };
 
-  // Podpowiedzi pytań budujemy z REJESTRU SCHEMATÓW, a nie z listy wpisanej na
-  // sztywno: te same podpowiedzi mają się nadawać w każdym wdrożeniu, a pytanie
-  // o „zasady dekontaminacji" w bazie kadrowej tylko myli. Wypis dokumentów danego
-  // typu to pytanie, które czat naprawdę obsługuje (ścieżka „lista").
-  const przykladowePytania = Object.values(typeNames).slice(0, 3).map((nazwa) => `Pokaż dokumenty typu ${nazwa}`);
+  // Podpowiedzi pytań w pustym oknie czatu — WYŁĄCZONE do czasu ustalenia,
+  // skąd mają pochodzić. Obecna wersja buduje je z rejestru schematów („Pokaż
+  // dokumenty typu Aneks"), co działa w każdym wdrożeniu, ale nie musi być tym,
+  // co najlepiej pokazuje możliwości czatu. Zostawiamy gotowy układ za jednym
+  // przełącznikiem, żeby powrót był zmianą jednego słowa, a nie pisaniem od nowa.
+  const POKAZ_PRZYKLADOWE_PYTANIA = false;
+  const przykladowePytania = POKAZ_PRZYKLADOWE_PYTANIA
+    ? Object.values(typeNames).slice(0, 3).map((nazwa) => `Pokaż dokumenty typu ${nazwa}`)
+    : [];
 
   return (
     <div className="flex h-[calc(100vh-118px)] min-h-[560px] flex-col">
@@ -1053,9 +1057,15 @@ export default function ChatPage() {
                       <div className="mt-4 border-t border-app-line pt-3">
                         {przywolane.length > 0 && (
                           <>
-                            <p className="mb-2 text-[12px] text-[#66758c]">
-                              {przywolane.length === 1 ? 'Dokument użyty w odpowiedzi' : 'Dokumenty użyte w odpowiedzi'}
-                            </p>
+                            {/* Pod odpowiedzią typu LISTA nagłówka nie ma: sama odpowiedź
+                                mówi już „znaleziono N dokumentów", a te kafelki są tymi
+                                dokumentami, nie przypisami do wywodu. Przy odpowiedzi
+                                z treści nagłówek zostaje — tam źródła trzeba nazwać. */}
+                            {!m.lista && (
+                              <p className="mb-2 text-[12px] text-[#66758c]">
+                                {przywolane.length === 1 ? 'Dokument użyty w odpowiedzi' : 'Dokumenty użyte w odpowiedzi'}
+                              </p>
+                            )}
                             <div className="grid gap-2">
                               {przywolane.map((p) => (
                                 <Zrodlo
