@@ -9,7 +9,7 @@
  */
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { IconLifebuoy } from '@/components/icons';
 import { Logo } from '@/components/shell/logo';
@@ -36,6 +36,42 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
   useEffect(() => {
     versionApi.get().then((d) => setWersja(d?.version || '')).catch(() => setWersja(''));
   }, []);
+
+  // Na niskim ekranie pozycji menu jest wiecej, niz miesci sie w pionie. Przewija
+  // sie WYLACZNIE ta lista — znak u gory oraz panel pomocy i stopka na dole
+  // zostaja nieruchome, bo to je najlatwiej stracic z oczu (zglosznie: nie dalo
+  // sie dojsc do „Potrzebujesz pomocy" ani do historii zmian).
+  //
+  // Paska przewijania nie pokazujemy, wiec czytelnik potrzebuje innego sygnalu,
+  // ze cos jest poza kadrem: wygaszamy krawedz, przy ktorej jest jeszcze tresc.
+  // Robimy to maska, a nie nakladka w kolorze tla — tlo menu jest gradientem
+  // i pasek w jednym kolorze bylby przy nim widoczna latka.
+  const listaRef = useRef<HTMLElement>(null);
+  const [cien, setCien] = useState({ gora: false, dol: false });
+
+  useEffect(() => {
+    const el = listaRef.current;
+    if (!el) return;
+    const przelicz = () => {
+      const zapas = el.scrollHeight - el.clientHeight;
+      setCien({ gora: el.scrollTop > 4, dol: zapas > 4 && el.scrollTop < zapas - 4 });
+    };
+    przelicz();
+    el.addEventListener('scroll', przelicz, { passive: true });
+    const obs = new ResizeObserver(przelicz);
+    obs.observe(el);
+    return () => {
+      el.removeEventListener('scroll', przelicz);
+      obs.disconnect();
+    };
+    // liczba pozycji zalezy od uprawnien, szerokosc — od zwiniecia
+  }, [collapsed, user]);
+
+  const maska = cien.gora || cien.dol
+    ? `linear-gradient(to bottom, ${cien.gora ? 'transparent 0, black 22px' : 'black 0'}, ${
+        cien.dol ? 'black calc(100% - 22px), transparent 100%' : 'black 100%'
+      })`
+    : undefined;
 
   const pozycja = (item: NavItem) => {
     const aktywna = isNavActive(pathname, item);
@@ -69,7 +105,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
       )}
       <aside
         className={[
-          'fixed left-[var(--shell-x)] top-0 z-30 flex min-h-screen flex-col text-white transition-[width,padding,transform] duration-200',
+          'fixed left-[var(--shell-x)] top-0 z-30 flex h-screen flex-col overflow-hidden text-white transition-[width,padding,transform] duration-200',
           collapsed ? 'w-[72px] px-[10px] py-[18px]' : 'w-[244px] px-[14px] py-[18px]',
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         ].join(' ')}
@@ -93,7 +129,11 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
           />
         </button>
 
-        <nav className="flex flex-col gap-[6px]">
+        <nav
+          ref={listaRef}
+          className="bez-paska-przewijania -mx-1 flex min-h-0 flex-1 flex-col gap-[6px] px-1"
+          style={{ maskImage: maska, WebkitMaskImage: maska }}
+        >
           {NAV_MAIN.map(pozycja)}
           {czyAdmin(user) && (
             <>
@@ -117,7 +157,9 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
 
         <div
           className={[
-            'mt-auto rounded-xl border border-white/[.08] bg-white/[.06]',
+            // Bez `mt-auto`: to lista pozycji (flex-1) spycha panel na dol.
+            // `mt-auto` na niskim ekranie walczyloby z przewijaniem listy.
+            'mt-4 flex-none rounded-xl border border-white/[.08] bg-white/[.06]',
             collapsed ? 'grid place-items-center p-3' : 'p-4',
           ].join(' ')}
           title="Potrzebujesz pomocy?"
@@ -145,7 +187,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
 
         <div
           className={[
-            'mt-[18px] text-xs leading-[1.8] text-[#a9bbd4]',
+            'mt-[18px] flex-none text-xs leading-[1.8] text-[#a9bbd4]',
             collapsed ? 'p-0 text-center' : 'px-1.5',
           ].join(' ')}
         >

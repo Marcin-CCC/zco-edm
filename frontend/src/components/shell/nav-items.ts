@@ -42,7 +42,10 @@ export const NAV_ADMIN: NavItem[] = [
   { label: 'Schematy dokumentów', href: '/dashboard/doc-schemas', Icon: IconSchemas },
   { label: 'Kolejka plików', href: '/dashboard/file-queue', Icon: IconQueue },
   { label: 'Lista odpowiedzi', href: '/dashboard/oceny', Icon: IconAnswers },
-  { label: 'Ustawienia aplikacji', href: '/dashboard/settings', Icon: IconSettings },
+  // „Ustawienia”, nie „Ustawienia aplikacji”: w górnym menu administracyjnym sześć
+  // pozycji z długimi etykietami przestawało się mieścić i pasek dostawał poziomy
+  // suwak. Nagłówek samego ekranu zostaje pełny — tam miejsca nie brakuje.
+  { label: 'Ustawienia', href: '/dashboard/settings', Icon: IconSettings },
 ];
 
 export function isNavActive(pathname: string, item: NavItem): boolean {

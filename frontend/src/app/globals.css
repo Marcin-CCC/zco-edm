@@ -104,3 +104,17 @@
   --app-sidebar-w-collapsed: 72px;
 }
 
+
+/* Obszar przewijany bez widocznego paska.
+   Używamy go w menu bocznym, gdzie pasek przewijania na wąskiej, ciemnej kolumnie
+   wyglądałby jak usterka. Zamiast niego o ukrytej treści mówi wygaszona krawędź
+   (maska ustawiana w komponencie) — bez żadnego sygnału użytkownik nie wie, że
+   pod spodem coś jest. */
+.bez-paska-przewijania {
+  overflow-y: auto;
+  scrollbar-width: none;          /* Firefox */
+  -ms-overflow-style: none;       /* dawny Edge */
+}
+.bez-paska-przewijania::-webkit-scrollbar {
+  display: none;                  /* Chrome, Safari */
+}

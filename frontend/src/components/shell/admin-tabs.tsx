@@ -18,7 +18,10 @@ export function AdminTabs() {
   if (!naEkranieAdmina) return null;
 
   return (
-    <nav className="mb-[22px] flex gap-1 overflow-x-auto rounded-xl border border-app-line bg-white p-1.5">
+    // `flex-wrap`, nie `overflow-x-auto`: przy ciasnym ekranie zakładki schodzą do
+    // drugiego wiersza, zamiast chować się pod poziomym suwakiem. Ukryta zakładka to
+    // ukryta droga do ekranu, a suwaka nad menu nawigacyjnym nikt tam nie szuka.
+    <nav className="mb-[22px] flex flex-wrap gap-1 rounded-xl border border-app-line bg-white p-1.5">
       {NAV_ADMIN.map((item) => {
         const aktywna = isNavActive(pathname, item);
         return (

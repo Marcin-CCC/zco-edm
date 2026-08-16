@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.5.6",
+      "date": "2026-08-16",
+      "title": "Menu na nizszych i wezszych ekranach",
+      "changes": [
+        "Na nizszym ekranie panel „Potrzebujesz pomocy\", historia zmian i stopka byly poza kadrem i nie dalo sie do nich dojsc. Teraz przewija sie wylacznie lista pozycji menu, a znak u gory oraz panel pomocy i stopka na dole zostaja nieruchome. Paska przewijania nie pokazujemy — o tym, ze cos jest poza kadrem, mowi wygaszona krawedz listy.",
+        "Gorne menu administracyjne przy ciasnym ekranie zawija sie do drugiego wiersza zamiast chowac zakladki pod poziomym suwakiem. Pozycja „Ustawienia aplikacji\" nazywa sie w menu po prostu „Ustawienia\"; naglowek samego ekranu zostaje pelny."
+      ]
+    },
+    {
       "version": "1.5.5",
       "date": "2026-08-16",
       "title": "Wgrane logo w menu i na ekranie logowania",
