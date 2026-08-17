@@ -44,11 +44,14 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
+      # Wydania akcji na Node 24. Warunek: runner w wersji 2.327.1 lub nowszej —
+      # nasz wlasny na Sparku ma 2.336.0. Przy podnoszeniu akcji sprawdzic to
+      # najpierw, bo starszy runner nie uruchomi ich w ogole.
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -110,7 +113,7 @@ jobs:
       packages: write        # wymagane, by GITHUB_TOKEN mógł wypchnąć obraz do ghcr
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Brakujący sekret nie może objawić się dopiero kontenerem w pętli restartów.
       # `docker compose up -d` kończy się sukcesem także wtedy, gdy aplikacja zaraz
