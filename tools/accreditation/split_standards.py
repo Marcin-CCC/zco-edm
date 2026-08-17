@@ -26,6 +26,25 @@ import fitz  # PyMuPDF
 # zwijał się do jednego standardu, bo kolejne po prostu nie były rozpoznawane.
 KOD = re.compile(r"^([A-ZĄĆĘŁŃÓŚŹŻ]{2,3})\s?(\d{1,2}(?:\.\d{1,2})?)\s*$")
 
+# W dziale PAT kod stoi w JEDNEJ linii z tytułem. Rozpoznajemy to po tym, że dalej
+# idą wersaliki — w spisie treści działu tytuł jest zdaniowy, więc wielkość liter
+# odróżnia prawdziwy standard od pozycji spisu.
+KOD_Z_TYTULEM = re.compile(
+    r"^([A-ZĄĆĘŁŃÓŚŹŻ]{2,3})\s(\d{1,2}(?:\.\d{1,2})?)\s+([A-ZĄĆĘŁŃÓŚŹŻ][A-ZĄĆĘŁŃÓŚŹŻ\s,\-–()/%\.]{10,}.*)$"
+)
+
+
+def dopasuj_kod(linia: str):
+    """Zwraca (dział, numer, reszta_linii) albo None."""
+    s = linia.strip()
+    m = KOD.match(s)
+    if m:
+        return m.group(1), m.group(2), ""
+    m = KOD_Z_TYTULEM.match(s)
+    if m:
+        return m.group(1), m.group(2), m.group(3)
+    return None
+
 # Waga bywa zapisana z półpauzą albo z dywizem — w PDF-ie jest półpauza, w tekście
 # z parsera dywiz. Przyjmujemy oba, żeby skrypt działał na obu źródłach.
 WAGA = re.compile(r"Waga\s+standardu\s*[–-]\s*([\d,]+)")
@@ -62,7 +81,30 @@ def czysty_tekst(pdf: str) -> list[str]:
                                           or NAGLOWEK.match(surowe[poczatek].strip())):
             poczatek += 1
         linie += [l for l in surowe[poczatek:] if l.strip()]
-    return linie
+    return scal_rozbite_kody(linie)
+
+
+# Same litery działu w jednej linii i sam numer w następnej — tak złożony jest
+# dział PAT. Bez scalenia jego standardy nie mają rozpoznawalnego kodu i wypadają
+# z rejestru razem z całą treścią.
+SAME_LITERY = re.compile(r"^[A-ZĄĆĘŁŃÓŚŹŻ]{2,3}$")
+SAM_NUMER = re.compile(r"^\d{1,2}(?:\.\d{1,2})?$")
+
+
+def scal_rozbite_kody(linie: list[str]) -> list[str]:
+    """Skleja kod rozbity na dwie linie („PAT" + „2.2" → „PAT 2.2")."""
+    wynik: list[str] = []
+    i = 0
+    while i < len(linie):
+        biezaca = linie[i].strip()
+        nastepna = linie[i + 1].strip() if i + 1 < len(linie) else ""
+        if SAME_LITERY.match(biezaca) and SAM_NUMER.match(nastepna):
+            wynik.append(f"{biezaca} {nastepna}")
+            i += 2
+            continue
+        wynik.append(linie[i])
+        i += 1
+    return wynik
 
 
 def scal_przeniesienia(tekst: str) -> str:
@@ -79,27 +121,42 @@ def podziel(linie: list[str]) -> list[dict]:
     i wprowadzenia — doklejone do poprzedniego standardu zaśmiecałyby jego rubrykę
     punktową.
     """
-    granice = [i for i, l in enumerate(linie) if KOD.match(l.strip())]
+    granice = [i for i, l in enumerate(linie) if dopasuj_kod(l)]
     bloki = []
     for nr, poczatek in enumerate(granice):
         limit = granice[nr + 1] if nr + 1 < len(granice) else len(linie)
-        waga_na = next((i for i in range(poczatek, limit) if WAGA.search(linie[i])), None)
-        # Kod bez wagi przed następnym kodem to nie standard, tylko pozycja spisu
-        # treści albo odsyłacz w tekście.
-        if waga_na is None:
+        if not zawiera_standard(linie, poczatek, limit):
             continue
-        bloki.append(rozbierz(linie[poczatek:waga_na + 1]))
+        # Blok kończymy na wadze, gdy jest — po niej idą już strony tytułowe działów
+        # i wprowadzenia. Gdy wagi brak, bierzemy cały zakres do następnego kodu.
+        waga_na = next((i for i in range(poczatek, limit) if WAGA.search(linie[i])), None)
+        koniec = waga_na + 1 if waga_na is not None else limit
+        bloki.append(rozbierz(linie[poczatek:koniec]))
     return bloki
+
+
+def zawiera_standard(linie: list[str], poczatek: int, limit: int) -> bool:
+    """Czy w zakresie DO NASTĘPNEGO KODU stoi opis wymagań.
+
+    To jest definicja standardu w tym dokumencie. Wcześniej wymagaliśmy wagi i było
+    to błędne z dwóch stron: nagłówki grup („KZ 1", którego treść niosą dzieci
+    KZ 1.1, KZ 1.2…) trafiały albo nie trafiały do rejestru przypadkiem, a standardy
+    bez wagi wypadały mimo pełnej treści. Waga jest metadaną, nie definicją.
+
+    Zakres liczony do NASTĘPNEGO kodu, nie „kilkanaście linii w przód" — inaczej
+    nagłówek grupy zagarnia „Opis wymagań" należący do swojego pierwszego dziecka.
+    """
+    return any(SEKCJE["wymagania"].match(l.strip()) for l in linie[poczatek:limit])
 
 
 def rozbierz(blok: list[str]) -> dict:
     """Zamienia blok linii na rekord standardu."""
-    m = KOD.match(blok[0].strip())
     # Numer zostaje NAPISEM, bo bywa hierarchiczny („1.2") — liczba by go spłaszczyła.
-    dzial, numer = m.group(1), m.group(2)
+    dzial, numer, reszta = dopasuj_kod(blok[0])
 
-    # Tytuł: wersaliki od drugiej linii do pierwszej sekcji.
-    tytul_linie, i = [], 1
+    # Tytuł: wersaliki od drugiej linii do pierwszej sekcji. Gdy kod stał w jednej
+    # linii z tytułem (dział PAT), pierwszy kawałek tytułu jest już w `reszta`.
+    tytul_linie, i = ([reszta] if reszta else []), 1
     while i < len(blok) and not any(w.match(blok[i].strip()) for w in SEKCJE.values()):
         tytul_linie.append(blok[i])
         i += 1
@@ -159,13 +216,61 @@ def punktacja(linie: list[str]) -> dict[str, str]:
     return {k: scal_przeniesienia("\n".join(v)) for k, v in wynik.items()}
 
 
+# Spis standardów na stronie tytułowej działu: kod i tytuł zdaniowy w jednej linii.
+# To jest NIEZALEŻNE od nas źródło prawdy o tym, ile standardów ma dokument.
+SPIS_DZIALU = re.compile(
+    r"^([A-ZĄĆĘŁŃÓŚŹŻ]{2,3})\s(\d{1,2}(?:\.\d{1,2})?)\s+([A-ZĄĆĘŁŃÓŚŹŻ][^\n]{15,})$", re.M)
+
+
+def sprawdz_kompletnosc(linie: list[str], standardy: list[dict]) -> dict:
+    """Porównuje rejestr ze spisami działów zawartymi w samym dokumencie.
+
+    Bez tego jedyną miarą byłaby liczba znaczników wagi — czyli nasz własny wskaźnik
+    zastępczy. Spisy działów są od nas niezależne i mówią wprost, ile standardów
+    dokument deklaruje.
+
+    Kod obecny w spisie, a nieobecny w rejestrze, bywa NAGŁÓWKIEM GRUPY („KZ 1",
+    którego treść niosą dzieci KZ 1.1…) — taki nie ma własnego „Opisu wymagań"
+    i słusznie nie jest rekordem. Rozróżniamy te dwa przypadki, bo tylko drugi
+    jest błędem.
+    """
+    caly = "\n".join(linie)
+    oczekiwane = {f"{m.group(1)} {m.group(2)}" for m in SPIS_DZIALU.finditer(caly)}
+    mamy = {s["kod"] for s in standardy}
+
+    # Ta sama definicja co przy podziale — inaczej kontrola sprawdzałaby co innego,
+    # niż robi parser, i potrafiłaby dać wynik odwrotny do prawdy.
+    granice = [i for i, l in enumerate(linie) if dopasuj_kod(l)]
+    naglowki, zgubione = [], []
+    for kod in sorted(oczekiwane - mamy):
+        ma_tresc = False
+        for nr, i in enumerate(granice):
+            d, n, _ = dopasuj_kod(linie[i])
+            if f"{d} {n}" != kod:
+                continue
+            limit = granice[nr + 1] if nr + 1 < len(granice) else len(linie)
+            if zawiera_standard(linie, i, limit):
+                ma_tresc = True
+                break
+        (zgubione if ma_tresc else naglowki).append(kod)
+
+    return {
+        "w_spisach": len(oczekiwane),
+        "w_rejestrze": len(mamy),
+        "naglowki_grup": naglowki,
+        "zgubione": zgubione,
+        "spoza_spisow": sorted(mamy - oczekiwane),
+    }
+
+
 def main():
     if len(sys.argv) < 2:
         raise SystemExit(__doc__)
     pdf = sys.argv[1]
     wyjscie = sys.argv[2] if len(sys.argv) > 2 else "standardy.json"
 
-    standardy = podziel(czysty_tekst(pdf))
+    linie = czysty_tekst(pdf)
+    standardy = podziel(linie)
     with open(wyjscie, "w", encoding="utf-8") as f:
         json.dump(standardy, f, ensure_ascii=False, indent=2)
 
@@ -181,7 +286,17 @@ def main():
     print("działy:", ", ".join(f"{k}={v}" for k, v in sorted(dzialy.items())))
     print("obligatoryjne:", sum(1 for s in standardy if s["obligatoryjny"]),
           "| wyłączalne:", sum(1 for s in standardy if s["wylaczalny"]))
-    print("braki:", braki)
+    print("niepełne rekordy:", braki)
+
+    k = sprawdz_kompletnosc(linie, standardy)
+    print(f"\nkontrola wobec spisów działów: {k['w_rejestrze']} z {k['w_spisach']} kodów")
+    print(f"  nagłówki grup (poprawnie pominięte): {len(k['naglowki_grup'])}"
+          f" — {', '.join(k['naglowki_grup'])}")
+    print(f"  spoza spisów: {', '.join(k['spoza_spisow']) or 'brak'}")
+    if k["zgubione"]:
+        print(f"  !!! ZGUBIONE STANDARDY: {', '.join(k['zgubione'])}")
+        raise SystemExit(1)
+    print("  zgubionych standardów: brak")
 
 
 if __name__ == "__main__":

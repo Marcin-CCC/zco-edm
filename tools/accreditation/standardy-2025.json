@@ -843,10 +843,10 @@
     }
   },
   {
-    "kod": "PAT 2",
+    "kod": "PAT 2.1",
     "dzial": "PAT",
-    "numer": "2",
-    "tytul": "W SZPITALU FUNKCJONUJĄ ZASADY WSPÓŁPRACY Z JEDNOSTKĄ DIAGNOSTYKI PATOMORFOLOGICZNEJ DOTYCZĄCE SKIEROWANIA, UTRWALANIA I TRANSPORTU MATERIAŁU DO BADAŃ PATOMORFOLOGICZNYCH. Szpital, we współpracy z jednostką diagnostyki patomorfologicznej, określa zasady współdziałania dotyczące: zawartości skierowania, metod utrwalania i zasad transportu, przekazywania materiału do diagnostyki patomorfologicznej, a określone i spisane zasady są znane personelowi i przestrzegane w praktyce. Szpital opracował i wdrożył również zasady postępowania w przypadku: 1)\t braku lub niepoprawnie wypełnionego skierowania; 2)\t utrwalenia materiału niezgodnie z opisanymi wymaganiami; 3)\t transportu materiału niezgodnie z wymaganymi zasadami, fakt ten jest odnotowywany w dokumentacji przez zakład patomorfologii i informacje zwrotne przekazywane do jednostki zlecającej. PAT 2.1 SKIEROWANIE NA BADANIE PATOMORFOLOGICZNE ZAWIERA ISTOTNE INFORMACJE I DANE KLINICZNE.",
+    "numer": "2.1",
+    "tytul": "SKIEROWANIE NA BADANIE PATOMORFOLOGICZNE ZAWIERA ISTOTNE INFORMACJE I DANE KLINICZNE.",
     "obligatoryjny": false,
     "wylaczalny": true,
     "waga": 1.0,
@@ -857,6 +857,33 @@
       "3": "70%-89% przeglądanych skierowań na badanie patomorfologiczne zawiera istotne informacje zgodnie z wymogami standardu.",
       "1": "Poniżej 70% przeglądanych skierowań na badanie patomorfologiczne zawiera istotne informacje zgodnie z wymogami standardu."
     }
+  },
+  {
+    "kod": "PAT 2.2",
+    "dzial": "PAT",
+    "numer": "2.2",
+    "tytul": "MATERIAŁ DO DIAGNOSTYKI PATOMORFOLOGICZNEJ JEST PRAWIDŁOWO UTRWALANY.",
+    "obligatoryjny": false,
+    "wylaczalny": true,
+    "waga": 1.0,
+    "wymagania": "Czas utrwalania oraz objętość utrwalacza mają istotny wpływ na jakość badań patomorfologicznych. Zbyt długi czas utrwalania pogarsza jakość materiału przesyłanego do badań oraz jego przydatność do badań immunohistochemicznych oraz badań przy użyciu technik biologii molekularnej; może też prowadzić do zniszczenia materiału. Szpital określa zasady utrwalania, które obejmują informacje na temat rodzaju utrwalacza i jego zalecanej objętości oraz czasu utrwalania materiału, w oparciu o wytyczne Polskiego Towarzystwa Patologów. Szpital nadzoruje sposób utrwalania materiałów do badań patomorfologicznych (czas i objętość); czas przekazania do jednostki diagnostyki patomorfologicznej: 1)\t małych wycinków nie może przekroczyć 48 godz.; 2)\t większego materiału operacyjnego 72 godz. Czas utrwalania – dla małego materiału czas utrwalania wynosi od 6 do 48 godz., dla dużego materiału pooperacyjnego od 24 do 72 godz. Czas ten liczony jest od chwili zalania materiału formaliną do momentu pobrania reprezentatywnych wycinków tkankowych do dalszego opracowania technicznego w jednostce diagnostyki patomorfologicznej.",
+    "sposob_sprawdzenia": "1)\t przegląd dokumentacji szpitala; 2)\t wywiad z personelem; 3)\t obserwacja bezpośrednia.",
+    "punktacja": {
+      "5": "Materiał do diagnostyki patomorfologicznej jest utrwalany zgodnie z wymogami standardu.",
+      "1": "Materiał do diagnostyki patomorfologicznej nie jest utrwalany zgodnie z wymogami standardu."
+    }
+  },
+  {
+    "kod": "PAT 2.3",
+    "dzial": "PAT",
+    "numer": "2.3",
+    "tytul": "MATERIAŁ DO BADAŃ PATOMORFOLOGICZNYCH JEST PRAWIDŁOWO ZABEZPIECZONY I PRZEKAZYWANY.",
+    "obligatoryjny": false,
+    "wylaczalny": true,
+    "waga": 1.0,
+    "wymagania": "Materiał do badań patomorfologicznych: tkankowych, cytologicznych jest zabezpieczony i transportowany zgodnie z wytycznymi Polskiego Towarzystwa Patologów. Materiał tkankowy jest utrwalany i transportowany w pojemnikach do przechowywania i transportu materiału histologicznego spełniających wymagania wyrobu medycznego do diagnostyki in vitro; pojemniki są oznakowane niezmywalnymi etykietami zawierającymi istotne dane dotyczące pacjenta i pobranego materiału, zgodnie z dołączonym skierowaniem. Materiał cytologiczny należy transportować w specjalnych opakowaniach uniemożliwiających stłuczenie szkiełek czy ich uszkodzenie, zabezpieczających przed utratą materiału tak, aby szkiełka nie stykały się ze sobą powierzchnią, na której znajdują się rozmazy; w przypadku rozmazów każde szkiełko należy opisać niezmywalnym markerem umożliwiającym identyfikację pacjenta. Materiał do diagnostyki patomorfologicznej ma monitorowane warunki transportu materiału do badania patomorfologicznego. 1)\t W przypadku materiału tkankowego monitorowaniu podlegają: a)\t pojemniki do przechowywania i transportu materiału histologicznego, przy czym pojemniki te spełniają wymagania wyrobu medycznego do diagnostyki in vitro zgodnie z aktualnie obowiązującymi regulacjami prawnymi; b)\t sposób oznakowania pojemników; pojemniki są oznakowane niezmywalnymi etykietami zawierającymi dane pozwalające na identyfikację pacjenta i pobranego materiału, zgodnie z załączonym skierowaniem. 2)\t W przypadku materiału cytologicznego monitorowaniu podlegają: a)\t opakowania do transportu, przy czym opakowania te uniemożliwiają stłuczenie i uszkodzenie szkiełek; szkiełka nie powinny stykać się ze sobą powierzchnią, na której znajdują się rozmazy; b)\t sposób oznakowania szkiełek; każde szkiełko powinno zostać jednoznacznie oznaczone w sposób umożliwiający identyfikację pacjenta. W przypadku transportu materiału niezgodnie z opisanymi wymogami i instrukcjami, fakt ten jest odnotowany w dokumentacji.",
+    "sposob_sprawdzenia": "1)\t przegląd dokumentacji szpitala; 2)\t wywiad z personelem; 3)\t obserwacja bezpośrednia. 3.\t Punktacja 5 Materiał do badań jest zabezpieczony i przekazywany do zakładu patomorfologii zgodnie z wymogami standardu. 1 Materiał do badań nie jest prawidłowo zabezpieczony lub prawidłowo przekazywany do zakładu patomorfologii.",
+    "punktacja": {}
   },
   {
     "kod": "ZŻ 1",
@@ -904,18 +931,6 @@
       "5": "W szpitalu funkcjonują Standardowe Procedury Postępowania w stanach nagłego zagrożenia życia zgodnie z wymogami standardu.",
       "1": "W szpitalu nie funkcjonują Standardowe Procedury Postępowania w stanach nagłego zagrożenia życia zgodnie z wymogami standardu."
     }
-  },
-  {
-    "kod": "ZŻ 3.1",
-    "dzial": "ZŻ",
-    "numer": "3.1",
-    "tytul": "SZPITAL POSIADA NUMER 2222 DO POWIADAMIANIA ZESPOŁU REANIMACYJNEGO. Szpital posiada numer 2222 do powiadamiania zespołu reanimacyjnego zgodnie z zaleceniami Europejskiej Rady Resuscytacji. Jeżeli nie ma możliwości technicznych wprowadzenia numeru 2222, dopuszczalne jest wprowadzenie numeru składającego się z mniejszej liczby cyfr np. 22 lub 222. 1.\t Sposób sprawdzenia 1)\t przegląd dokumentacji szpitala; 2)\t wywiad z personelem; 3)\t obserwacja bezpośrednia. 2.\t Ocena punktowa 5 Szpital posiada numer 2222 do powiadamiania zespołu reanimacyjnego zgodnie z wymogami standardu. 1 Szpital nie posiada numeru 2222 do powiadamiania zespołu reanimacyjnego. Waga standardu – 0,25",
-    "obligatoryjny": false,
-    "wylaczalny": false,
-    "waga": 0.25,
-    "wymagania": "",
-    "sposob_sprawdzenia": "",
-    "punktacja": {}
   },
   {
     "kod": "ZŻ 4",
@@ -1339,21 +1354,6 @@
     "punktacja": {
       "5": "100% dokumentacji medycznej pacjentów operowanych zawiera ocenę ryzyka związanego ze znieczuleniem zgodnie z wymogami standardu lub uzasadnienie braku możliwości pełnej oceny ryzyka związanego ze znieczuleniem.",
       "1": "Poniżej 100% dokumentacji medycznej pacjentów operowanych zawiera ocenę ryzyka związanego ze znieczuleniem zgodnie z wymogami standardu lub uzasadnienie braku możliwości pełnej oceny ryzyka związanego ze znieczuleniem."
-    }
-  },
-  {
-    "kod": "ZZ 3",
-    "dzial": "ZZ",
-    "numer": "3",
-    "tytul": "PARAMETRY FIZJOLOGICZNE PACJENTA SĄ MIERZONE I DOKUMENTOWANE W TRAKCIE TRWANIA ZABIEGU (STANDARD MOŻE BYĆ WYŁĄCZONY). 1.\t Opis wymagań: Monitorowanie znieczulenia pacjenta podczas zabiegu obejmuje co najmniej: 1)\t EKG; 2)\t pulsoksymetrię; 3)\t nieinwazyjny pomiar ciśnienia tętniczego krwi; 4)\t kapnografię u chorych intubowanych. Dla zabiegów bez udziału anestezjologa, pomiarowi podlegają co najmniej: 1)\t tętno; 2)\t pulsoksymetria; 3)\t nieinwazyjny pomiar ciśnienia tętniczego krwi. ZZ Zabiegi i Znieczulenia 107",
-    "obligatoryjny": false,
-    "wylaczalny": true,
-    "waga": 0.5,
-    "wymagania": "",
-    "sposob_sprawdzenia": "1)\t przegląd dokumentacji medycznej.",
-    "punktacja": {
-      "5": "100% dokumentacji medycznej zawiera potwierdzenie, że parametry fizjologiczne pacjenta są mierzone i oceniane w trakcie trwania zabiegu.",
-      "1": "Poniżej 100% dokumentacji medycznej zawiera potwierdzenie, że parametry fizjologiczne pacjenta są mierzone i oceniane w trakcie trwania zabiegu."
     }
   },
   {
@@ -2735,6 +2735,18 @@
     }
   },
   {
+    "kod": "IM 3",
+    "dzial": "IM",
+    "numer": "3",
+    "tytul": "SYSTEM INFORMATYCZNY JEST FUNKCJONALNY I WSPIERA DZIAŁANIA KLINICZNE.",
+    "obligatoryjny": false,
+    "wylaczalny": false,
+    "waga": null,
+    "wymagania": "Opieka zdrowotna jest kompleksowym działaniem, którego wynik w znacznym stopniu zależy od jakości i aktualności informacji, w tym szczególnie informacji o stanie pacjenta, czynnikach ryzyka, rozważanych i podjętych decyzjach, wynikach badań oraz o prowadzonym leczeniu i jego rezultatach. Efektywne gromadzenie, przetwarzanie, przechowywanie, wyszukiwanie i udostępnianie potrzebnej informacji wymaga sprawnego systemu informatycznego. Wysoką jakość informacji medycznej może zapewnić jedynie system informatyczny, który jest: 1)\t przyjazny; 2)\t kompleksowy; 3)\t elastyczny; 4)\t użyteczny; 5)\t bezpieczny. Zadaniem dobrego medycznego systemu informatycznego jest: 1)\t ułatwienie personelowi podejmowanie prawidłowych decyzji medycznych; 2)\t minimalizacja obciążenia pracą administracyjną personelu; 3)\t dokumentowanie stanu pacjenta i jego zmian oraz dokumentowanie podejmowanych działań.",
+    "sposob_sprawdzenia": "",
+    "punktacja": {}
+  },
+  {
     "kod": "IM 3.1",
     "dzial": "IM",
     "numer": "3.1",
@@ -2857,6 +2869,18 @@
       "3": "Szpital podejmuje intensywne działania mające na celu spełnienie standardu (co najmniej 60% kamieni milowych jest spełnionych).",
       "1": "Szpital nie dostarcza terminowo danych dla obszaru zdrowia publicznego. 4.\t Kamienie milowe 1)\t szpital terminowo przekazuje dane określone w Programie Badań Statystycznych Statystyki Publicznej (dział: Zdrowie i Ochrona Zdrowia); 2)\t dane na potrzeby badania Hospitalizacja przekazywane są co miesiąc do urzędu wojewódzkiego lub Narodowego Instytutu Zdrowia Publicznego PZH; 3)\t szpital zapewnia przekazanie informacji w zakresie karty statystycznej szpitalnej ogólnej MZ/Szp-11; 4)\t szpital posiada potwierdzenie przekazania danych przez Narodowy Instytut Zdrowia Publicznego PZH; 5)\t szpital identyfikuje inne wymagane przez aktualne przepisy prawa dane na potrzeby analiz z obszaru zdrowia publicznego; 6)\t szpital terminowo przekazuje inne wymagane przez aktualne przepisy prawa dane na potrzeby analiz z obszaru zdrowia publicznego. Co najmniej 60% stanowi 4 kamienie milowe."
     }
+  },
+  {
+    "kod": "JZ 1",
+    "dzial": "JZ",
+    "numer": "1",
+    "tytul": "STRATEGIA SZPITALA JEST SPÓJNA, ZROZUMIAŁA DLA PERSONELU I BUDUJE KULTURĘ ORGANIZACYJNĄ.",
+    "obligatoryjny": false,
+    "wylaczalny": false,
+    "waga": null,
+    "wymagania": "Osoby zatrudnione znają kierunki rozwoju i cele strategiczne szpitala, a także zasady, które kształtują kulturę organizacyjną i regulują postępowanie wobec pacjentów, osób bliskich lub przedstawicieli ustawowych pacjenta, odwiedzających oraz personelu. Cały zespół zna i respektuje wartości, na których opiera się świadczenie usług zdrowotnych i współpraca między poszczególnymi działami i uznaje je w codziennej praktyce.",
+    "sposob_sprawdzenia": "",
+    "punktacja": {}
   },
   {
     "kod": "JZ 1.1",

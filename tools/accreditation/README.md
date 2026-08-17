@@ -11,14 +11,44 @@ python split_standards.py standardy-akredytacyjne-szpitale-2025.pdf standardy-20
 
 | | |
 |---|---|
-| standardów | **208** (z 210 znaczników „Waga standardu" w dokumencie) |
-| działów | 17 — BP, CO, DO, FA, IM, JO, JZ, KZ, LA, LŻ, OP, OS, PAT, PJ, PP, ZZ, ZŻ |
+| standardów w rejestrze | **210** |
+| kodów w spisach działów (źródło prawdy z dokumentu) | 226 |
+| z tego nagłówków grup, poprawnie pominiętych | 17 |
+| **zgubionych standardów** | **0** |
+| działów | 17 |
 | obligatoryjnych | 15 |
-| wyłączalnych | 61 |
+| wyłączalnych | 62 |
 | z pełną rubryką 5/3/1 | 119 |
-| z rubryką 5/1 (bez oceny częściowej) | 87 |
-| **do przejrzenia ręcznie** | **3** — `LA 2.1`, `ZŻ 3.1`, `ZZ 3` |
-| suma wag | 119,25 (wagi: 0,25 / 0,5 / 0,75 / 1,0) |
+| z rubryką 5/1 (bez oceny częściowej — tak są zapisane) | 89 |
+| bez wagi (do przejrzenia) | 2 |
+| suma wag | ok. 119 |
+
+### Skąd wiadomo, że nic nie zginęło
+
+Skrypt **sam się sprawdza** przy każdym uruchomieniu i kończy się błędem, jeśli
+znajdzie zgubiony standard. Kontrola nie opiera się na naszym własnym wskaźniku,
+tylko na **spisach standardów, które dokument zawiera na stronach tytułowych działów** —
+to źródło od nas niezależne.
+
+Każdy kod ze spisu, którego nie ma w rejestrze, jest klasyfikowany:
+
+- **nagłówek grupy** — kod bez własnego „Opisu wymagań", którego treść niosą dzieci
+  (`KZ 1` → `KZ 1.1`, `KZ 1.2`…). Takich jest 17 i słusznie nie są rekordami.
+- **zgubiony standard** — kod z treścią, którego parser nie złapał. Takich jest 0.
+
+`OS 1.14` jest w rejestrze, choć nie ma go w spisie działu — spis jest w tym miejscu
+niekompletny, sam standard ma pełną treść.
+
+### Co świadomie zostaje poza rejestrem (19% znaków dokumentu)
+
+| Fragment | Wielkość | Uwaga |
+|---|---|---|
+| TERMINY I OKREŚLENIA (słowniczek) | 31 kB | **wart osobnego wyciągnięcia** — definicje przydadzą się agentowi |
+| Strona tytułowa, wstęp, historia standardów | 9 kB | bez wartości maszynowej |
+| Strony tytułowe i wprowadzenia do działów | ok. 50 kB | spisy standardów i omówienia; spisy służą za kontrolę kompletności |
+
+Żaden z tych fragmentów nie zawiera treści standardu — sprawdzone audytem pokrycia
+znak po znaku.
 
 ## Rekord standardu
 
@@ -62,15 +92,24 @@ rozmawiają kodami, więc rejestr bez nich byłby bezużyteczny.
 
 ## Pułapki, które kosztowały czas przy pisaniu
 
+Wszystkie dawały **cichy zły wynik zamiast błędu** — stąd wbudowana samokontrola.
+
 - **Filtr nagłówka strony zjadał rubrykę punktową.** Pierwsza wersja usuwała każdą linię
   będącą samą liczbą — a oceny 5, 3 i 1 stoją w osobnych wierszach i wyglądają dokładnie
   jak numer strony. Różni je tylko położenie, więc nagłówek odcinamy wyłącznie z początku
-  strony. Objaw: 0 standardów z rubryką, przy poprawnej reszcie.
+  strony. Objaw: zero standardów z rubryką przy poprawnej reszcie.
 - **Kody bywają hierarchiczne** (`OS 1.2`, `LA 2.1`). Wzorzec dopuszczający tylko liczbę
   całkowitą zwijał cały dział Ocena Stanu Zdrowia do jednego standardu — 140 zamiast 208.
+- **W dziale PAT kod jest rozbity na dwie linie** (`PAT` / `2.2`). Bez scalenia cztery
+  standardy patomorfologii wypadały razem z całą treścią, a kontrola pokazywała je jako
+  „nagłówki grup" — czyli fałszywie uspokajała.
+- **Definicją standardu jest „Opis wymagań", nie waga.** Wcześniejsza wersja wymagała wagi
+  i myliła się w obie strony: nagłówki grup wpadały do rejestru przypadkiem, a standardy
+  bez wagi wypadały mimo pełnej treści.
+- **Zakres kodu liczymy do NASTĘPNEGO kodu**, nie „kilkanaście linii w przód". Inaczej
+  nagłówek grupy zagarnia „Opis wymagań" należący do swojego pierwszego dziecka —
+  na tym błędzie kontrola dała wynik dokładnie odwrotny do prawdy.
 - **Numer standardu zostaje napisem**, nie liczbą; `int("1.2")` się wywraca.
-- **Blok kończymy na wadze**, nie na kodzie następnego standardu. Między standardami są
-  strony tytułowe działów, które doklejone do poprzedniego zaśmiecały jego rubrykę.
 
 ## Następny krok
 
