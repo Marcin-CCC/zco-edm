@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "1.5.13",
+      "date": "2026-08-17",
+      "title": "Instrukcje uzupelnione o zrzut ekranu Instrukcja",
+      "changes": [
+        "Komplet instrukcji uzupelniony o zrzut samego ekranu Instrukcja — powstal dopiero teraz, bo wczesniej pokazywalby okladke poprzedniego wydania."
+      ]
+    },
+    {
       "version": "1.5.12",
       "date": "2026-08-17",
       "title": "Nowe instrukcje obslugi dla obu wdrozen",

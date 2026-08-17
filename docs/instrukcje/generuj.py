@@ -215,7 +215,7 @@ def r_profil(rola):
         a("Po udanej zmianie aplikacja wylogowuje i pokazuje ekran logowania — to celowe: od razu "
           "sprawdzamy, że nowe hasło działa."),
         n("Pomoc"),
-        a("Pozycja <b>Instrukcja</b> otwiera ten dokument wprost w aplikacji, bez szukania pliku na dysku. "
+        a("Pozycja <b>Instrukcja</b> otwiera stronę <b>Pomoc</b> z tym dokumentem wprost w aplikacji, bez szukania pliku na dysku. "
           "Na górze strony są dwa przyciski: <b>Otwórz w nowej karcie</b> oraz <b>Pobierz PDF</b>. "
           "Administrator widzi wydanie pełne, pozostałe konta — wydanie użytkownika, opisujące wyłącznie "
           "ekrany, do których mają dostęp."),
