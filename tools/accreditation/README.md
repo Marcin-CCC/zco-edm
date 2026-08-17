@@ -113,7 +113,7 @@ Wszystkie dawały **cichy zły wynik zamiast błędu** — stąd wbudowana samok
 
 ## Następny krok
 
-Rejestr jest wartościowy sam w sobie — to przeszukiwalna tabela 208 standardów z wagami
+Rejestr jest wartościowy sam w sobie — to przeszukiwalna tabela 210 standardów z wagami
 i progami. Do agenta oceny zgodności potrzebny jest jeszcze podział pola `wymagania`
 (dziś proza) na listę pojedynczych, sprawdzalnych wymogów. **To** jest zadanie dla modelu:
 jeden standard na wywołanie, wymuszony schemat odpowiedzi — czyli dokładnie to, co
