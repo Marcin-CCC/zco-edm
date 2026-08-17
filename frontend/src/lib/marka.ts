@@ -29,6 +29,11 @@ export interface Marka {
   ikona: string;
   /** Ikona dla ekranu głównego iOS — musi być PNG, SVG tam nie działa */
   ikonaApple: string;
+  /** Katalog z instrukcją obsługi w `public/pomoc/`. Obraz jest wspólny dla obu
+   *  wdrożeń i niesie oba komplety, bo instrukcje różnią się nazwą instancji
+   *  i zrzutami ekranu. NIE wybieramy ich po nazwie z bazy: administrator może
+   *  ją teraz zmienić w Ustawieniach, a instrukcja ma zostać ta właściwa. */
+  pomoc: string;
 }
 
 /** Domyślnie demo uniwersalne. Wdrożenia klienckie nadpisują to zmiennymi środowiskowymi. */
@@ -41,6 +46,7 @@ export const MARKA_DOMYSLNA: Marka = {
   naglowek: '#ffffff',
   ikona: '/ikona-hirs.svg',
   ikonaApple: '/ikona-hirs.png',
+  pomoc: 'hirs',
 };
 
 /**
@@ -58,6 +64,7 @@ export function markaZeSrodowiska(): Marka {
     naglowek: env.BRAND_HEADER_TEXT || MARKA_DOMYSLNA.naglowek,
     ikona: env.BRAND_ICON || MARKA_DOMYSLNA.ikona,
     ikonaApple: env.BRAND_ICON_APPLE || MARKA_DOMYSLNA.ikonaApple,
+    pomoc: env.HELP_VARIANT || MARKA_DOMYSLNA.pomoc,
   };
 }
 

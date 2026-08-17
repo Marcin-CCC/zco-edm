@@ -202,6 +202,7 @@ jobs:
           echo "BRAND_HEADER_TEXT=#1fc8ba" >> .env
           # Ikona karty przeglądarki. Domyślna w kodzie należy do demo (HiRS), więc
           # wdrożenie klienckie musi wskazać własną — inaczej ZCO pokazałoby „H".
+          echo "HELP_VARIANT=zco" >> .env
           echo "BRAND_ICON=/ikona-zco.png" >> .env
           echo "BRAND_ICON_APPLE=/ikona-zco-apple.png" >> .env
 

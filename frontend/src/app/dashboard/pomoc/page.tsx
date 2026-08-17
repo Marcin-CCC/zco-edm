@@ -12,27 +12,36 @@
 
 import { useRef } from 'react';
 
+import { useMarka } from '@/components/marka-provider';
 import { useAuth } from '@/lib/store';
 import { isAdmin as czyAdmin } from '@/lib/roles';
 
+/** Obraz aplikacji niesie komplet instrukcji dla KAŻDEGO wdrożenia
+ *  (`public/pomoc/zco`, `public/pomoc/hirs`), bo różnią się nazwą instancji
+ *  i zrzutami ekranu. Katalog wskazuje `marka.pomoc`, czyli zmienna środowiskowa
+ *  instancji — nie nazwa z bazy, którą administrator może dziś zmienić. */
 const WYDANIA = {
   admin: {
     nazwa: 'Instrukcja administratora',
-    html: '/pomoc/instrukcja-administratora.html',
-    pdf: '/pomoc/instrukcja-administratora.pdf',
+    plik: 'instrukcja-administratora',
     opis: 'Pełny zakres: dokumenty, uprawnienia, konta i część administracyjna.',
   },
   user: {
     nazwa: 'Instrukcja użytkownika',
-    html: '/pomoc/instrukcja-uzytkownika.html',
-    pdf: '/pomoc/instrukcja-uzytkownika.pdf',
-    opis: 'To, co potrzebne na co dzień: dokumenty, baza wiedzy, wyszukiwarka.',
+    plik: 'instrukcja-uzytkownika',
+    opis: 'To, co potrzebne na co dzień: dokumenty, chat i wyszukiwarka.',
   },
 } as const;
 
 export default function PomocPage() {
   const { user } = useAuth();
-  const wydanie = czyAdmin(user) ? WYDANIA.admin : WYDANIA.user;
+  const marka = useMarka();
+  const w = czyAdmin(user) ? WYDANIA.admin : WYDANIA.user;
+  const wydanie = {
+    ...w,
+    html: `/pomoc/${marka.pomoc}/${w.plik}.html`,
+    pdf: `/pomoc/${marka.pomoc}/${w.plik}.pdf`,
+  };
   const ramka = useRef<HTMLIFrameElement>(null);
 
   /**

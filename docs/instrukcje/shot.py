@@ -12,7 +12,6 @@ import websockets
 
 EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 PORT = 9333
-ORIGIN = "http://localhost:3010"
 SCALE = 2  # gęstość: ostre zrzuty do druku
 
 
@@ -31,7 +30,7 @@ class Cdp:
                 return msg.get("result", {})
 
 
-async def capture(shots, token, user_json, width, height):
+async def capture(shots, token, user_json, width, height, origin):
     info = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{PORT}/json").read())
     page = next(t for t in info if t["type"] == "page")
     async with websockets.connect(page["webSocketDebuggerUrl"], max_size=60_000_000) as ws:
@@ -40,24 +39,36 @@ async def capture(shots, token, user_json, width, height):
         await c.call("Emulation.setDeviceMetricsOverride",
                      {"width": width, "height": height, "deviceScaleFactor": SCALE, "mobile": False})
 
-        await c.call("Page.navigate", {"url": f"{ORIGIN}/login"})
+        await c.call("Page.navigate", {"url": f"{origin}/login"})
         await asyncio.sleep(2.5)
-        await c.call("Runtime.evaluate", {"expression":
-            f"localStorage.setItem('auth_token', {json.dumps(token)});"
-            f"localStorage.setItem('auth_user', {json.dumps(user_json)}); 'ok'"})
+        zaloguj = (f"localStorage.setItem('auth_token', {json.dumps(token)});"
+                   f"localStorage.setItem('auth_user', {json.dumps(user_json)}); 'ok'")
+        await c.call("Runtime.evaluate", {"expression": zaloguj})
 
         for s in shots:
-            await c.call("Page.navigate", {"url": ORIGIN + s["path"]})
+            # `wyloguj` — zrzut ekranu logowania. Sesję trzeba zdjąć przed nawigacją,
+            # bo zalogowana aplikacja przekierowuje z /login na Dashboard.
+            if s.get("wyloguj"):
+                await c.call("Runtime.evaluate", {"expression": "localStorage.clear(); 'ok'"})
+            await c.call("Page.navigate", {"url": origin + s["path"]})
             await asyncio.sleep(s.get("wait", 3))
 
-            if s.get("js"):
-                await c.call("Runtime.evaluate", {"expression": s["js"], "awaitPromise": True})
-                await asyncio.sleep(s.get("wait_js", 1.2))
+            # Kilka kroków po kolei: wejście do folderu, zaznaczenie, otwarcie okna.
+            # Każdy dostaje własną pauzę, bo React przerysowuje ekran między nimi.
+            for klucz in ("js", "js2", "js3"):
+                if not s.get(klucz):
+                    continue
+                await c.call("Runtime.evaluate", {"expression": s[klucz], "awaitPromise": True})
+                await asyncio.sleep(s.get("wait_" + klucz, 1.2))
 
             params = {"format": "png", "captureBeyondViewport": False}
-            if s.get("clip"):
+            if s.get("clip") or s.get("clip_js"):
+                # `clip_js` — wyrażenie zwracające element. Potrzebne tam, gdzie
+                # kadrowany fragment nie ma stabilnego selektora CSS (np. rząd paneli
+                # rozpoznawany po nagłówku, który w nim leży).
+                znajdz = s["clip_js"] if s.get("clip_js") else f"document.querySelector({json.dumps(s['clip'])})"
                 r = await c.call("Runtime.evaluate", {"returnByValue": True, "expression": f"""
-                    (() => {{ const e=document.querySelector({json.dumps(s['clip'])});
+                    (() => {{ const e={znajdz};
                       if(!e) return null; const b=e.getBoundingClientRect();
                       const p={s.get('pad', 12)};
                       return {{x:Math.max(0,b.left-p), y:Math.max(0,b.top-p),
@@ -67,12 +78,15 @@ async def capture(shots, token, user_json, width, height):
                 if box:
                     params["clip"] = {**box, "scale": SCALE}
                 else:
-                    print(f"    UWAGA: nie znaleziono {s['clip']} — pełny ekran")
+                    print(f"    UWAGA: nie znaleziono kadru dla {os.path.basename(s['out'])} — pełny ekran")
 
             res = await c.call("Page.captureScreenshot", params)
+            os.makedirs(os.path.dirname(s["out"]), exist_ok=True)
             with open(s["out"], "wb") as f:
                 f.write(base64.b64decode(res["data"]))
             print(f"  {os.path.basename(s['out'])}")
+            if s.get("wyloguj"):
+                await c.call("Runtime.evaluate", {"expression": zaloguj})
 
 
 def main():
@@ -89,7 +103,8 @@ def main():
             except Exception:
                 time.sleep(0.5)
         asyncio.run(capture(cfg["shots"], cfg["token"], json.dumps(cfg["user"]),
-                            cfg.get("width", 1600), cfg.get("height", 1000)))
+                            cfg.get("width", 1600), cfg.get("height", 1000),
+                            cfg.get("origin", "http://localhost:3010")))
     finally:
         proc.terminate()
 

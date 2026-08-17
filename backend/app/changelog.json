@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "1.5.12",
+      "date": "2026-08-17",
+      "title": "Nowe instrukcje obslugi dla obu wdrozen",
+      "changes": [
+        "Instrukcje obslugi opisuja wersje 1.5.11 zamiast 1.0.1. Wszystkie zrzuty ekranu zrobione od nowa na dzialajacych instancjach; doszly rozdzialy o rolach uzytkownikow, nadawaniu nazw z rozpoznanych pol, ekranie Wyszukiwanie i zgloszeniach do wsparcia.",
+        "Kazde wdrozenie ma wlasny komplet: ZCO DM i HiRS, po dwa wydania (administrator i uzytkownik). Menu Instrukcja pokazuje ten wlasciwy dla instancji.",
+        "Demo HiRS ma teraz nadane uprawnienia do folderow i konto bez praw administratora, wiec pokazuje podzial dostepu zamiast pustych ekranow dla kazdego poza administratorem."
+      ]
+    },
+    {
       "version": "1.5.11",
       "date": "2026-08-16",
       "title": "Historia chatow bez pogrubienia",

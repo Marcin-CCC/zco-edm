@@ -19,12 +19,45 @@ import sys
 import tempfile
 import time
 
-WERSJA = "1.0.1"
-DATA = "30 lipca 2026"
-ODBIORCA = "Zachodniopomorskie Centrum Onkologii w Szczecinie"
+WERSJA = "1.5.11"
+DATA = "17 sierpnia 2026"
 WYKONAWCA = "Polmedi Group sp. z o.o., Poznań"
 KATALOG = os.path.dirname(os.path.abspath(__file__))
 EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+
+# --------------------------------------------------------------- wdrożenia
+#
+# Ta sama aplikacja stoi w dwóch miejscach: u klienta jako „ZCO DM" i jako demo
+# uniwersalne „HiRS". Instrukcje różnią się WYŁĄCZNIE tym słownikiem i zrzutami
+# ekranu — treść rozdziałów jest wspólna, bo obie instancje to ten sam obraz.
+# Gdyby wydania pisać osobno, pierwsza poprawka trafiłaby tylko do jednego.
+WDROZENIA = {
+    "zco": {
+        "nazwa": "ZCO DM",
+        "pelna": "ZCO Document Management",
+        "odbiorca": "Zachodniopomorskie Centrum Onkologii w Szczecinie",
+        "wlasciciel": "Zachodniopomorskiego Centrum Onkologii",
+        "plik": "ZCO-DM-instrukcja",
+        # Zrzuty pochodzą z dokumentów klienta, nie z danych przykładowych.
+        "zrodlo_zrzutow": "Zrzuty ekranu pochodzą z działającej instancji "
+                          "i przedstawiają rzeczywiste dokumenty ZCO.",
+        "demo": False,
+    },
+    "hirs": {
+        "nazwa": "HiRS",
+        "pelna": "Hospital Information Retrieval System",
+        "odbiorca": "wersja demonstracyjna",
+        "wlasciciel": "szpitala",
+        "plik": "HiRS-instrukcja",
+        "zrodlo_zrzutow": "Zrzuty ekranu pochodzą z instancji demonstracyjnej "
+                          "i przedstawiają dokumenty przykładowe.",
+        "demo": True,
+    },
+}
+
+# Bieżące wdrożenie — ustawiane w main() z argumentu wywołania. Rozdziały czytają
+# je przez W["..."], więc nie ma w treści ani jednej nazwy wpisanej na sztywno.
+W = WDROZENIA["zco"]
 
 
 # ---------------------------------------------------------------- bloki treści
@@ -65,14 +98,20 @@ def uwaga(tekst):
 
 def r_o_aplikacji():
     return [
-        a("ZCO Document Management (w skrócie <b>ZCO DM</b>) to wewnętrzna baza dokumentów "
-          "Zachodniopomorskiego Centrum Onkologii. Aplikacja robi dwie rzeczy naraz: przechowuje "
-          "dokumenty w uporządkowanej strukturze folderów i pozwala <b>zadawać pytania o ich treść "
-          "zwykłym językiem</b>, tak jak zapytalibyśmy kolegi, który te dokumenty zna."),
+        a(f"{W['pelna']} (w skrócie <b>{W['nazwa']}</b>) to wewnętrzna baza dokumentów. "
+          "Aplikacja robi dwie rzeczy naraz: przechowuje dokumenty w uporządkowanej strukturze "
+          "folderów i pozwala <b>zadawać pytania o ich treść zwykłym językiem</b>, tak jak "
+          "zapytalibyśmy kolegi, który te dokumenty zna."),
         a("Różnica wobec zwykłego dysku sieciowego jest zasadnicza. Na dysku trzeba wiedzieć, "
           "w którym pliku szukać. Tutaj wystarczy zapytać „jakie są zasady pracy zdalnej?”, a aplikacja "
           "sama znajdzie właściwe fragmenty dokumentów, ułoży z nich odpowiedź i pokaże, z których "
-          "dokumentów i z których stron pochodzi każde zdanie."),
+          "dokumentów pochodzi każde zdanie."),
+        n("Dwie drogi do dokumentu"),
+        a("Aplikacja odpowiada na dwa różne rodzaje pytań i ma na nie dwa osobne ekrany. "
+          "<b>Chat z AI</b> odpowiada na pytania o <b>treść</b> — „od jakiego wieku dziecka "
+          "przysługuje dofinansowanie?”. <b>Wyszukiwanie</b> odpowiada na pytania o <b>strukturę</b> — "
+          "„pokaż wszystkie zarządzenia z 2023 roku”. Rozdzielenie jest celowe: dzięki niemu nie trzeba "
+          "zgadywać, do którego pola wpisać pytanie."),
         n("Co się dzieje z dokumentem po wgraniu"),
         a("Każdy dokument przechodzi automatyczne przetwarzanie. Aplikacja odczytuje jego treść "
           "(także z tabel), dzieli ją na fragmenty, rozpoznaje rodzaj dokumentu — zarządzenie, procedura, "
@@ -82,61 +121,73 @@ def r_o_aplikacji():
           "od jego długości i od tego, czy jest to plik tekstowy, czy skan wymagający rozpoznania pisma. "
           "Przez ten czas dokument ma status <i>W kolejce</i> lub <i>Przetwarzanie</i>."),
         n("Bezpieczeństwo danych"),
-        a("Cała aplikacja wraz z modelem językowym działa na serwerze w siedzibie ZCO. "
-          "<b>Treść dokumentów ani zadawane pytania nie opuszczają tego serwera</b> i nie są wysyłane "
-          "do żadnej usługi zewnętrznej. Dostęp do dokumentów wynika z uprawnień nadanych roli, "
-          "do której należy konto — użytkownik widzi wyłącznie te foldery, które mu udostępniono."),
+        a("Cała aplikacja wraz z modelem językowym działa na serwerze "
+          f"{W['wlasciciel']}. <b>Treść dokumentów ani zadawane pytania nie opuszczają tego serwera</b> "
+          "i nie są wysyłane do żadnej usługi zewnętrznej. Dostęp do dokumentów wynika z uprawnień "
+          "nadanych roli, do której należy konto — użytkownik widzi wyłącznie te foldery, "
+          "które mu udostępniono."),
         uwaga("Aplikacja jest narzędziem pomocniczym. Odpowiedź czatu zawsze wskazuje dokument źródłowy "
               "i to on pozostaje wiążący — przy decyzjach formalnych należy sięgnąć do wskazanego dokumentu."),
     ]
 
-
 def r_logowanie(rola):
     bloki = [
         a("Aplikację otwieramy w przeglądarce internetowej pod adresem podanym przez administratora. "
-          "Logujemy się <b>adresem e-mail</b> i hasłem otrzymanym od administratora. Wielkość liter "
-          "w adresie nie ma znaczenia."),
+          "Nad formularzem widnieje znak instancji — ikona i nazwa. Logujemy się <b>adresem e-mail</b> "
+          "i hasłem otrzymanym od administratora; wielkość liter w adresie nie ma znaczenia."),
+        zrzut("a00-logowanie.png" if rola == "admin" else "u00-logowanie.png",
+              "Ekran logowania. Znak instancji nad formularzem jest ten sam, "
+              "który widać potem na szczycie menu."),
         a("Po zalogowaniu ekran dzieli się na dwie części. Po lewej stronie znajduje się granatowe menu, "
-          "po prawej — treść wybranej strony. W prawym górnym rogu widoczne jest powitanie oraz "
-          "<b>kółko z inicjałami</b>, które rozwija menu użytkownika. Na samym dole menu bocznego widnieje "
+          "po prawej — treść wybranej strony. W prawym górnym rogu widoczne są imię i nazwisko oraz "
+          "<b>kółko z inicjałami</b>, które rozwija menu użytkownika. Na dole menu bocznego widnieje "
           "numer wersji aplikacji — będący odnośnikiem do historii zmian — oraz informacja o producencie."),
+        n("Zwijanie menu"),
+        a("Kliknięcie w znak instancji na szczycie menu <b>zwija je do samych ikon</b>, zostawiając "
+          "więcej miejsca na treść. Ponowne kliknięcie rozwija menu z powrotem. Wybór jest zapamiętywany "
+          "między sesjami, więc raz zwinięte menu pozostanie zwinięte także po ponownym zalogowaniu."),
         n("Menu pod inicjałami"),
         lista(
             "<b>Profil</b> — własne dane konta i zmiana hasła.",
-            "<b>Pomoc</b> — ta instrukcja, otwarta wprost w aplikacji; można ją też pobrać jako PDF.",
+            "<b>Instrukcja</b> — ten dokument, otwarty wprost w aplikacji; można go też pobrać jako PDF.",
             "<b>Wyloguj</b> — zakończenie pracy.",
         ),
-        n("Pozycje menu"),
+        n("Pozycje menu bocznego"),
+        lista(
+            "<b>Dashboard</b> — ekran startowy z podsumowaniem liczbowym i wykresami aktywności.",
+            "<b>Pliki</b> — eksplorator folderów i dokumentów.",
+            "<b>Chat z AI</b> — pytania o treść dokumentów.",
+            "<b>Wyszukiwanie</b> — wyszukiwarka po polach opisowych.",
+        ),
     ]
     if rola == "admin":
-        bloki.append(lista(
-            "<b>Dashboard</b> — ekran startowy z podsumowaniem liczbowym i wykresami aktywności.",
-            "<b>Pliki</b> — eksplorator folderów i dokumentów: wgrywanie, pobieranie, porządkowanie.",
-            "<b>Baza wiedzy</b> — czat z dokumentami oraz wyszukiwarka po polach opisowych.",
-            "<b>Administracja</b> — konta użytkowników, uprawnienia, rodzaje dokumentów, kolejka "
-            "przetwarzania i ustawienia aplikacji. Ta pozycja jest widoczna wyłącznie dla administratora.",
-        ))
+        bloki += [
+            a("Poniżej znajduje się kreska z podpisem <b>ADMINISTRACJA</b>, a pod nią część widoczna "
+              "wyłącznie dla administratora: <b>Użytkownicy</b>, <b>Lista dostępów</b>, "
+              "<b>Schematy dokumentów</b>, <b>Kolejka plików</b>, <b>Lista odpowiedzi</b> "
+              "oraz <b>Ustawienia</b>. Te same pozycje pojawiają się dodatkowo jako pasek zakładek "
+              "na górze każdego ekranu administracyjnego."),
+        ]
     else:
-        bloki.append(lista(
-            "<b>Dashboard</b> — ekran startowy z podsumowaniem liczbowym i wykresami aktywności.",
-            "<b>Pliki</b> — przeglądanie folderów i dokumentów, do których mamy dostęp.",
-            "<b>Baza wiedzy</b> — czat z dokumentami oraz wyszukiwarka po polach opisowych.",
-        ))
-        bloki.append(a("Jeżeli ktoś inny widzi w menu dodatkową pozycję <b>Administracja</b>, oznacza to, "
-                       "że ma konto administratora. Zwykłe konto tej części aplikacji nie widzi i nie ma "
-                       "do niej dostępu."))
+        bloki.append(a("Jeżeli ktoś inny widzi w menu dodatkową część pod kreską <b>ADMINISTRACJA</b>, "
+                       "oznacza to, że ma konto administratora. Zwykłe konto tej części aplikacji "
+                       "nie widzi i nie ma do niej dostępu."))
     bloki += [
-        wskazowka("Po piętnastu minutach bezczynności aplikacja wylogowuje automatycznie. To zabezpieczenie "
-                  "na wypadek pozostawienia otwartej sesji na wspólnym komputerze."),
+        a("Na dole menu jest jeszcze kafelek <b>Potrzebujesz pomocy?</b> z przyciskiem "
+          "<b>Skontaktuj się</b> — prowadzi do formularza zgłoszenia do wsparcia technicznego "
+          "(zob. osobny rozdział). Gdy menu nie mieści się na niskim ekranie, przewija się sama lista "
+          "pozycji; kafelek pomocy i stopka pozostają na swoim miejscu."),
+        wskazowka("Po okresie bezczynności aplikacja wylogowuje automatycznie — to zabezpieczenie "
+                  "na wypadek pozostawienia otwartej sesji na wspólnym komputerze. Długość tego okresu "
+                  "ustawia administrator; niezależnie od niej sesja ma twardy limit dwunastu godzin."),
     ]
     return bloki
-
 
 def r_profil(rola):
     """Własne konto i pomoc — rozdział wspólny, różni się tylko wzmianką o rolach."""
     bloki = [
         a("Kółko z inicjałami w prawym górnym rogu rozwija menu z trzema pozycjami: "
-          "<b>Profil</b>, <b>Pomoc</b> i <b>Wyloguj</b>. Menu zamyka się klawiszem Escape "
+          "<b>Profil</b>, <b>Instrukcja</b> i <b>Wyloguj</b>. Menu zamyka się klawiszem Escape "
           "albo kliknięciem obok."),
         *([zrzut("a18-menu-awatara.png", "Menu użytkownika rozwinięte spod kółka z inicjałami.")]
           if rola == "admin" else []),
@@ -164,7 +215,7 @@ def r_profil(rola):
         a("Po udanej zmianie aplikacja wylogowuje i pokazuje ekran logowania — to celowe: od razu "
           "sprawdzamy, że nowe hasło działa."),
         n("Pomoc"),
-        a("Pozycja <b>Pomoc</b> otwiera tę instrukcję wprost w aplikacji, bez szukania pliku na dysku. "
+        a("Pozycja <b>Instrukcja</b> otwiera ten dokument wprost w aplikacji, bez szukania pliku na dysku. "
           "Na górze strony są dwa przyciski: <b>Otwórz w nowej karcie</b> oraz <b>Pobierz PDF</b>. "
           "Administrator widzi wydanie pełne, pozostałe konta — wydanie użytkownika, opisujące wyłącznie "
           "ekrany, do których mają dostęp."),
@@ -175,97 +226,88 @@ def r_profil(rola):
 
 
 def r_dashboard(rola):
-    if rola == "admin":
-        return [
-            a("Dashboard to ekran startowy. U góry znajdują się cztery kafelki z podsumowaniem: liczba kont "
-              "użytkowników, liczba dokumentów, liczba folderów oraz liczba dokumentów przetworzonych. "
-              "Kafelek <b>Użytkownicy</b> prowadzi wprost do zarządzania kontami."),
-            a("Poniżej widnieją dwa wykresy słupkowe obejmujące ostatnie trzydzieści dni: "
-              "<b>Statystyki parsowania</b> pokazują, ile dokumentów zostało przetworzonych każdego dnia, "
-              "a <b>Statystyki zapytań w chacie</b> — ile pytań zadano bazie wiedzy. Nad każdym wykresem "
-              "widnieje suma z całego okresu, a po najechaniu kursorem na słupek pojawia się dokładna liczba "
-              "wraz z datą."),
-            a("Administrator widzi dane całej aplikacji, co jest zaznaczone opisem „wszyscy użytkownicy” "
-              "przy każdym wykresie."),
-            zrzut("a01-pulpit.png", "Dashboard administratora — kafelki podsumowania i wykresy aktywności z ostatnich 30 dni."),
-            a("Pod wykresami widnieje sekcja <b>Aktywność wg użytkowników</b> — dwa wykresy poziome "
-              "pokazujące, kto wysłał najwięcej plików do przetworzenia i kto zadał najwięcej pytań "
-              "w ciągu ostatnich trzydziestu dni. Sekcję widzi wyłącznie administrator."),
-            a("Danych własnego konta szukamy na stronie <b>Profil</b>, pod kółkiem z inicjałami "
-              "w prawym górnym rogu."),
-        ]
-    return [
-        a("Dashboard to ekran startowy. U góry znajdują się trzy kafelki: liczba dokumentów, liczba folderów "
-          "oraz liczba dokumentów przetworzonych. <b>Wszystkie liczby dotyczą wyłącznie tego, do czego mamy "
-          "dostęp</b> — jeżeli udostępniono nam dwa foldery, kafelki pokazują zawartość tych dwóch folderów, "
-          "a nie całej aplikacji."),
-        a("Poniżej widnieją dwa wykresy słupkowe z ostatnich trzydziestu dni. <b>Statystyki parsowania</b> "
-          "pokazują, ile dostępnych dla nas dokumentów przetworzono każdego dnia — także tych wgranych przez "
-          "współpracowników, jeśli trafiły do naszych folderów. <b>Statystyki zapytań w chacie</b> zliczają "
-          "wyłącznie nasze własne pytania; cudze pozostają prywatne."),
-        a("Opis nad każdym wykresem mówi wprost, czego dotyczy: „dostępne dla Ciebie” oraz „Twoje zapytania”."),
-        zrzut("u01-pulpit.png", "Dashboard zwykłego użytkownika — liczby i wykresy w zakresie nadanych uprawnień."),
-        a("Dane własnego konta znajdziemy na stronie <b>Profil</b>, pod kółkiem z inicjałami "
-          "w prawym górnym rogu ekranu."),
+    bloki = [
+        a("<b>Dashboard</b> to ekran startowy. Pokazuje stan bazy dokumentów w liczbach i wykresach, "
+          "a wszystko na nim dotyczy <b>wybranego zakresu czasu</b> — listy rozwijanej w prawym górnym "
+          "rogu, z opcjami 7, 30 i 90 dni. Jeden wybór obowiązuje cały ekran, więc kafelki i wykresy "
+          "zawsze mówią o tym samym okresie."),
+        zrzut("a01-pulpit.png" if rola == "admin" else "u01-pulpit.png",
+              "Dashboard — kafelki podsumowania i wykresy aktywności."),
+        n("Kafelki na górze"),
+        a("Cztery kafelki podają liczbę kont, folderów i dokumentów oraz udział dokumentów "
+          "przetworzonych. Pod liczbą bywa druga linijka z porównaniem do poprzedniego okresu, "
+          "na przykład <i>↑ 12,6% wobec poprzednich 30 dni</i>."),
+        wskazowka("Brak linijki z porównaniem nie oznacza usterki. Aplikacja nie pokazuje zmiany "
+                  "procentowej, gdy poprzedni okres był zbyt ubogi, żeby procent cokolwiek znaczył — "
+                  "wzrost „o 400%” z jednego dokumentu na pięć jest liczbą prawdziwą i bezużyteczną."),
+        n("Wykresy"),
+        a("Dwa wykresy pokazują dzienną aktywność: liczbę przetworzonych dokumentów i liczbę pytań "
+          "zadanych czatowi. Najechanie kursorem pokazuje dokładną wartość z danego dnia."),
     ]
-
+    if rola == "admin":
+        bloki += [
+            n("Ostatnio dodane dokumenty i aktywność użytkowników"),
+            a("Dwa panele pod wykresami pokazują pięć ostatnio wgranych dokumentów oraz zestawienie "
+              "aktywności kont w wybranym okresie — ile plików ktoś wgrał i ile zadał pytań. Konta "
+              "bez żadnej aktywności nie zaśmiecają listy; ich liczba jest podana pod spodem."),
+            n("Szybkie akcje, miejsce i stan serwera"),
+            a("Dolny rząd to trzy panele. <b>Szybkie akcje</b> prowadzą wprost do najczęstszych "
+              "czynności. <b>Miejsce w systemie</b> pokazuje zajętość dysku serwera — uwaga: całego "
+              "dysku, dzielonego z pozostałymi usługami, dlatego pod spodem podana jest osobno "
+              "wielkość samych dokumentów. <b>Status systemu</b> mówi, czy działają aplikacja, baza "
+              "danych, parser dokumentów i magazyn plików."),
+            zrzut("a19-panele.png", "Dolny rząd Dashboardu: szybkie akcje, zajętość dysku "
+                                    "i stan poszczególnych usług."),
+            wskazowka("W wierszu <b>Parser</b> widać, czy model językowy jest w tej chwili zajęty. "
+                      "„Model bezczynny” oznacza, że nowe pytanie albo dokument zostaną obsłużone od razu; "
+                      "gdy model coś liczy, odpowiedź czatu może chwilę poczekać."),
+        ]
+    else:
+        bloki.append(a("Liczby na Dashboardzie dotyczą <b>tego, co wolno nam zobaczyć</b>. Dokumenty "
+                       "i foldery liczone są w zakresie nadanych uprawnień, a wykres pytań pokazuje "
+                       "wyłącznie pytania zadane z własnego konta. Dwie osoby o różnych uprawnieniach "
+                       "zobaczą więc na tym ekranie różne liczby i jest to zachowanie prawidłowe."))
+    return bloki
 
 def r_pliki_przegladanie(rola):
     bloki = [
-        a("Strona <b>Pliki</b> działa jak eksplorator na komputerze. U góry widnieje ścieżka nawigacji "
-          "zaczynająca się od <b>Root</b> — to katalog główny. Poniżej znajdują się kafelki folderów, "
-          "a pod nimi lista dokumentów z bieżącego folderu."),
-        a("Kliknięcie kafelka wchodzi do folderu, kliknięcie elementu ścieżki u góry cofa do wybranego poziomu. "
-          "Listę dokumentów można przełączyć między widokiem <b>Lista</b> a <b>Kafelki</b>, a pole "
-          "<i>Szukaj pliku…</i> filtruje dokumenty po nazwie."),
-        a("Foldery i dokumenty ułożone są alfabetycznie, z uwzględnieniem polskich znaków — nazwy "
-          "zaczynające się od ą, ć czy ł trafiają tam, gdzie powinny, a nie na koniec listy."),
+        a("Ekran <b>Pliki</b> to eksplorator dokumentów. Na górze widnieje ścieżka nawigacji "
+          "zaczynająca się od <b>Katalogu głównego</b> — kliknięcie dowolnego jej elementu cofa "
+          "do tego poziomu. Poniżej są dwie karty: <b>Foldery</b> i <b>Pliki</b>."),
+        zrzut("a02-pliki.png" if rola == "admin" else "u02-pliki.png",
+              "Eksplorator plików — foldery bieżącego poziomu i lista dokumentów."),
+        n("Dwa widoki"),
+        a("Zarówno foldery, jak i pliki można oglądać jako <b>listę</b> albo jako <b>kafelki</b> — "
+          "przełącznik znajduje się w nagłówku każdej z kart, a wybór jest niezależny dla folderów "
+          "i dla plików. Lista mieści więcej informacji w jednym rzucie oka, kafelki są wygodniejsze, "
+          "gdy szukamy dokumentu „z pamięci wzrokowej”."),
+        zrzut("a02b-kafelki.png" if rola == "admin" else "u02b-folder.png",
+              "Widok kafelkowy — typ pliku niesie kolorowa plakietka z rozszerzeniem."),
+        n("Kolumny listy"),
+        a("Lista plików pokazuje typ pliku, nazwę, rozmiar, <b>kategorię</b> rozpoznaną przez aplikację "
+          "oraz datę dodania. Kategoria to rodzaj dokumentu — zarządzenie, procedura, wniosek — "
+          "i to ona najczęściej pomaga odnaleźć właściwy plik. Dokumenty, których aplikacja nie "
+          "przypisała do żadnej kategorii, mają w tej kolumnie napis <i>nierozpoznana</i>."),
+        n("Szukanie i stronicowanie"),
+        a("Pole <b>Szukaj pliku</b> nad listą filtruje dokumenty po nazwie w obrębie bieżącego folderu. "
+          "Pod listą widnieje liczba dokumentów oraz wybór, ile pozycji pokazywać na stronie "
+          "(10, 25, 50 lub 100)."),
+        uwaga("Aplikacja pobiera naraz najwyżej 200 dokumentów z folderu. Gdy folder zawiera ich więcej, "
+              "pod listą pojawia się o tym czerwona adnotacja — wtedy trzeba zawęzić wyszukiwanie "
+              "albo wejść do podfolderu. Lista nigdy nie ukrywa dokumentów po cichu."),
+        n("Szczegóły dokumentu"),
+        a("Kliknięcie wiersza otwiera okno ze szczegółami: typ pliku, rozmiar, status przetwarzania, "
+          "datę dodania, folder, konto które wgrało dokument oraz rozpoznaną kategorię. Z tego okna "
+          "można dokument <b>pobrać</b>, a pliki PDF również <b>podejrzeć</b> w nowej karcie."),
     ]
     if rola == "admin":
-        bloki += [
-            zrzut("a02-pliki.png", "Eksplorator plików widziany przez administratora — foldery główne i lista dokumentów."),
-        ]
+        bloki.append(zrzut("a07-szczegoly.png", "Okno szczegółów dokumentu z przyciskami pobrania "
+                                                "i podglądu."))
     else:
-        bloki += [
-            a("<b>Widzimy wyłącznie foldery, do których nasza rola ma dostęp.</b> Jeżeli w katalogu głównym "
-              "widnieje jeden folder, a lista dokumentów jest pusta, oznacza to, że dokumenty leżą wewnątrz "
-              "tego folderu — wystarczy w niego wejść. Dokumenty leżące luzem w katalogu głównym są widoczne "
-              "wyłącznie dla administratora, dlatego lista na tym poziomie bywa pusta."),
-            zrzut("u02-pliki.png", "Katalog główny widziany przez zwykłego użytkownika — tylko udostępniony folder."),
-            zrzut("u02b-folder.png", "Wnętrze udostępnionego folderu — dokumenty wraz ze statusem przetwarzania."),
-        ]
-    bloki += [
-        n("Kolumny listy dokumentów"),
-        lista(
-            "<b>Ikona</b> — kolor i symbol zależą od formatu pliku, co ułatwia rozpoznanie na pierwszy rzut oka.",
-            "<b>Nazwa</b> — pełna nazwa dokumentu, a pod nią jego format.",
-            "<b>Rozmiar</b> — wielkość pliku.",
-            "<b>Status</b> — etap przetwarzania (opisany w następnym punkcie).",
-            "<b>Data dodania</b> — kiedy dokument trafił do aplikacji.",
-            "<b>Akcje</b> — przyciski operacji na dokumencie.",
-        ),
-        n("Statusy przetwarzania"),
-        tabela(["Status", "Co oznacza", "Co robić"], [
-            ["W kolejce", "Dokument został zapisany i czeka na swoją kolej.",
-             "Nic — wystarczy odczekać."],
-            ["Przetwarzanie", "Aplikacja właśnie odczytuje treść dokumentu.",
-             "Nic — przy długich dokumentach potrafi to potrwać kilka minut."],
-            ["Przetworzono", "Dokument jest gotowy: można go znaleźć w wyszukiwarce i pytać o niego na czacie.",
-             "Można korzystać."],
-            ["Błąd przetwarzania", "Odczyt treści się nie powiódł.",
-             "Zgłosić administratorowi — dokument jest w aplikacji, ale nie odpowiada na pytania."],
-        ]),
-        wskazowka("Status nie odświeża się sam co sekundę. Jeżeli dokument długo pozostaje „W kolejce”, "
-                  "warto odświeżyć stronę przeglądarki."),
-        n("Podgląd szczegółów i pobieranie"),
-        a("Kliknięcie nazwy dokumentu otwiera okno ze szczegółami: format, rozmiar, status, data dodania "
-          "oraz osoba, która go wgrała. Z tego okna można pobrać plik na dysk. To samo robi przycisk "
-          "<b>Pobierz</b> w kolumnie akcji."),
-    ]
-    if rola == "admin":
-        bloki.append(zrzut("a07-szczegoly.png", "Okno szczegółów dokumentu z przyciskiem pobrania."))
+        bloki.append(a("W katalogu głównym zwykłe konto nie widzi żadnych plików — dokumenty leżące "
+                       "poza folderami są dostępne wyłącznie dla administratora. Widoczne są za to "
+                       "foldery, które udostępniono naszej roli."))
     return bloki
-
 
 def r_wgrywanie(rola):
     bloki = [
@@ -294,69 +336,73 @@ def r_wgrywanie(rola):
 
 
 def r_czat(rola):
-    zrzut_czat = "a08-chat.png" if rola == "admin" else "u03-chat.png"
-    return [
-        a("Strona <b>Baza wiedzy</b> to miejsce, w którym zadajemy pytania o treść dokumentów. Ekran dzieli się "
-          "na trzy części: po lewej <b>Historia chatów</b>, pośrodku <b>Chat z bazy wiedzy</b>, a po prawej "
-          "przycisk z lupą otwierający wyszukiwarkę po polach."),
-        a("Pytanie wpisujemy na dole i wysyłamy klawiszem Enter albo przyciskiem <b>Wyślij</b>. "
-          "Kombinacja Shift+Enter przenosi do nowej linii, jeśli chcemy zadać dłuższe pytanie."),
-        zrzut(zrzut_czat, "Odpowiedź czatu z odnośnikami do źródeł w treści oraz listą dokumentów pod spodem."),
-        n("Skąd wiadomo, że odpowiedź jest prawdziwa"),
-        a("Aplikacja nie odpowiada „z pamięci” — buduje odpowiedź wyłącznie z fragmentów dokumentów "
-          "znajdujących się w bazie. W tekście odpowiedzi widoczne są małe niebieskie numery. Każdy z nich "
-          "odsyła do konkretnego dokumentu wypisanego w sekcji <b>Źródła</b> pod odpowiedzią, wraz z numerem "
-          "strony. Kliknięcie numeru przewija do właściwej pozycji na liście źródeł."),
-        a("Jeżeli w dokumentach nie ma odpowiedzi na zadane pytanie, aplikacja powie o tym wprost, "
-          "zamiast zgadywać."),
-        n("Jak pytać, żeby dostać dobrą odpowiedź"),
-        lista(
-            "Wystarczy sama nazwa dokumentu: wpisanie „wniosek o urlop opiekuńczy” albo „regulamin "
-            "wynagradzania” daje krótkie wyjaśnienie, czym ten dokument jest, wraz z odnośnikiem do niego.",
-            "Pełne zdanie działa równie dobrze: „jakie są zasady pracy zdalnej?”.",
-            "Można pytać potocznie. Jeśli dokument mówi o „podróży służbowej”, a my zapytamy o „delegację”, "
-            "aplikacja i tak trafi we właściwy dokument.",
-            "Można pytać dalej w tej samej rozmowie — aplikacja pamięta kontekst, więc po pytaniu o zarządzenie "
-            "można zapytać po prostu „a kto je podpisał?”.",
-            "Pytania o listę dokumentów też działają: „wypisz wszystkie zarządzenia z 2024 roku” zwróci "
-            "zestawienie dokumentów zamiast opisu ich treści.",
-        ),
-        n("Zmiana tematu w trakcie rozmowy"),
-        a("Kiedy w środku rozmowy przechodzimy do zupełnie innej sprawy, aplikacja radzi sobie sama. "
-          "Gdyby odpowiedź oparta na dotychczasowym wątku nic nie znalazła, pytanie zostaje zadane "
-          "ponownie — tak, jakby padło w nowym czacie. Widać wtedy krótką informację „Nowy temat w tej "
-          "rozmowie”, a zaraz po niej właściwą odpowiedź. Zakładanie nowego czatu tylko z tego powodu "
-          "nie jest już potrzebne."),
-        n("Historia rozmów"),
-        a("Każda rozmowa zapisuje się automatycznie w panelu <b>Historia chatów</b> pod nazwą wziętą z pierwszego "
-          "pytania. Kliknięcie pozycji na liście przywraca całą rozmowę. Przycisk <b>+ Nowy chat</b> zaczyna "
-          "rozmowę od czysta — przydaje się, gdy chcemy oddzielić sprawy od siebie, ale przy samej zmianie "
-          "tematu nie jest konieczny (zob. wyżej). Krzyżyk przy pozycji historii usuwa rozmowę."),
-        wskazowka("Historia rozmów jest prywatna. Widzimy wyłącznie własne rozmowy, także administrator "
-                  "nie ogląda cudzych pytań w tym panelu."),
+    bloki = [
+        a("Ekran <b>Chat z AI</b> to miejsce, w którym zadajemy pytania o treść dokumentów. "
+          "Dzieli się na trzy części: listę wcześniejszych rozmów po lewej, okno rozmowy pośrodku "
+          "i odsyłacz do wyszukiwarki po prawej."),
+        a("Pytanie wpisujemy w pole na dole i zatwierdzamy klawiszem <b>Enter</b>; "
+          "<b>Shift+Enter</b> przechodzi do nowej linii. Odpowiedź pojawia się stopniowo, "
+          "słowo po słowie — można ją przerwać przyciskiem <b>Zatrzymaj</b>."),
+        zrzut("a08-chat.png" if rola == "admin" else "u03-chat.png",
+              "Odpowiedź czatu wraz z listą dokumentów, na których została oparta."),
+        n("Skąd pochodzi odpowiedź"),
+        a("Pod każdą odpowiedzią widnieje lista <b>dokumentów użytych w odpowiedzi</b>. Każda pozycja "
+          "podaje numer odsyłacza, typ pliku, kategorię dokumentu, stronę i nazwę pliku; kliknięcie "
+          "otwiera dokument źródłowy. Numery w plakietkach odpowiadają odsyłaczom w treści odpowiedzi, "
+          "więc widać, które zdanie skąd pochodzi."),
+        a("Poniżej bywa jeszcze informacja w rodzaju <i>Sprawdzono też 7 dokumentów, które nie zostały "
+          "wykorzystane</i> wraz z przyciskiem rozwijającym ich listę. To dokumenty, które aplikacja "
+          "przejrzała, szukając odpowiedzi, ale nie znalazła w nich niczego na temat — warto tam "
+          "zajrzeć, gdy odpowiedź wydaje się niepełna."),
+        n("Gdy w dokumentach nie ma odpowiedzi"),
+        a("Aplikacja odpowiada <b>wyłącznie na podstawie wgranych dokumentów</b>. Jeżeli nie znajdzie "
+          "informacji, napisze o tym wprost, zamiast zmyślać. Odpowiedź „nie znaleziono w dokumentach "
+          "informacji na ten temat” jest zatem informacją o zbiorze dokumentów, a nie usterką."),
+        n("Pytania o listę dokumentów"),
+        a("Pytanie w rodzaju „pokaż wszystkie zarządzenia z 2023 roku” aplikacja rozpoznaje jako prośbę "
+          "o <b>wypis</b>, nie o odpowiedź z treści. Odpowiada wtedy zdaniem „Znalazłem N dokumentów”, "
+          "listą tych dokumentów i przyciskiem <b>Pobierz tę listę w pliku XLSX</b>."),
+        n("Rozmowy"),
+        a("Każda rozmowa zapisuje się na liście po lewej stronie i można do niej wrócić. Przycisk "
+          "<b>Nowy chat</b> zaczyna rozmowę od czysta. Ma to znaczenie: w obrębie jednej rozmowy "
+          "aplikacja bierze pod uwagę wcześniejsze pytania, więc <b>przy zmianie tematu lepiej "
+          "zacząć nową</b>."),
+        wskazowka("Pytania „o to samo innymi słowami” bywają skuteczne. Jeżeli pierwsza odpowiedź "
+                  "jest ogólna, warto dopytać o szczegół — aplikacja szuka wtedy w obrębie dokumentów "
+                  "wskazanych w poprzedniej odpowiedzi."),
     ]
-
+    if rola == "admin":
+        bloki.append(a("Pod odpowiedzią pojawia się prośba o ocenę. Oceny trafiają na ekran "
+                       "<b>Lista odpowiedzi</b> w części administracyjnej i służą do poprawiania "
+                       "jakości działania — warto zachęcić użytkowników, żeby z niej korzystali."))
+    return bloki
 
 def r_wyszukiwarka(rola):
-    zrzut_wysz = "a09-wyszukiwarka.png" if rola == "admin" else "u04-wyszukiwarka.png"
     return [
-        a("Czat odpowiada na pytania o <i>treść</i> dokumentów. Kiedy natomiast szukamy dokumentów po ich "
-          "<i>opisie</i> — po numerze, dacie, osobie podpisującej — służy do tego <b>Wyszukiwarka po polach</b>, "
-          "którą otwiera przycisk z lupą po prawej stronie ekranu Baza wiedzy."),
-        zrzut(zrzut_wysz, "Wyszukiwarka po polach: pytanie po polsku oraz ręczne kryteria."),
-        n("Pytanie po polsku"),
-        a("Najprostszy sposób to wpisać kryteria zwykłym zdaniem w polu <i>Zapytaj po polsku</i>, na przykład "
-          "„zarządzenia z 2024 roku” albo „procedury zatwierdzone przez Kisielską”. Aplikacja sama zamieni to "
-          "na kryteria wyszukiwania i pokaże, jak je zrozumiała — można je potem poprawić ręcznie."),
-        n("Kryteria ręczne"),
-        a("Drugi sposób to złożenie warunków samodzielnie: wybieramy rodzaj dokumentu, pole opisowe, sposób "
-          "porównania (równa się, zawiera, przed, po) i wpisujemy wartość. Warunki można dodawać, żeby zawęzić "
-          "wynik. Wyniki pokazują nazwę dokumentu, rozpoznany rodzaj i wartości pól."),
-        wskazowka("Jeżeli wyszukiwarka nie zwraca nic, mimo że dokument na pewno istnieje, warto sprawdzić dwie "
-                  "rzeczy: czy ma status <i>Przetworzono</i> oraz czy szukane pole faktycznie widnieje w treści "
-                  "dokumentu. Aplikacja nie wypełnia pól, których w dokumencie nie ma."),
+        a("<b>Wyszukiwanie</b> to osobny ekran w menu. Odpowiada na pytania o <b>strukturę</b> zbioru: "
+          "„wszystkie zarządzenia z 2023 roku”, „wnioski podpisane przez konkretną osobę”. Czat "
+          "odpowiada na pytania o treść — te dwie drogi celowo nie są wymieszane."),
+        n("Zapytaj po polsku"),
+        a("Najprościej wpisać pytanie zwykłym językiem w pole na górze. Kursor stoi w nim od razu "
+          "po wejściu na ekran. Aplikacja rozpoznaje z pytania rodzaj dokumentu i warunki, "
+          "<b>wypełnia nimi formularz poniżej</b> i od razu pokazuje wyniki. Rozpoznany filtr można "
+          "potem poprawić ręcznie i wyszukać ponownie."),
+        zrzut("a09-wyszukiwarka.png" if rola == "admin" else "u04-wyszukiwarka.png",
+              "Wyszukiwarka po polach: pytanie po polsku, rozpoznany filtr i lista wyników."),
+        n("Formularz"),
+        a("Formularz składa się z rodzaju dokumentu i dowolnej liczby warunków. Warunek to pole "
+          "opisowe, operator (<i>zawiera</i>, <i>równe</i>, <i>od</i>, <i>do</i>, <i>po</i>, "
+          "<i>przed</i>) i wartość. Lista dostępnych pól zależy od wybranego rodzaju dokumentu — "
+          "pochodzi wprost ze schematów dokumentów."),
+        n("Wyniki"),
+        a("Wyniki wyglądają tak samo jak lista dokumentów pod odpowiedzią czatu: numer, typ pliku, "
+          "kategoria, nazwa dokumentu i nazwa pliku. Kliknięcie otwiera dokument. Nad listą jest "
+          "przycisk <b>Pobierz tę listę w pliku XLSX</b> — arkusz zawiera komplet pól opisowych, "
+          "z kolumnami w kolejności ustalonej w schemacie dokumentu."),
+        wskazowka("Wyszukiwarka działa na <b>polach opisowych</b>, a nie na treści. Dokument, "
+                  "z którego aplikacja nie zdołała wyciągnąć numeru ani daty, nie pojawi się "
+                  "w wynikach filtrowanych po tych polach — znajdzie się natomiast przez czat."),
     ]
-
 
 def r_dobre_praktyki(rola):
     bloki = [
@@ -389,7 +435,7 @@ def r_faq(rola):
          "Foldery są udostępniane rolom. Jeżeli brakuje dostępu, należy poprosić administratora o nadanie "
          "uprawnienia do tego folderu."],
         ["Aplikacja wylogowała mnie sama.",
-         "Po piętnastu minutach bez aktywności sesja wygasa. Wystarczy zalogować się ponownie."],
+         "Po okresie bezczynności ustalonym przez administratora sesja wygasa. Wystarczy zalogować się ponownie."],
         ["Nie mogę wgrać pliku — okno wyboru go nie pokazuje.",
          "Aplikacja przyjmuje formaty PDF, DOCX, ODT i XLSX. Pliki w innych formatach trzeba najpierw zapisać "
          "w jednym z nich."],
@@ -420,7 +466,8 @@ def r_faq(rola):
 def r_slowniczek():
     return [
         tabela(["Pojęcie", "Znaczenie"], [
-            ["Baza wiedzy", "Część aplikacji, w której zadajemy pytania o treść dokumentów."],
+            ["Chat z AI", "Ekran, na którym zadajemy pytania o treść dokumentów."],
+            ["Wyszukiwanie", "Ekran, na którym filtrujemy dokumenty po polach opisowych."],
             ["Chat / czat", "Rozmowa z aplikacją prowadzona zwykłym językiem."],
             ["Fragment (chunk)", "Kawałek dokumentu, na jakie aplikacja dzieli treść, żeby precyzyjnie "
                                  "wskazywać źródło odpowiedzi."],
@@ -437,159 +484,227 @@ def r_slowniczek():
 
 def r_porzadkowanie():
     return [
-        n("Tworzenie folderów"),
-        a("Przycisk <b>+ Nowy folder</b> zakłada folder w miejscu, w którym aktualnie jesteśmy. Struktura może "
-          "być zagnieżdżona dowolnie głęboko, na przykład <i>Procedury / Onkologia kliniczna / 2026</i>."),
+        a("Porządkowanie zbioru dokumentów to zadanie administratora. Wszystkie opisane niżej "
+          "czynności wykonuje się na ekranie <b>Pliki</b>."),
+        n("Nowy folder"),
+        a("Przycisk <b>Nowy folder</b> tworzy podfolder w miejscu, w którym aktualnie jesteśmy. "
+          "Okno pokazuje, jakie uprawnienia nowy folder odziedziczy po folderze nadrzędnym — "
+          "to widok informacyjny, uprawnienia zmienia się później ikoną kłódki."),
         n("Zmiana nazwy folderu"),
-        a("Ikona ołówka na kafelku folderu otwiera okno zmiany nazwy. Zmiana obejmuje automatycznie wszystkie "
-          "podfoldery i dokumenty — nie trzeba nic przenosić ani wgrywać ponownie. Aplikacja nie pozwoli nadać "
-          "nazwy, która już istnieje w tym samym miejscu."),
-        zrzut("a05-zmiana-nazwy.png", "Zmiana nazwy folderu — operacja dostępna wyłącznie dla administratora."),
+        a("Ikona ołówka na kafelku folderu (widoczna po najechaniu) zmienia jego nazwę. Zmiana obejmuje "
+          "ścieżkę tego folderu oraz wszystkich jego podfolderów; pliki i uprawnienia pozostają "
+          "przypisane bez zmian."),
+        zrzut("a05-zmiana-nazwy.png", "Zmiana nazwy folderu — operacja dostępna wyłącznie "
+                                      "dla administratora."),
         n("Przenoszenie dokumentów"),
-        a("Przycisk <b>Przenieś</b> przy dokumencie otwiera okno wyboru folderu docelowego. Lista zawiera tylko "
-          "te foldery, w których wolno zapisywać."),
-        zrzut("a06-przenoszenie.png", "Przenoszenie pojedynczego dokumentu do innego folderu."),
-        a("Aby przenieść wiele dokumentów naraz, zaznaczamy je polami wyboru po lewej stronie listy i klikamy "
-          "<b>Przenieś zaznaczone</b> nad tabelą. Przeniesienie zmienia przynależność dokumentu także dla "
-          "wyszukiwania i czatu — od tej chwili obowiązują uprawnienia nowego folderu."),
+        a("Pojedynczy dokument przenosi się ikoną folderu ze strzałką w jego wierszu. Lista folderów "
+          "docelowych jest ułożona alfabetycznie i zawiera wyłącznie te, w których mamy prawo zapisu."),
+        zrzut("a06-przenoszenie.png", "Przenoszenie dokumentu do innego folderu."),
+        n("Operacje na wielu dokumentach naraz"),
+        a("Zaznaczenie dokumentów polami wyboru po lewej stronie odsłania przycisk "
+          "<b>Wykonaj akcję na zaznaczonych</b> z dwiema możliwościami: <b>Przenieś do folderu</b> "
+          "oraz <b>Nadaj nazwy zgodne z kategorią</b> (opisane w rozdziale o rozpoznawaniu dokumentów). "
+          "Pole wyboru w nagłówku zaznacza dokumenty <b>z bieżącej strony</b>, a nie całą listę."),
         n("Usuwanie"),
-        a("Przycisk <b>Usuń</b> kasuje dokument z aplikacji wraz z jego treścią przygotowaną do wyszukiwania. "
-          "Folder można usunąć ikoną kosza na kafelku."),
-        uwaga("Usunięcie jest nieodwracalne — dokument znika także z odpowiedzi czatu. Przy porządkach warto "
-              "najpierw przenieść dokumenty do folderu archiwalnego, a usuwać dopiero po weryfikacji."),
+        a("Ikona kosza usuwa dokument wraz z jego fragmentami w bazie wiedzy — po usunięciu przestaje "
+          "on pojawiać się w odpowiedziach czatu. Usunięcie folderu przenosi jego dokumenty "
+          "do katalogu głównego, więc nic nie ginie razem z folderem."),
+        uwaga("Usunięcia dokumentu nie da się cofnąć z poziomu aplikacji. Przed usunięciem większej "
+              "partii warto pobrać zestawienie dokumentów do arkusza — służy do tego przycisk "
+              "<b>Pobierz tę listę w pliku XLSX</b> na ekranie Wyszukiwanie."),
     ]
-
 
 def r_uprawnienia():
     return [
-        a("Uprawnienia w aplikacji nadaje się <b>rolom, nie osobom</b>. Konto ma jedną rolę, a rola ma dostęp "
-          "do wskazanych folderów. Dzięki temu przy zatrudnieniu nowej osoby wystarczy nadać jej właściwą rolę — "
-          "dostępy działają od razu."),
-        n("Role dostępne w aplikacji"),
-        tabela(["Rola", "Typowe zastosowanie"], [
-            ["Administrator", "Pełny dostęp do wszystkich folderów i do części administracyjnej."],
-            ["Lekarz", "Personel lekarski — dostęp do procedur i instrukcji klinicznych."],
-            ["Personel medyczny", "Pielęgniarki i pozostały personel medyczny."],
-            ["Technik", "Personel techniczny."],
-            ["Personel biurowy", "Administracja, kadry, sprawy pracownicze."],
-            ["Gość", "Konto o najwęższym zakresie — dostęp tylko do tego, co wyraźnie udostępnione."],
-        ]),
-        n("Poziomy dostępu"),
+        a("Dostęp do dokumentów wynika z <b>roli</b>, do której należy konto, i z uprawnień nadanych "
+          "tej roli na folderach. Uprawnień nie nadaje się pojedynczym osobom — dzięki temu przy "
+          "zmianie stanowiska wystarczy zmienić rolę konta, zamiast poprawiać dziesiątki folderów."),
+        n("Dwa poziomy dostępu"),
         lista(
-            "<b>Odczyt</b> — można przeglądać i pobierać dokumenty oraz pytać o nie na czacie.",
-            "<b>Zapis</b> — dodatkowo można wgrywać, przenosić i usuwać dokumenty w tym folderze.",
+            "<b>Odczyt</b> — rola widzi dokumenty w folderze, może je otwierać i pobierać, "
+            "a ich treść bierze udział w odpowiedziach czatu.",
+            "<b>Zapis</b> — dodatkowo można wgrywać nowe dokumenty, przenosić je i usuwać.",
         ),
-        n("Nadawanie uprawnień"),
-        a("Na stronie Pliki każdy kafelek folderu ma ikonę klucza. Otwiera ona okno uprawnień, w którym "
-          "wybieramy rolę i poziom dostępu."),
-        zrzut("a04-uprawnienia.png", "Okno uprawnień folderu — role, poziomy dostępu i uprawnienia dziedziczone."),
-        uwaga("Uprawnienie nadane folderowi obowiązuje <b>także we wszystkich jego podfolderach</b>. "
-              "Uprawnienia przejęte z folderu nadrzędnego są oznaczone jako „(dziedziczone)”. "
-              "Dlatego dostęp nadaje się na możliwie wysokim poziomie struktury i tylko tam, gdzie trzeba — "
-              "udostępnienie katalogu głównego otwiera całą bazę."),
-        a("Zestawienie wszystkich nadanych uprawnień znajduje się w Administracji, na stronie "
-          "<b>Lista dostępów</b>. Pozwala ona sprawdzić jednym rzutem oka, która rola ma dostęp do którego "
-          "folderu, bez otwierania folderów po kolei."),
+        n("Dziedziczenie"),
+        a("Uprawnienie nadane folderowi obejmuje <b>także jego podfoldery</b>. W oknie uprawnień "
+          "pozycje odziedziczone są opisane jako <i>(dziedziczone z nadrzędnego)</i> i nie da się ich "
+          "tam usunąć — zmienia się je na folderze nadrzędnym. Na podfolderze można dostęp wyłącznie "
+          "<b>rozszerzyć</b>, na przykład podnieść Odczyt do Zapisu."),
+        zrzut("a04-uprawnienia.png", "Okno uprawnień folderu — role, poziomy dostępu "
+                                     "i uprawnienia dziedziczone."),
+        n("Zarządzanie rolami"),
+        a("Role definiuje się na ekranie <b>Lista dostępów</b> przyciskiem <b>Dodaj rolę</b>. Rolę można "
+          "też przemianować i usunąć. Warto znać trzy zasady, które aplikacja egzekwuje:"),
+        lista(
+            "<b>Zmiana nazwy zmienia tylko etykietę.</b> Wewnętrzny kod roli pozostaje ten sam, więc "
+            "nadane wcześniej uprawnienia i przypisania kont działają dalej bez zmian.",
+            "<b>Ról systemowych nie da się usunąć</b> — Administrator i Gość są częścią działania "
+            "aplikacji.",
+            "<b>Usunięcie roli, do której należą konta, wymaga wskazania roli zastępczej.</b> "
+            "Aplikacja przeniesie do niej te konta, żeby żadne nie zostało bez przypisania.",
+        ),
+        zrzut("a11b-rola.png", "Dodawanie nowej roli — kod roli powstaje z nazwy."),
+        n("Podgląd całości"),
+        a("Ekran <b>Lista dostępów</b> pokazuje zestawienie wszystkich ról i folderów w jednym miejscu, "
+          "więc widać na nim od razu, kto co widzi. Kliknięcie folderu prowadzi wprost do niego "
+          "w eksploratorze."),
         zrzut("a11-lista-dostepow.png", "Lista dostępów — zestawienie uprawnień wszystkich ról."),
+        uwaga("Administrator widzi wszystkie foldery niezależnie od nadanych uprawnień. Dokumenty "
+              "leżące w katalogu głównym, poza jakimkolwiek folderem, są widoczne <b>wyłącznie</b> "
+              "dla administratora — dlatego dokument wgrany „do korzenia” nie pojawi się nikomu innemu "
+              "ani w wyszukiwaniu, ani w czacie."),
     ]
-
 
 def r_administracja():
     return [
-        a("Sekcja <b>Administracja</b> zawiera pięć stron przełączanych zakładkami u góry."),
+        a("Część administracyjna leży w menu pod kreską <b>ADMINISTRACJA</b> i jest widoczna wyłącznie "
+          "dla kont administratora. Te same pozycje powtarza pasek zakładek na górze każdego z tych "
+          "ekranów."),
         n("Użytkownicy"),
-        a("Zakładanie kont, zmiana roli, ustawienie hasła oraz włączanie i wyłączanie konta. Konto wyłączone "
-          "nie pozwala się zalogować, ale zachowuje historię operacji — to bezpieczniejsze niż usuwanie konta "
-          "osoby, która odeszła."),
+        a("Zakładanie kont, zmiana roli, dezaktywacja i resetowanie hasła. Konto loguje się "
+          "<b>adresem e-mail</b>; nazwa wyświetlana służy tylko do pokazywania w interfejsie "
+          "i może się powtarzać."),
         zrzut("a10-uzytkownicy.png", "Zarządzanie kontami użytkowników."),
         n("Lista dostępów"),
-        a("Zestawienie uprawnień opisane w poprzednim rozdziale."),
+        a("Zestawienie uprawnień wszystkich ról oraz zarządzanie samymi rolami — opisane "
+          "w rozdziale o uprawnieniach."),
         n("Schematy dokumentów"),
-        a("Katalog rodzajów dokumentów, które aplikacja potrafi rozpoznać. Każdy rodzaj ma nazwę, kryteria "
-          "rozpoznawania opisane zwykłym językiem oraz listę pól opisowych do wyciągnięcia z dokumentu. "
-          "Rodzaj można dodać, zmienić lub czasowo wyłączyć."),
+        a("Rodzaje dokumentów wraz z polami opisowymi, kryteriami rozpoznawania i wzorcem nazwy pliku. "
+          "To ekran, który najmocniej wpływa na jakość działania wyszukiwarki — opisany w rozdziale "
+          "o rozpoznawaniu dokumentów."),
         zrzut("a12-schematy.png", "Schematy dokumentów — rodzaje dokumentów wraz z polami opisowymi."),
-        a("W aplikacji zdefiniowano dziesięć rodzajów dokumentów: aneks, instrukcja do procedury, porozumienie, "
-          "procedura, regulamin, rozporządzenie, ustawa, wniosek, załącznik i zarządzenie."),
         n("Kolejka plików"),
-        a("Podgląd przetwarzania wszystkich dokumentów: status, rozpoznany rodzaj i wyciągnięte pola. "
-          "To tutaj sprawdzamy, czy partia dokumentów została poprawnie rozpoznana, i tutaj poprawiamy "
-          "błędne rozpoznanie — po wskazaniu właściwego rodzaju aplikacja od nowa wyciąga pola opisowe."),
+        a("Podgląd przetwarzania: co czeka, co jest w trakcie, co się nie powiodło. Widać tu rozpoznany "
+          "rodzaj dokumentu i wyciągnięte pola, więc jest to pierwsze miejsce, do którego warto zajrzeć, "
+          "gdy dokument nie pojawia się w wynikach."),
         zrzut("a13-kolejka.png", "Kolejka plików — statusy, rozpoznane rodzaje i pola dokumentów."),
+        n("Lista odpowiedzi"),
+        a("Oceny wystawione odpowiedziom czatu wraz z pytaniem, odpowiedzią i wskazanymi dokumentami. "
+          "Służy do wychwytywania pytań, na które aplikacja odpowiada źle — każda taka pozycja "
+          "jest wskazówką, którego dokumentu brakuje albo który schemat wymaga poprawki."),
         n("Ustawienia"),
-        a("Parametry techniczne aplikacji: adresy usług przetwarzających dokumenty, lista dozwolonych rozszerzeń "
-          "plików oraz czas automatycznego wylogowania. Lista rozszerzeń przekłada się wprost na okno wysyłki "
-          "widziane przez użytkowników."),
-        zrzut("a14-ustawienia.png", "Ustawienia aplikacji."),
-        uwaga("Zmiany w Ustawieniach dotyczą całej aplikacji i wszystkich użytkowników. Adresy usług warto "
-              "zmieniać wyłącznie w porozumieniu z wykonawcą."),
+        a("Ekran dzieli się na trzy części."),
+        lista(
+            "<b>Identyfikacja aplikacji</b> — nazwa instancji, kolor napisu i ikona. Ikona musi być "
+            "kwadratowym plikiem PNG albo SVG (zalecane minimum 128×128 px); pojawia się na szczycie "
+            "menu i na ekranie logowania. Podgląd obok pokazuje dokładnie to, co zobaczy użytkownik.",
+            "<b>Integracje i sesja</b> — adresy webhooków przetwarzania i czatu, lista dozwolonych "
+            "rozszerzeń plików oraz czas do automatycznego wylogowania.",
+            "<b>Poczta wychodząca</b> — dane serwera SMTP i adres wsparcia. Bez nich formularz "
+            "„Skontaktuj się” odpowie wprost, że wysyłka nie jest skonfigurowana.",
+        ),
+        zrzut("a14-ustawienia.png", "Ustawienia aplikacji — identyfikacja instancji."),
+        uwaga("Lista dozwolonych rozszerzeń musi odpowiadać temu, co obsługuje przepływ przetwarzania. "
+              "Rozszerzenie dopisane tutaj, a nieobsługiwane tam, sprawi, że plik zostanie przyjęty, "
+              "ale nigdy nie zostanie przetworzony."),
         n("Historia zmian"),
-        a("Lista wersji aplikacji wraz z opisem, co zmieniła każda z nich. Otwiera ją numer wersji na dole menu."),
+        a("Numer wersji na dole menu bocznego prowadzi do listy zmian w kolejnych wydaniach aplikacji. "
+          "Ta strona jest dostępna dla wszystkich zalogowanych."),
         zrzut("a15-historia-zmian.png", "Historia zmian aplikacji."),
     ]
 
-
 def r_rozpoznawanie():
     return [
-        a("Ten rozdział wyjaśnia, co aplikacja robi z dokumentem po wgraniu. Wiedza ta nie jest potrzebna do "
-          "codziennej pracy, ale pomaga zrozumieć, dlaczego niektóre dokumenty opisane są bogaciej niż inne."),
-        kroki(
-            "<b>Odczyt treści.</b> Z dokumentu wyciągany jest tekst wraz ze strukturą — nagłówkami i tabelami. "
-            "Dokumenty tekstowe (DOCX, ODT) czytane są wprost; skany i PDF-y graficzne wymagają rozpoznania pisma, "
-            "co trwa dłużej.",
-            "<b>Podział na fragmenty.</b> Treść dzielona jest na fragmenty tej wielkości, by dało się precyzyjnie "
-            "wskazać źródło odpowiedzi — stąd numery stron przy źródłach na czacie.",
-            "<b>Rozpoznanie rodzaju.</b> Na podstawie treści początku dokumentu i jego nazwy aplikacja wybiera "
-            "jeden z rodzajów zdefiniowanych w Schematach dokumentów.",
-            "<b>Wyciągnięcie pól.</b> Dla rozpoznanego rodzaju wyszukiwane są jego pola opisowe — na przykład "
-            "dla procedury: tytuł, kod, osoby opracowujące i zatwierdzające oraz numer edycji.",
+        a("Po wgraniu dokumentu aplikacja próbuje ustalić, <b>czym on jest</b>, i wyciągnąć z niego "
+          "pola opisowe. Robi to na podstawie <b>schematów dokumentów</b> — definicji rodzajów "
+          "dokumentów, które administrator ustala na osobnym ekranie."),
+        n("Z czego składa się schemat"),
+        lista(
+            "<b>Nazwa i identyfikator</b> rodzaju dokumentu, na przykład „Zarządzenie”.",
+            "<b>Kryteria klasyfikacji</b> — wskazówki po polsku, po czym poznać ten rodzaj dokumentu.",
+            "<b>Pola nagłówkowe</b> — co wyciągnąć z treści: numer, data, tytuł, osoba podpisująca. "
+            "Kolejność pól wyznacza kolejność kolumn w eksporcie do arkusza.",
+            "<b>Wzorzec nazwy pliku</b> — opcjonalny, opisany niżej.",
         ),
-        a("Pola wypełniane są <b>wyłącznie wtedy, gdy faktycznie występują w dokumencie</b>. Dokument bez "
-          "tabelki nagłówkowej będzie miał tylko część pól i jest to poprawny wynik, a nie błąd — aplikacja "
-          "celowo nie zgaduje brakujących wartości."),
-        wskazowka("Jeżeli rodzaj został rozpoznany błędnie, poprawiamy go w Kolejce plików. Poprawka od razu "
-                  "uruchamia ponowne wyciągnięcie pól właściwych dla wskazanego rodzaju."),
+        n("Typy pól"),
+        a("Każde pole ma typ: <b>Tekst</b>, <b>Data</b>, <b>Liczba</b>, <b>Kwota</b> albo "
+          "<b>Lista wartości</b>. Typ nie jest ozdobą — decyduje o tym, co da się z polem zrobić. "
+          "Daty pozwalają filtrować po zakresach, a kwoty trafiają do arkusza jako liczby z groszami, "
+          "więc kolumna się sumuje (także wtedy, gdy w dokumencie zapisano ją jako „1 234,56 zł”)."),
+        n("Nazwy plików z rozpoznanych pól"),
+        a("Każdy rodzaj dokumentu może mieć <b>wzorzec nazwy pliku</b>, na przykład "
+          "<i>{typ}-nr-{numer_dokumentu}-{data}</i>. Aplikacja proponuje wtedy nazwy zgodne z treścią "
+          "dokumentu zamiast „skan_0001.pdf”. Wzorzec pusty oznacza, że dla tej kategorii nazw "
+          "nie proponujemy."),
+        a("Nazwy nadaje się partiami: na ekranie <b>Pliki</b> zaznaczamy dokumenty i wybieramy "
+          "<b>Wykonaj akcję na zaznaczonych → Nadaj nazwy zgodne z kategorią</b>. Okno pokazuje "
+          "najpierw zestawienie <i>stara nazwa → nowa</i>; każdą pozycję można poprawić ręcznie albo "
+          "odznaczyć. <b>Nic nie dzieje się bez tego podglądu.</b>"),
+        zrzut("a20-nazwy.png", "Nadawanie nazw zgodnych z kategorią — podgląd przed zatwierdzeniem."),
+        a("Dotychczasowa nazwa jest zapamiętywana i widoczna w szczegółach dokumentu, więc zmianę "
+          "da się odtworzyć, a dokument pozostaje rozpoznawalny dla osoby, która pamięta go "
+          "pod starą nazwą."),
+        n("Gdy rozpoznanie zawiedzie"),
+        a("Dokument, którego aplikacja nie przypisała do żadnego rodzaju, ma kategorię "
+          "<i>nierozpoznana</i>. Nadal jest przeszukiwalny przez czat — nie znajdzie się natomiast "
+          "w wyszukiwarce filtrującej po polach. Najczęstsze przyczyny to słabej jakości skan "
+          "albo brak schematu opisującego ten rodzaj dokumentu."),
+        wskazowka("Kolejka plików pokazuje, jakie pola udało się wyciągnąć z każdego dokumentu. "
+                  "Jeżeli pole jest puste dla wielu dokumentów tego samego rodzaju, zwykle warto "
+                  "poprawić kryteria klasyfikacji albo nazwę pola w schemacie."),
+    ]
+
+def r_kontakt(rola):
+    return [
+        a("Kafelek <b>Potrzebujesz pomocy?</b> na dole menu bocznego prowadzi do formularza zgłoszenia "
+          "do wsparcia technicznego. Wystarczy opisać sprawę i wysłać — nadawca i instancja "
+          "dołączane są automatycznie, a odpowiedź trafi na adres e-mail przypisany do konta."),
+        zrzut("a21-kontakt.png" if rola == "admin" else "u07-kontakt.png",
+              "Formularz zgłoszenia do wsparcia technicznego."),
+        a("Zgłoszenie idzie <b>pocztą, a nie przez mechanizm przetwarzania dokumentów</b>. Jest to "
+          "celowe: awaria przetwarzania nie może odcinać drogi zgłoszenia problemu, bo właśnie wtedy "
+          "zgłoszenia są najbardziej potrzebne."),
+        wskazowka("Warto napisać, <b>co się robiło</b> i <b>czego się spodziewało</b>, a nie tylko "
+                  "„nie działa”. Nazwa ekranu, treść pytania zadanego czatowi albo nazwa dokumentu "
+                  "skracają diagnozę o kilka wymian wiadomości."),
     ]
 
 
 def r_ograniczenia():
+    wstep = ("Aplikacja jest rozwijana etapami. Poniższe ograniczenia są znane i zaplanowane "
+             "do usunięcia — warto je znać, żeby nie brać ich za usterki.")
+    if W["demo"]:
+        wstep = ("Ta instancja jest wersją demonstracyjną, działającą na dokumentach przykładowych. "
+                 "Poza tym jest to dokładnie ta sama aplikacja co wdrożenia klienckie. "
+                 "Poniższe ograniczenia są znane i zaplanowane do usunięcia.")
     return [
-        a("Przekazywana wersja jest wersją demonstracyjną, przygotowaną do oceny działania aplikacji "
-          "na rzeczywistych dokumentach ZCO. Warto mieć na uwadze poniższe ograniczenia."),
+        a(wstep),
         lista(
             "Aplikacja odpowiada wyłącznie na podstawie dokumentów wgranych do bazy — nie zna przepisów "
             "ani wiedzy spoza nich.",
-            "Odpowiedź czatu jest streszczeniem fragmentów dokumentów. Przy sprawach formalnych obowiązuje "
-            "dokument źródłowy wskazany pod odpowiedzią.",
-            "Rozpoznawanie rodzaju dokumentu i pól opisowych działa dobrze na dokumentach o typowej budowie; "
-            "dokumenty nietypowe mogą wymagać ręcznej korekty rodzaju.",
-            "Wbudowany podgląd dokumentów PDF nie jest jeszcze dostępny — dokument otwiera się po pobraniu.",
+            "Odpowiedź czatu jest streszczeniem fragmentów dokumentów. Przy sprawach formalnych "
+            "obowiązuje dokument źródłowy wskazany pod odpowiedzią.",
+            "Rozpoznawanie rodzaju dokumentu i pól opisowych działa dobrze na dokumentach o typowej "
+            "budowie; dokumenty nietypowe mogą wymagać ręcznej korekty rodzaju.",
+            "Podgląd dokumentu otwiera plik PDF w nowej karcie przeglądarki. Przeglądarka wbudowana "
+            "w aplikację — otwierająca dokument od razu na wskazanej stronie — jest w planach.",
             "Powiązania między dokumentami (na przykład zarządzenie i jego załączniki) nie są jeszcze "
             "prezentowane w interfejsie.",
+            "Wyszukiwarka po polach opisowych nie przeszukuje treści dokumentów — od tego jest czat.",
         ),
-        a("Kolejne wersje aplikacji będą sukcesywnie usuwać te ograniczenia; każda zmiana jest opisywana "
-          "w Historii zmian dostępnej z poziomu aplikacji."),
+        a("Każda zmiana jest opisywana w <b>Historii zmian</b> dostępnej z poziomu aplikacji, "
+          "spod numeru wersji na dole menu."),
     ]
-
 
 # ---------------------------------------------------------------- dokumenty
 
 def dokument_admina():
     return [
-        ("Czym jest ZCO Document Management", r_o_aplikacji()),
+        (f"Czym jest {W['pelna']}", r_o_aplikacji()),
         ("Logowanie i układ ekranu", r_logowanie("admin")),
         ("Dashboard", r_dashboard("admin")),
-        ("Twoje konto i pomoc", r_profil("admin")),
+        ("Twoje konto i instrukcja", r_profil("admin")),
         ("Przeglądanie dokumentów", r_pliki_przegladanie("admin")),
         ("Dodawanie dokumentów", r_wgrywanie("admin")),
         ("Porządkowanie: foldery, przenoszenie, usuwanie", r_porzadkowanie()),
         ("Uprawnienia i role", r_uprawnienia()),
-        ("Baza wiedzy — pytania o treść dokumentów", r_czat("admin")),
-        ("Wyszukiwarka po polach opisowych", r_wyszukiwarka("admin")),
+        ("Chat z AI — pytania o treść dokumentów", r_czat("admin")),
+        ("Wyszukiwanie po polach opisowych", r_wyszukiwarka("admin")),
         ("Administracja", r_administracja()),
         ("Jak aplikacja rozpoznaje dokumenty", r_rozpoznawanie()),
+        ("Zgłoszenie do wsparcia technicznego", r_kontakt("admin")),
         ("Dobre praktyki", r_dobre_praktyki("admin")),
-        ("Ograniczenia wersji demonstracyjnej", r_ograniczenia()),
+        ("Ograniczenia i plany rozwoju", r_ograniczenia()),
         ("Najczęstsze pytania", r_faq("admin")),
         ("Słowniczek", r_slowniczek()),
     ]
@@ -597,14 +712,15 @@ def dokument_admina():
 
 def dokument_uzytkownika():
     return [
-        ("Czym jest ZCO Document Management", r_o_aplikacji()),
+        (f"Czym jest {W['pelna']}", r_o_aplikacji()),
         ("Logowanie i układ ekranu", r_logowanie("user")),
         ("Dashboard", r_dashboard("user")),
-        ("Twoje konto i pomoc", r_profil("user")),
+        ("Twoje konto i instrukcja", r_profil("user")),
         ("Przeglądanie dokumentów", r_pliki_przegladanie("user")),
         ("Dodawanie dokumentów", r_wgrywanie("user")),
-        ("Baza wiedzy — pytania o treść dokumentów", r_czat("user")),
-        ("Wyszukiwarka po polach opisowych", r_wyszukiwarka("user")),
+        ("Chat z AI — pytania o treść dokumentów", r_czat("user")),
+        ("Wyszukiwanie po polach opisowych", r_wyszukiwarka("user")),
+        ("Zgłoszenie do wsparcia technicznego", r_kontakt("user")),
         ("Dobre praktyki", r_dobre_praktyki("user")),
         ("Najczęstsze pytania", r_faq("user")),
         ("Słowniczek", r_slowniczek()),
@@ -738,20 +854,19 @@ def render(tytul_wydania, sekcje, katalog_zrzutow):
         )
     return f"""<!doctype html>
 <html lang="pl"><head><meta charset="utf-8">
-<title>ZCO Document Management — {html.escape(tytul_wydania)}</title>
+<title>{html.escape(W["pelna"])} — {html.escape(tytul_wydania)}</title>
 <style>{STYL}</style></head><body><div class="strona">
 <div class="oklada">
   <div class="kreska"></div>
-  <h1>ZCO Document Management</h1>
+  <h1>{html.escape(W["pelna"])}</h1>
   <div class="wydanie">Instrukcja obsługi — {html.escape(tytul_wydania)}</div>
   <dl>
-    <dt>Odbiorca</dt><dd>{ODBIORCA}</dd>
+    <dt>Odbiorca</dt><dd>{W["odbiorca"]}</dd>
     <dt>Wykonawca</dt><dd>{WYKONAWCA}</dd>
     <dt>Wersja aplikacji</dt><dd>{WERSJA}</dd>
     <dt>Data wydania</dt><dd>{DATA}</dd>
   </dl>
-  <div class="stopka">Dokument wewnętrzny. Zrzuty ekranu pochodzą z wersji demonstracyjnej
-  aplikacji działającej na dokumentach ZCO.</div>
+  <div class="stopka">Dokument wewnętrzny. {W["zrodlo_zrzutow"]}</div>
 </div>
 <section class="spis" id="spis-tresci"><h2>Spis treści</h2><ol>{spis}</ol></section>
 {''.join(tresc)}
@@ -795,10 +910,27 @@ def do_pdf(html_path, pdf_path, limit_sekund=240):
 
 
 def main():
-    katalog_zrzutow = sys.argv[1] if len(sys.argv) > 1 else os.path.join(KATALOG, "zrzuty")
+    """python generuj.py <zco|hirs> [katalog_ze_zrzutami]
+
+    Bez argumentu buduje oba wdrożenia po kolei — tak najczęściej się tego używa,
+    bo instrukcje mają wychodzić parami i z tej samej wersji aplikacji.
+    """
+    global W
+    warianty = [sys.argv[1]] if len(sys.argv) > 1 else list(WDROZENIA)
+    for wariant in warianty:
+        if wariant not in WDROZENIA:
+            raise SystemExit(f"Nieznane wdrożenie: {wariant}. Dostępne: {', '.join(WDROZENIA)}")
+        W = WDROZENIA[wariant]
+        katalog_zrzutow = (sys.argv[2] if len(sys.argv) > 2
+                           else os.path.join(KATALOG, "zrzuty", wariant))
+        print(f"— {W['nazwa']} (zrzuty: {katalog_zrzutow})")
+        zbuduj(katalog_zrzutow)
+
+
+def zbuduj(katalog_zrzutow):
     wydania = [
-        ("wydanie dla administratora", dokument_admina(), "ZCO-DM-instrukcja-administratora"),
-        ("wydanie dla użytkownika", dokument_uzytkownika(), "ZCO-DM-instrukcja-uzytkownika"),
+        ("wydanie dla administratora", dokument_admina(), W["plik"] + "-administratora"),
+        ("wydanie dla użytkownika", dokument_uzytkownika(), W["plik"] + "-uzytkownika"),
     ]
     for tytul, sekcje, nazwa in wydania:
         html_path = os.path.join(KATALOG, nazwa + ".html")

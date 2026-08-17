@@ -1,68 +1,119 @@
-# Instrukcje obsługi ZCO Document Management
+# Instrukcje obsługi — ZCO DM i HiRS
 
-Dwa wydania instrukcji dla klienta (ZCO Szczecin), każde w HTML i PDF:
+Cztery dokumenty: dwa wdrożenia × dwa wydania, każde w HTML i PDF.
 
-- `ZCO-DM-instrukcja-administratora.html` / `.pdf` — 17 rozdziałów: pełen zakres łącznie
-  z uprawnieniami, częścią administracyjną i opisem rozpoznawania dokumentów,
-- `ZCO-DM-instrukcja-uzytkownika.html` / `.pdf` — 12 rozdziałów: to, co potrzebne osobie
-  korzystającej z bazy wiedzy na co dzień.
+| Plik | Zakres |
+|---|---|
+| `ZCO-DM-instrukcja-administratora.*` | 17 rozdziałów: pełny zakres z uprawnieniami, częścią administracyjną i rozpoznawaniem dokumentów |
+| `ZCO-DM-instrukcja-uzytkownika.*` | 12 rozdziałów: to, co potrzebne na co dzień |
+| `HiRS-instrukcja-administratora.*` | jak wyżej, dla demo uniwersalnego |
+| `HiRS-instrukcja-uzytkownika.*` | jak wyżej, dla demo uniwersalnego |
 
 Pliki HTML są samodzielne — zrzuty ekranu siedzą w nich jako `data:` URI, więc wystarczy
 przesłać jeden plik, bez katalogu z obrazkami.
 
-## Jak to odtworzyć po zmianach w aplikacji
+## Dlaczego jeden generator, a nie cztery dokumenty
 
-Oba wydania powstają z jednego źródła: `generuj.py`. Rozdziały wspólne dla obu ról
-zdefiniowane są raz (funkcje `r_*`), a `dokument_admina()` i `dokument_uzytkownika()`
-składają z nich właściwe wydania — dzięki temu opis tego samego ekranu nie rozjeżdża się
-między instrukcjami.
+Treść rozdziałów jest **wspólna dla obu wdrożeń**, bo obie instancje to ten sam obraz
+aplikacji. Różnią się wyłącznie słownikiem `WDROZENIA` na górze `generuj.py` (nazwa,
+odbiorca, nazwy plików) i katalogiem ze zrzutami. Gdyby wydania pisać osobno, pierwsza
+poprawka trafiłaby tylko do jednego z nich.
+
+Podobnie rozdziały wspólne dla obu ról (`r_*`) są zdefiniowane raz, a `dokument_admina()`
+i `dokument_uzytkownika()` składają z nich właściwe wydania.
+
+## Pełne odświeżenie po zmianach w aplikacji
+
+Kolejność ma znaczenie — zrzut ekranu **Instrukcja** pokazuje instrukcję, więc powstaje
+dopiero po wdrożeniu poprzedniego kroku.
 
 ```bash
-python generuj.py [katalog_ze_zrzutami]
+# 1. Zrzuty z produkcji: wszystko poza ekranem Instrukcja
+python zrzuty_config.py            # cztery przebiegi: zco/hirs × admin/user
+
+# 2. Zmniejszenie zrzutów (13 MB -> 4,6 MB na wdrożenie, bez straty czytelności)
+python optymalizuj_zrzuty.py
+
+# 3. Złożenie dokumentów
+python generuj.py                  # oba wdrożenia; `generuj.py zco` tylko jedno
+
+# 4. Do aplikacji i wdrożenie
+cp ZCO-DM-instrukcja-administratora.html ../../frontend/public/pomoc/zco/instrukcja-administratora.html
+#   … pozostałe trzy pary analogicznie (zco/, hirs/)
+#   commit + push -> CI wdraża ZCO; HiRS ręcznie (zob. główne README)
+
+# 5. Zrzut ekranu Instrukcja — teraz pokazuje już nowe wydanie
+ETAP=2 python zrzuty_config.py
+python optymalizuj_zrzuty.py && python generuj.py
+#   ponownie skopiować i wdrożyć
 ```
 
-Domyślnie zrzuty brane są z podkatalogu `zrzuty/`, którego **nie trzymamy w repozytorium** (są już wbudowane w HTML i PDF, a przy zmianie wyglądu aplikacji i tak trzeba je zrobić od nowa). Nazewnictwo: `aNN-*.png` dla wydania
-administratora, `uNN-*.png` dla wydania użytkownika — nazwy plików są przywoływane wprost
-w `generuj.py`.
+Po każdej zmianie zaktualizuj `WERSJA` i `DATA` na górze `generuj.py`.
 
-Przy zmianie wyglądu aplikacji trzeba odświeżyć zrzuty. Robi je skrypt `shot.py`
-(Edge headless sterowany protokołem DevTools, z wstrzykniętym tokenem sesji), uruchamiany
-osobno dla konta administratora i konta zwykłego użytkownika. Zrzuty okien dialogowych
-kadrowane są do samego okna selektorem `.fixed.inset-0 > div`, bo pełny ekran daje
-nieczytelny w druku obrazek.
+### Powtórzenie pojedynczego zrzutu
 
-Po każdej zmianie należy zaktualizować stałe na górze `generuj.py`: `WERSJA` i `DATA`.
+```bash
+TYLKO=chat python zrzuty_config.py zco admin     # tylko pliki z „chat" w nazwie
+ETAP=2 python zrzuty_config.py hirs              # tylko ekran Instrukcja
+```
 
-## Uwagi techniczne
+## Zrzuty ekranu
 
-PDF drukuje Edge w trybie headless. Dwie pułapki, obie już obsłużone w kodzie:
+Robi je `shot.py` — Edge w trybie headless sterowany protokołem DevTools, z tokenem sesji
+wstrzykniętym do `localStorage`. Konfigurację buduje `zrzuty_config.py`: wie, którego konta
+użyć na którym wdrożeniu, i **generuje token po stronie serwera** (`docker exec`), więc
+nigdzie nie pojawia się hasło.
+
+Zrzuty idą **przeciwko produkcji** (ZCO `:3000`, HiRS `:3001`) i lądują w `zrzuty/<wdrożenie>/`,
+którego nie trzymamy w repozytorium — są już wbudowane w HTML i PDF, a przy zmianie wyglądu
+i tak trzeba je zrobić od nowa.
+
+Konta użyte na zrzutach są istniejące; **żadne nie jest zakładane ani kasowane na potrzeby
+instrukcji**. Wydanie użytkownika wymaga konta bez uprawnień administratora, które ma dostęp
+do jakichkolwiek folderów — na HiRS jest to konto demo „Anna Kowalska" (rola Lekarz).
+
+Możliwości pojedynczego zrzutu:
+
+- `js`, `js2`, `js3` — kolejne kroki po załadowaniu strony (wejście do folderu, zaznaczenie,
+  otwarcie okna), każdy z własną pauzą `wait_js*`,
+- `clip` — selektor CSS kadrujący zrzut, `clip_js` — wyrażenie zwracające element, gdy
+  stabilnego selektora nie ma,
+- `wyloguj` — czyści sesję przed nawigacją (ekran logowania), po zrzucie ją przywraca.
+
+Zrzuty okien dialogowych kadrujemy do samego okna (`.fixed.inset-0 > div`), bo pełny ekran
+daje w druku nieczytelny obrazek.
+
+### Pułapki, które już kosztowały czas
+
+- **Folder roboczy musi zawierać dokumenty bezpośrednio.** Folder z samymi podfolderami
+  (np. „Zarządzenia dyrektora ZCO") nie ma czego kliknąć — zrzuty szczegółów, przenoszenia
+  i nadawania nazw wychodzą wtedy jako pełny ekran eksploratora.
+- **Czat trzeba doczekać do końca.** Przy zbyt krótkiej pauzie zrzut łapie odpowiedź
+  w trakcie pisania, bez listy źródeł — czyli bez tego, co ta ilustracja ma pokazać.
+  Stąd `wait_js: 95` i przewinięcie okna rozmowy na dół.
+- **Pytanie dobieramy tak, żeby odpowiedź była krótka.** Wyliczanka na dwadzieścia punktów
+  wypełnia cały ekran i wypycha źródła poza kadr.
+
+## PDF
+
+Drukuje Edge w trybie headless. Dwie pułapki, obie obsłużone w `do_pdf()`:
 
 - poprawna flaga to `--print-to-pdf-no-header`; wariant `--no-pdf-header-footer` Edge
   po cichu ignoruje i pliku nie tworzy,
-- proces Edge kończy się kodem 0 **zanim** dopisze PDF — dlatego `do_pdf()` czeka, aż plik
-  powstanie i przestanie rosnąć.
+- proces Edge kończy się kodem 0 **zanim** dopisze PDF — dlatego czekamy, aż plik powstanie
+  i przestanie rosnąć.
 
 ## Instrukcja wbudowana w aplikację
 
-Od wersji 1.0.0 oba wydania są też dostępne w samej aplikacji — pozycja **Pomoc**
-w menu pod inicjałami. Strona `/dashboard/pomoc` osadza plik HTML i daje odnośnik do PDF,
-a wydanie dobiera się po roli konta. Pliki leżą w `frontend/public/pomoc/`:
+Pozycja **Instrukcja** w menu pod inicjałami otwiera stronę `/dashboard/pomoc`, która osadza
+plik HTML i daje odnośnik do PDF. Wydanie dobiera się po roli konta, a **wdrożenie po zmiennej
+środowiskowej `HELP_VARIANT`** (`zco` albo `hirs`; domyślnie `hirs`). Obraz aplikacji jest
+wspólny dla obu instancji, więc niesie oba komplety:
 
-```bash
-python generuj.py
-cp ZCO-DM-instrukcja-administratora.html ../../frontend/public/pomoc/instrukcja-administratora.html
-cp ZCO-DM-instrukcja-administratora.pdf  ../../frontend/public/pomoc/instrukcja-administratora.pdf
-cp ZCO-DM-instrukcja-uzytkownika.html    ../../frontend/public/pomoc/instrukcja-uzytkownika.html
-cp ZCO-DM-instrukcja-uzytkownika.pdf     ../../frontend/public/pomoc/instrukcja-uzytkownika.pdf
+```
+frontend/public/pomoc/zco/instrukcja-{administratora,uzytkownika}.{html,pdf}
+frontend/public/pomoc/hirs/instrukcja-{administratora,uzytkownika}.{html,pdf}
 ```
 
-Kolejność przy odświeżaniu zrzutów jest istotna: zrzut strony Pomoc pokazuje instrukcję,
-więc najpierw generujemy wydanie bez niego (brakujący plik zrzutu jest pomijany
-z ostrzeżeniem, nie przerywa generowania), kopiujemy do `public/`, przebudowujemy
-frontend, robimy zrzut Pomocy i generujemy wydanie ponownie.
-
-Zrzuty robi `shot.py` przeciwko ŚWIEŻEMU buildowi frontendu (`npx next start -p 3010`
-z `BACKEND_URL` wskazującym backend deweloperski) — kontener deweloperski serwuje
-starą paczkę, więc zrzuty z niego nie pokazałyby nowych zmian. Wydanie użytkownika
-wymaga konta bez uprawnień administratora; tworzymy je tymczasowo (rola `office_staff`
-ma dostęp do jednego folderu) i kasujemy zaraz po zrzutach.
+Wyboru **nie opieramy na nazwie instancji z bazy** — od wersji 1.5 administrator może ją
+zmienić w Ustawieniach, a instrukcja ma zostać ta właściwa.

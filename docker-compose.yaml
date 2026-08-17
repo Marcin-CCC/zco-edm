@@ -37,6 +37,8 @@ services:
       - BRAND_HEADER_TEXT=${BRAND_HEADER_TEXT:-#ffffff}
       # Ikona karty przeglądarki. Wartość domyślna należy do demo, więc
       # wdrożenie klienckie MUSI podać własną — inaczej ZCO pokaże „H".
+      # Który komplet instrukcji pokazuje menu Instrukcja (public/pomoc/<wariant>).
+      - HELP_VARIANT=${HELP_VARIANT:-hirs}
       - BRAND_ICON=${BRAND_ICON:-/ikona-hirs.svg}
       - BRAND_ICON_APPLE=${BRAND_ICON_APPLE:-/ikona-hirs.png}
     depends_on:

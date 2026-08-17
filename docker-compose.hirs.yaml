@@ -33,6 +33,7 @@ services:
       # Ikona karty przeglądarki — wskazujemy jawnie, choć domyślna w kodzie
       # jest ta sama. Instancja ma nazywać się i wyglądać sama, bez polegania
       # na tym, co akurat jest domyślne w obrazie.
+      - HELP_VARIANT=${HELP_VARIANT:-hirs}
       - BRAND_ICON=${BRAND_ICON:-/ikona-hirs.svg}
       - BRAND_ICON_APPLE=${BRAND_ICON_APPLE:-/ikona-hirs.png}
     depends_on:
