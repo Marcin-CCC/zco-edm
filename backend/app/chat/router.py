@@ -911,8 +911,10 @@ def rejestr_pytan(
     pary: list[dict] = []
     for msg, uid, username, full_name, rola in wiadomosci:      # malejąco po id
         if msg.role == "assistant":
+            # `rola` to kod roli (napis), nie enum — zob. models.py. Pozostałość po
+            # enumie w postaci `.value` wywracała cały rejestr błędem 500.
             pary.append({"msg": msg, "username": username, "full_name": full_name,
-                         "rola": rola.value if rola else None, "user_id": uid})
+                         "rola": rola or None, "user_id": uid})
         else:
             # Idziemy od najnowszych, więc pytanie napotykamy PO swojej odpowiedzi.
             for p in pary:
@@ -1023,7 +1025,7 @@ def uzytkownicy_pytajacy(
         .all()
     )
     return {"uzytkownicy": [
-        {"id": i, "nazwa": full or username, "rola": rola.value if rola else None}
+        {"id": i, "nazwa": full or username, "rola": rola or None}
         for i, username, full, rola in sorted(wiersze, key=lambda w: (w[2] or w[1] or "").lower())
     ]}
 

@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.5.14",
+      "date": "2026-08-17",
+      "title": "Naprawa zakladki Wszystkie pytania",
+      "changes": [
+        "Zakladka Wszystkie pytania na stronie Lista odpowiedzi konczyla sie bledem 500. Oba zestawienia odczytywaly role uzytkownika skladnia z czasow, gdy rola byla typem wyliczeniowym; po przejsciu na slownik rol zakladanych w interfejsie (wersja 1.1.0) rola jest zwyklym napisem i ten odczyt sie wywracal.",
+        "Przy okazji wrocil filtr osoby nad zestawieniami — lista pytajacych psula sie z tego samego powodu, ale bez komunikatu: pole wyboru pokazywalo samo wszyscy."
+      ]
+    },
+    {
       "version": "1.5.13",
       "date": "2026-08-17",
       "title": "Instrukcje uzupelnione o zrzut ekranu Instrukcja",
