@@ -38,14 +38,16 @@ img { max-width: 100%; display: block; }
   backdrop-filter: blur(6px);
 }
 .gora .srodek { display: flex; align-items: center; gap: 24px; height: 68px; }
-.marka { display: flex; align-items: center; gap: 12px; color: #fff; font-size: 22px;
-         font-weight: 700; letter-spacing: .01em; text-decoration: none; }
+.marka { display: flex; align-items: center; gap: 13px; color: #fff;
+         letter-spacing: .01em; text-decoration: none; }
 .marka .znak { width: 38px; height: 38px; flex: 0 0 38px; }
-.marka b { font-weight: 700; }
-.marka span { display: block; font-size: 11px; font-weight: 400; color: #9fb3d9; letter-spacing: .02em; }
-/* Poniżej 420 px rozwinięcie skrótu zabiera miejsce przyciskowi „Zamów demo” —
-   zostaje sam znak i nazwa. */
-@media (max-width: 420px) { .marka span { display: none; } }
+/* Napis obok znaku. Punktem wyjścia była wysokość równa znakowi (49 px stopnia
+   dawało litery dokładnie 38 px, zmierzone na kanwie), ale w oprawie okazało się to
+   za ciężkie — stąd 20% mniej, czyli 39 px.
+   `line-height` zostaje równe wysokości znaku: dzięki temu ramka napisu i znak mają
+   wspólny środek i nic się nie przesuwa w pionie. `display:block` zdejmuje odstęp,
+   który przeglądarka dokłada pod tekstem w linii. */
+.marka b { font-size: 39px; line-height: 38px; font-weight: 700; display: block; }
 .gora nav { margin-left: auto; display: flex; gap: 26px; }
 .gora nav a { color: #cfd9ec; text-decoration: none; font-size: 15px; }
 .gora nav a:hover { color: #fff; }

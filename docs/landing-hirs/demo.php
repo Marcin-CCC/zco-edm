@@ -154,7 +154,7 @@ function h(?string $t): string
   <div class="srodek">
     <a class="marka" href="./">
       <img class="znak" src="hirs-znak.svg" alt="" width="38" height="38">
-      <span><b>HiRS</b><span>Hospital Information Retrieval System</span></span>
+      <b>HiRS</b>
     </a>
   </div>
 </header>
