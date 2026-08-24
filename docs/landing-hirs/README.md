@@ -30,6 +30,13 @@ gdzie zapisano je ze strony polmedi.com. Geometria (promień 16, ramię 80 × 25
 kanwie 128) zdjęta z oryginalnej ikony, więc znak jest tym samym kształtem, nie
 podobnym. Wektor, bo stoi w nagłówku i w ikonie karty jednocześnie.
 
+**Ten sam plik jest wgrany jako ikona aplikacji HiRS** (Ustawienia → ikona aplikacji,
+24.08.2026). Poprzednia wersja z płaskim błękitem leży w
+[`../../mockup/HiRS-ikona-przed-przejsciowka.png`](../../mockup/HiRS-ikona-przed-przejsciowka.png)
+— gdyby trzeba było wrócić, wystarczy wgrać ją tym samym ekranem. Ikona mieszka
+w bazie, nie w obrazie aplikacji, więc zmiana nie wymagała wdrożenia i nie zniknie
+przy kolejnym.
+
 ## Wdrożenie w pięciu krokach
 
 1. Wgraj zawartość katalogu do katalogu publicznego (`public_html`, `www`).
