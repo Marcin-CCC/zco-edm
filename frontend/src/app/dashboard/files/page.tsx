@@ -879,7 +879,15 @@ function FilesPageInner() {
         </div>
       )}
 
-      {/* Pliki */}
+      {/* Pliki.
+          W katalogu głównym pokazujemy tę sekcję TYLKO administratorowi. Pliki
+          leżące poza folderami są dla pozostałych niewidoczne z zasady: backend
+          zawęża listę do folderów dozwolonych dla roli, a `folder_id IS NULL`
+          do żadnego z nich nie należy (zob. `readable_folder_ids`). Bez tego
+          warunku każdy nie-admin dostawał na wejściu pusty kafel „Brak plików
+          w tym folderze" — komunikat sugerujący, że folder mógłby coś zawierać,
+          podczas gdy nigdy nie zawiera. Wewnątrz folderów sekcja działa normalnie. */}
+      {(isAdmin || currentFolderId !== null) && (
       <Card className="mb-[18px] overflow-hidden">
         <div className="flex flex-wrap items-center gap-2.5 border-b border-app-line px-[18px] py-3.5">
           <h2 className="mr-auto flex items-center gap-2.5 text-[16px] font-bold text-app-text">
@@ -1099,6 +1107,7 @@ function FilesPageInner() {
           </div>
         )}
       </Card>
+      )}
 
       {/* ------------------------------------------------------------ okna */}
 

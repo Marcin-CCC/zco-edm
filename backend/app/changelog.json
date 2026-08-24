@@ -1,6 +1,14 @@
 {
   "entries": [
     {
+      "version": "1.5.17",
+      "date": "2026-08-24",
+      "title": "Bez pustej sekcji plikow w katalogu glownym",
+      "changes": [
+        "Uzytkownik bez uprawnien administratora widzial w katalogu glownym pusty kafel Pliki z napisem Brak plikow w tym folderze. Pliki lezace poza folderami sa dla niego niewidoczne z zasady, wiec kafel nigdy nie mogl niczego pokazac — teraz w katalogu glownym po prostu go nie ma. Wewnatrz folderow lista dziala bez zmian."
+      ]
+    },
+    {
       "version": "1.5.16",
       "date": "2026-08-24",
       "title": "Sortowanie listy plikow klikniekiem w naglowek",
