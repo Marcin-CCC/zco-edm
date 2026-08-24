@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "1.5.18",
+      "date": "2026-08-24",
+      "title": "Stronicowanie Listy odpowiedzi i filtry liczone na calosci",
+      "changes": [
+        "Lista odpowiedzi pokazywala tylko pierwsze 100 pozycji i nic o tym nie mowila — reszta ruchu byla niewidoczna. Teraz na dole listy jest przechodzenie po stronach z licznikiem „od–do z ilu” i wyborem liczby pozycji na stronie.",
+        "Przelacznik „pokaz tylko ocenione” odsiewal dopiero wsrod pobranych stu pozycji, wiec pomijal oceny lezace glebiej w historii. Filtry i licznik pracuja teraz na calej liscie, niezaleznie od ogladanej strony. To samo dotyczy filtra osoby i zestawienia pytan wedlug rol.",
+        "Zmiana filtra wraca na pierwsza strone — wczesniej mozna bylo zostac na stronie, ktora po zawezeniu juz nie istnieje."
+      ]
+    },
+    {
       "version": "1.5.17",
       "date": "2026-08-24",
       "title": "Bez pustej sekcji plikow w katalogu glownym",

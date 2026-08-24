@@ -17,7 +17,8 @@ from sqlalchemy.orm import sessionmaker
 
 from app.chat.router import rejestr_pytan, uzytkownicy_pytajacy
 from app.database import Base
-from app.models import ROLE_ADMIN, ROLE_GUEST, Conversation, Message, User
+from app.models import (ROLE_ADMIN, ROLE_GUEST, Conversation, Message, OcenaOdpowiedzi,
+                        User)
 
 
 @pytest.fixture
@@ -92,6 +93,93 @@ class TestRejestruPytan:
         with pytest.raises(Exception) as e:
             rejestr_pytan(db=db, current_user=zwykly)
         assert "403" in str(e.value) or "administrator" in str(e.value).lower()
+
+
+@pytest.fixture
+def wiele_tur(db):
+    """Dwanaście tur jednej osoby; ocena wisi na NAJSTARSZEJ.
+
+    Umieszczenie oceny na najstarszej turze jest celowe: przy filtrowaniu dopiero
+    po pobraniu strony ocena poza pierwszą stroną znika z wyniku, a lista wygląda
+    na pustą. To właśnie ten błąd tu pilnujemy.
+    """
+    pytajacy = User(email="p@szpital.pl", username="pytajacy", full_name="Ewa Nowak",
+                    hashed_password="x", role="NURSE")
+    db.add(pytajacy)
+    db.commit()
+    conv = Conversation(user_id=pytajacy.id, title="Rozmowa")
+    db.add(conv)
+    db.commit()
+    odpowiedzi = []
+    for i in range(12):
+        db.add(Message(conversation_id=conv.id, role="user", content=f"pytanie {i}"))
+        db.commit()
+        odp = Message(conversation_id=conv.id, role="assistant", content=f"odpowiedź {i}")
+        db.add(odp)
+        db.commit()
+        odpowiedzi.append(odp)
+    db.add(OcenaOdpowiedzi(user_id=pytajacy.id, message_id=odpowiedzi[0].id,
+                           ocena="zla", pytanie="pytanie 0", odpowiedz="odpowiedź 0"))
+    db.commit()
+    return odpowiedzi
+
+
+class TestStronicowania:
+    def test_razem_liczy_calosc_nie_strone(self, db, admin, wiele_tur):
+        wynik = rejestr_pytan(db=db, current_user=admin, limit=5)
+        assert wynik["razem"] == 12
+        assert len(wynik["pytania"]) == 5
+
+    def test_kolejne_strony_nie_powtarzaja_wierszy(self, db, admin, wiele_tur):
+        widziane = []
+        for strona in range(3):
+            wynik = rejestr_pytan(db=db, current_user=admin, limit=5, offset=strona * 5)
+            widziane += [w["message_id"] for w in wynik["pytania"]]
+        assert len(widziane) == 12
+        assert len(set(widziane)) == 12, "wiersze powtórzyły się między stronami"
+        assert widziane == sorted(widziane, reverse=True), "kolejność od najnowszych"
+
+    def test_ostatnia_strona_moze_byc_niepelna(self, db, admin, wiele_tur):
+        assert len(rejestr_pytan(db=db, current_user=admin, limit=5, offset=10)["pytania"]) == 2
+
+    def test_offset_poza_zakresem_daje_pusto_a_nie_blad(self, db, admin, wiele_tur):
+        wynik = rejestr_pytan(db=db, current_user=admin, limit=5, offset=999)
+        assert wynik["pytania"] == [] and wynik["razem"] == 12
+
+    def test_limit_jest_ograniczony(self, db, admin, wiele_tur):
+        """Bez zacisku ktoś z adresu poprosiłby o milion wierszy naraz."""
+        assert len(rejestr_pytan(db=db, current_user=admin, limit=100000)["pytania"]) == 12
+
+    def test_pytanie_dopasowane_do_wlasnej_odpowiedzi(self, db, admin, wiele_tur):
+        """Przy stronicowaniu łatwo zgubić parowanie — pytanie musi pasować do tury,
+        a nie do sąsiedniej."""
+        for w in rejestr_pytan(db=db, current_user=admin, limit=12)["pytania"]:
+            numer = w["odpowiedz"].split()[-1]
+            assert w["pytanie"] == f"pytanie {numer}"
+
+
+class TestFiltrowNaCalosci:
+    def test_tylko_ocenione_znajduje_ocene_spoza_pierwszej_strony(self, db, admin, wiele_tur):
+        """Sedno poprawki: ocena wisi na najstarszej turze, czyli daleko poza pierwszą
+        stroną. Filtr ma ją znaleźć, bo pracuje w bazie, a nie na pobranej porcji."""
+        wynik = rejestr_pytan(db=db, current_user=admin, tylko_ocenione=True, limit=5)
+        assert wynik["razem"] == 1
+        assert len(wynik["pytania"]) == 1
+        assert wynik["pytania"][0]["ocena"] == "zla"
+
+    def test_filtr_osoby_zaweza_calosc(self, db, admin, wiele_tur, rozmowa):
+        wszyscy = rejestr_pytan(db=db, current_user=admin, limit=200)
+        assert wszyscy["razem"] == 13          # 12 tur Ewy + 1 tura z fixture `rozmowa`
+        tylko_ewa = rejestr_pytan(db=db, current_user=admin, limit=200,
+                                  user_id=wiele_tur[0].conversation.user_id)
+        assert tylko_ewa["razem"] == 12
+        assert {w["uzytkownik"] for w in tylko_ewa["pytania"]} == {"Ewa Nowak"}
+
+    def test_wg_roli_liczy_calosc_nie_strone(self, db, admin, wiele_tur):
+        """Rozkład ról opisuje zbiór. Liczony na stronie zmieniałby się przy każdym
+        jej przewróceniu i sugerowałby, że ludzie pytają inaczej niż pytają."""
+        wynik = rejestr_pytan(db=db, current_user=admin, limit=3)
+        assert wynik["wg_roli"] == {"NURSE": 12}
 
 
 class TestListyPytajacych:

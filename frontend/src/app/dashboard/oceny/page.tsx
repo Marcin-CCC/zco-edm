@@ -167,6 +167,51 @@ function Legenda() {
 }
 
 
+/** Pasek nawigacji po stronach. Ten sam układ co pod listą plików. */
+function Stronicowanie({ strona, naStronie, razem, ustawStrone, ustawNaStronie }: {
+  strona: number;
+  naStronie: number;
+  razem: number;
+  ustawStrone: (n: number) => void;
+  ustawNaStronie: (n: number) => void;
+}) {
+  if (!razem) return null;
+  const stron = Math.max(1, Math.ceil(razem / naStronie));
+  const od = (strona - 1) * naStronie + 1;
+  const doPozycji = Math.min(strona * naStronie, razem);
+  return (
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-card border border-app-line bg-white px-[18px] py-3 text-[12px] text-app-muted">
+      <span>{razem <= naStronie ? `${razem} z ${razem}` : `${od}–${doPozycji} z ${razem}`}</span>
+      {stron > 1 && (
+        <span className="flex items-center gap-1.5">
+          <button
+            disabled={strona === 1}
+            onClick={() => ustawStrone(strona - 1)}
+            className="rounded-ctl border border-app-line px-2 py-1 disabled:opacity-40"
+          >‹</button>
+          <span className="px-1">strona {strona} z {stron}</span>
+          <button
+            disabled={strona >= stron}
+            onClick={() => ustawStrone(strona + 1)}
+            className="rounded-ctl border border-app-line px-2 py-1 disabled:opacity-40"
+          >›</button>
+        </span>
+      )}
+      <label className="flex items-center gap-2">
+        Pokaż:
+        <select
+          value={naStronie}
+          onChange={(e) => { ustawNaStronie(Number(e.target.value)); ustawStrone(1); }}
+          className={`${inputClass} h-8 w-auto py-0`}
+        >
+          {[25, 50, 100, 200].map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </label>
+    </div>
+  );
+}
+
+
 export default function OcenyPage() {
   const { roles } = useRoles();
   const [widok, setWidok] = useState<'oceny' | 'rejestr'>('oceny');
@@ -181,6 +226,15 @@ export default function OcenyPage() {
   const [rozwiniete, setRozwiniete] = useState<Record<number, boolean>>({});
   const [blad, setBlad] = useState('');
   const [ladowanie, setLadowanie] = useState(true);
+  // Stronicowanie. Filtry zawężają CAŁOŚĆ po stronie bazy, a tu wybieramy tylko,
+  // który jej kawałek pobrać — `razemPozycji` mówi, ile jest po filtrach.
+  const [strona, setStrona] = useState(1);
+  const [naStronie, setNaStronie] = useState(50);
+  const [razemPozycji, setRazemPozycji] = useState(0);
+
+  /** Zmiana filtra musi wracać na pierwszą stronę — inaczej po zawężeniu listy
+   *  zostaje się na stronie, której już nie ma, i widać pustkę. */
+  const zmienFiltr = (ustaw: () => void) => { ustaw(); setStrona(1); };
 
   useEffect(() => {
     fetch('/api/chat/uzytkownicy-pytajacy', { headers: authHeaders() })
@@ -193,9 +247,10 @@ export default function OcenyPage() {
     setLadowanie(true);
     try {
       const osoba = ktoryUzytkownik ? `&user_id=${ktoryUzytkownik}` : '';
+      const zakres = `&limit=${naStronie}&offset=${(strona - 1) * naStronie}`;
       const url = widok === 'oceny'
-        ? `/api/chat/oceny?tylko_negatywne=${tylkoNegatywne}${osoba}`
-        : `/api/chat/rejestr?tylko_ocenione=${tylkoOcenione}${osoba}`;
+        ? `/api/chat/oceny?tylko_negatywne=${tylkoNegatywne}${osoba}${zakres}`
+        : `/api/chat/rejestr?tylko_ocenione=${tylkoOcenione}${osoba}${zakres}`;
       const res = await fetch(url, { headers: authHeaders() });
       if (!res.ok) throw new Error(res.status === 403 ? 'Tylko dla administratora.' : `Błąd ${res.status}`);
       const d = await res.json();
@@ -206,13 +261,14 @@ export default function OcenyPage() {
         setPytania(d.pytania || []);
         setWgRoli(d.wg_roli || {});
       }
+      setRazemPozycji(d.razem ?? 0);
       setBlad('');
     } catch (e: unknown) {
       setBlad(e instanceof Error ? e.message : 'Nie udało się wczytać danych.');
     } finally {
       setLadowanie(false);
     }
-  }, [widok, tylkoNegatywne, tylkoOcenione, ktoryUzytkownik]);
+  }, [widok, tylkoNegatywne, tylkoOcenione, ktoryUzytkownik, strona, naStronie]);
 
   useEffect(() => { wczytaj(); }, [wczytaj]);
 
@@ -235,7 +291,7 @@ export default function OcenyPage() {
         {([['oceny', 'Oceny'], ['rejestr', 'Wszystkie pytania']] as const).map(([k, etykieta]) => (
           <button
             key={k}
-            onClick={() => setWidok(k)}
+            onClick={() => zmienFiltr(() => setWidok(k))}
             aria-pressed={widok === k}
             className={`rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-colors ${
               widok === k ? 'bg-white text-app-text shadow-sm' : 'text-app-muted hover:text-app-text'
@@ -252,7 +308,7 @@ export default function OcenyPage() {
         <label className="text-[13px] text-app-muted">Użytkownik:</label>
         <select
           value={ktoryUzytkownik}
-          onChange={(e) => setKtoryUzytkownik(e.target.value)}
+          onChange={(e) => zmienFiltr(() => setKtoryUzytkownik(e.target.value))}
           className={`${inputClass} h-9 w-auto`}
         >
           <option value="">wszyscy</option>
@@ -264,7 +320,7 @@ export default function OcenyPage() {
         </select>
         {ktoryUzytkownik && (
           <button
-            onClick={() => setKtoryUzytkownik('')}
+            onClick={() => zmienFiltr(() => setKtoryUzytkownik(''))}
             className="text-[13px] font-semibold text-app-blue hover:underline"
           >
             wyczyść
@@ -286,7 +342,7 @@ export default function OcenyPage() {
               <input
                 type="checkbox"
                 checked={tylkoNegatywne}
-                onChange={(e) => setTylkoNegatywne(e.target.checked)}
+                onChange={(e) => zmienFiltr(() => setTylkoNegatywne(e.target.checked))}
               />
               tylko negatywne
             </label>
@@ -302,7 +358,7 @@ export default function OcenyPage() {
               <input
                 type="checkbox"
                 checked={tylkoOcenione}
-                onChange={(e) => setTylkoOcenione(e.target.checked)}
+                onChange={(e) => zmienFiltr(() => setTylkoOcenione(e.target.checked))}
               />
               pokaż tylko ocenione
             </label>
@@ -420,6 +476,14 @@ export default function OcenyPage() {
           );
         })}
       </div>
+
+      <Stronicowanie
+        strona={strona}
+        naStronie={naStronie}
+        razem={razemPozycji}
+        ustawStrone={setStrona}
+        ustawNaStronie={setNaStronie}
+      />
     </div>
   );
 }

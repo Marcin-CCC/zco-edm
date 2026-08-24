@@ -22,6 +22,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -877,7 +878,8 @@ def zapisz_ocene(
 
 @router.get("/rejestr")
 def rejestr_pytan(
-    limit: int = 100,
+    limit: int = 50,
+    offset: int = 0,
     tylko_ocenione: bool = False,
     user_id: int | None = None,
     db: Session = Depends(get_db),
@@ -897,75 +899,94 @@ def rejestr_pytan(
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator.")
 
-    limit = max(1, min(limit, 500))
-    # Jedno zapytanie zamiast N+1: bierzemy z zapasem, bo tura to dwie wiadomości.
+    limit = max(1, min(limit, 200))
+    offset = max(0, offset)
+
+    # Jedna tura = jedna wiadomość asystenta, więc to ona jest wierszem listy.
+    #
+    # FILTRY I LICZENIE IDĄ DO BAZY, nie do pętli po pobranej porcji. Wcześniej
+    # „tylko ocenione" odsiewało dopiero wśród stu pobranych wierszy, przez co
+    # pokazywało garść zgłoszeń zamiast wszystkich, a przy stronicowaniu dawałoby
+    # na każdej stronie inną liczbę wyników.
     zapytanie = (
         db.query(Message, Conversation.user_id, User.username, User.full_name, User.role)
         .join(Conversation, Message.conversation_id == Conversation.id)
         .outerjoin(User, Conversation.user_id == User.id)
+        .filter(Message.role == "assistant")
     )
     if user_id is not None:
         zapytanie = zapytanie.filter(Conversation.user_id == user_id)
-    wiadomosci = zapytanie.order_by(Message.id.desc()).limit(limit * 3).all()
+    if tylko_ocenione:
+        zapytanie = zapytanie.filter(Message.id.in_(
+            db.query(OcenaOdpowiedzi.message_id)
+            .filter(OcenaOdpowiedzi.message_id.isnot(None))
+        ))
+
+    razem = zapytanie.count()
+    wiersze = zapytanie.order_by(Message.id.desc()).offset(offset).limit(limit).all()
+
     # Pytanie to najbliższa POPRZEDZAJĄCA wiadomość użytkownika w tej samej rozmowie.
-    pary: list[dict] = []
-    for msg, uid, username, full_name, rola in wiadomosci:      # malejąco po id
-        if msg.role == "assistant":
-            # `rola` to kod roli (napis), nie enum — zob. models.py. Pozostałość po
-            # enumie w postaci `.value` wywracała cały rejestr błędem 500.
-            pary.append({"msg": msg, "username": username, "full_name": full_name,
-                         "rola": rola or None, "user_id": uid})
-        else:
-            # Idziemy od najnowszych, więc pytanie napotykamy PO swojej odpowiedzi.
-            for p in pary:
-                if p["msg"].conversation_id == msg.conversation_id and "pytanie" not in p:
-                    p["pytanie"] = msg.content
-                    break
+    # Bierzemy je jednym zapytaniem dla rozmów z bieżącej strony i dobieramy w pamięci —
+    # inaczej wyszłoby jedno zapytanie na wiersz.
+    rozmowy = {m.conversation_id for m, *_ in wiersze}
+    pytania_rozmowy: dict[int, list[tuple[int, str]]] = {}
+    if rozmowy:
+        for cid, mid, tresc in (
+            db.query(Message.conversation_id, Message.id, Message.content)
+            .filter(Message.conversation_id.in_(rozmowy), Message.role == "user")
+            .order_by(Message.id.asc()).all()
+        ):
+            pytania_rozmowy.setdefault(cid, []).append((mid, tresc))
+
+    def pytanie_do(msg) -> str | None:
+        poprzednie = [t for i, t in pytania_rozmowy.get(msg.conversation_id, []) if i < msg.id]
+        return poprzednie[-1] if poprzednie else None
 
     oceny_wg_msg = {
         o.message_id: o for o in
         db.query(OcenaOdpowiedzi)
-        .filter(OcenaOdpowiedzi.message_id.in_([p["msg"].id for p in pary] or [0]))
+        .filter(OcenaOdpowiedzi.message_id.in_([m.id for m, *_ in wiersze] or [0]))
         .all()
     }
 
     wynik = []
-    for p in pary:
-        ocena = oceny_wg_msg.get(p["msg"].id)
-        if tylko_ocenione and ocena is None:
-            continue
+    for msg, uid, username, full_name, rola in wiersze:
+        ocena = oceny_wg_msg.get(msg.id)
         wynik.append({
-            "message_id": p["msg"].id,
-            "pytanie": p.get("pytanie"),
-            "odpowiedz": (p["msg"].content or "")[:600],
+            "message_id": msg.id,
+            "pytanie": pytanie_do(msg),
+            "odpowiedz": (msg.content or "")[:600],
             # Pełne źródła, nie same nazwy — rejestr ma pozwalać OTWORZYĆ dokument,
             # tak jak lista pod odpowiedzią w Bazie wiedzy. Bez `file_id` nie da się.
             "zrodla": [{"filename": s.get("filename"), "page": s.get("page"),
                         "file_id": s.get("file_id"), "cited": s.get("cited")}
-                       for s in (p["msg"].sources or []) if isinstance(s, dict)][:8],
-            "uzytkownik": p["full_name"] or p["username"],
-            "user_id": p["user_id"],
-            "rola": p["rola"],
-            "created_at": p["msg"].created_at,
+                       for s in (msg.sources or []) if isinstance(s, dict)][:8],
+            "uzytkownik": full_name or username,
+            "user_id": uid,
+            # `rola` to kod roli (napis), nie enum — zob. models.py.
+            "rola": rola or None,
+            "created_at": msg.created_at,
             "ocena": ocena.ocena if ocena else None,
             "powod": POWODY.get(ocena.powod, None) if ocena and ocena.powod else None,
             "diagnostyka": ocena.diagnostyka if ocena else None,
         })
-        if len(wynik) >= limit:
-            break
 
     # Ile pytań zadała każda rola — po to, żeby zobaczyć, kto z systemu korzysta.
-    wg_roli: dict[str, int] = {}
-    for p in pary:
-        klucz = p["rola"] or "?"
-        wg_roli[klucz] = wg_roli.get(klucz, 0) + 1
+    # Liczone na CAŁOŚCI po filtrach, nie na bieżącej stronie: rozkład ról ma opisywać
+    # zbiór, a nie to, co akurat widać.
+    wg_roli: dict[str, int] = {
+        (rola or "?"): ile
+        for rola, ile in zapytanie.with_entities(User.role, func.count(Message.id))
+                                  .group_by(User.role).all()
+    }
 
-    return {"wg_roli": wg_roli, "pytania": wynik}
+    return {"wg_roli": wg_roli, "pytania": wynik, "razem": razem}
 
 
 @router.get("/oceny")
 def lista_ocen(
-    limit: int = 100,
+    limit: int = 50,
+    offset: int = 0,
     tylko_negatywne: bool = False,
     user_id: int | None = None,
     db: Session = Depends(get_db),
@@ -974,12 +995,17 @@ def lista_ocen(
     """Zestawienie ocen dla administratora — materiał na zestaw kontrolny."""
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Tylko administrator.")
+    limit = max(1, min(limit, 200))
+    offset = max(0, offset)
     zapytanie = db.query(OcenaOdpowiedzi)
     if tylko_negatywne:
         zapytanie = zapytanie.filter(OcenaOdpowiedzi.ocena == "zla")
     if user_id is not None:
         zapytanie = zapytanie.filter(OcenaOdpowiedzi.user_id == user_id)
-    wiersze = zapytanie.order_by(OcenaOdpowiedzi.id.desc()).limit(min(limit, 500)).all()
+    # Licznik przed stronicowaniem — mówi, ile jest po filtrach, a nie ile widać.
+    razem = zapytanie.count()
+    wiersze = (zapytanie.order_by(OcenaOdpowiedzi.id.desc())
+               .offset(offset).limit(limit).all())
 
     # Podsumowanie liczy to samo, co pokazuje lista — inaczej po zawężeniu do jednej
     # osoby licznik nad tabelą mówiłby o kimś innym niż wiersze pod nim.
@@ -993,6 +1019,7 @@ def lista_ocen(
     autorzy = {u.id: (u.full_name or u.username) for u in db.query(User).all()}
     return {
         "podsumowanie": podsumowanie,
+        "razem": razem,
         "oceny": [{
             "id": o.id,
             "ocena": o.ocena,
