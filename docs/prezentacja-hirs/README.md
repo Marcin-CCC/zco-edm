@@ -58,6 +58,19 @@ Generator PPTX **wylicza kolory z `generuj.py`**, zamiast trzymać własną kopi
 trzymał i przy zmianie marki obie wersje rozjechały się bez ostrzeżenia: HTML był
 granatowy, PowerPoint dalej niebieski.
 
+## Logo w dwóch odmianach
+
+| Plik | Gdzie | Uwaga |
+|---|---|---|
+| `polmedi-group.png` | prawy górny róg slajdów białych | wersja pełnokolorowa |
+| `polmedi-group-logo-white.svg` | **okładka** (tło granatowe) | wersja w kontrze, źródło |
+| `polmedi-group-white.png` | okładka w PPTX | rasteryzacja powyższego, robi ją `makiety_png.py` |
+
+PNG w kontrze jest potrzebny, bo `python-pptx` nie przyjmuje SVG. Rasteryzujemy Edge'em
+z `--default-background-color=00000000`: znak jest biały, więc na domyślnym białym tle
+wyszłaby biel na bieli. Gdyby tego pliku zabrakło, okładka wraca do loga pełnokolorowego
+na białym podkładzie — brzydko, ale widocznie.
+
 ## Co sprawdzić po zmianie treści
 
 Slajd ma sztywną wysokość, więc treść, która się nie mieści, zostaje **ucięta bez

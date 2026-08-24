@@ -20,8 +20,8 @@ from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Emu, Pt
 
 from generuj import (CENNIK, CZASY, DATA, DZIALY, ETAPY_WDROZENIA, KAFELKI_LICZB, KATALOG,
-                     KROKI_SCIEZKI, NAZWA, OSOBY_KONTAKT, PODTYTUL_NAZWY, SLAJDY,
-                     WARSTWY_SERWEROWNI, WYKONAWCA)
+                     KROKI_SCIEZKI, LOGO_KONTRA_PNG, LOGO_PNG, NAZWA, OSOBY_KONTAKT,
+                     PODTYTUL_NAZWY, SLAJDY, WARSTWY_SERWEROWNI, WYKONAWCA)
 from generuj import LINIA as _LINIA, NIEBIESKI as _NIEBIESKI, SZARY as _SZARY
 from generuj import TEKST as _TEKST, TLO as _TLO, TURKUS as _TURKUS
 from generuj import TURKUS_CIEMNY as _TURKUS_CIEMNY
@@ -159,7 +159,7 @@ def punktory(slajd, x, y, w, pozycje, rozmiar=17):
 
 # ---------------------------------------------------------------- slajdy
 
-def slajd_okladka(prs, dane, logo):
+def slajd_okladka(prs, dane, logo, logo_kontra):
     s = prs.slides.add_slide(prs.slide_layouts[6])
     tlo = prostokat(s, 0, 0, 1280, 720, NIEBIESKI, promien=False)
     tlo.line.fill.background()
@@ -174,7 +174,12 @@ def slajd_okladka(prs, dane, logo):
     tf4 = pole(s, MARGINES, 626, 700, 50)
     tekst(tf4, WYKONAWCA, 12, RGBColor(0xEA, 0xF0, 0xFF), bold=True)
     tekst(tf4, DATA, 12, RGBColor(0xB9, 0xC6, 0xEA))
-    if logo:
+    # Znak w kontrze kładziemy wprost na granacie. Wcześniej stał tu biały prostokąt
+    # z logiem pełnokolorowym — na ciemnym tle wyglądał jak naklejka.
+    if logo_kontra:
+        szer, wys = 207, 46         # proporcja znaku 1999 × 444
+        s.shapes.add_picture(logo_kontra, px(1216 - szer), px(676 - wys), width=px(szer))
+    elif logo:
         biale = prostokat(s, 1064, 636, 152, 48, BIALY)
         biale.line.fill.background()
         s.shapes.add_picture(logo, px(1080), px(646), width=px(120))
@@ -355,15 +360,19 @@ MAKIETY = {"Co dostajecie": "makieta-pliki.png", "Łatwość obsługi": "makieta
 
 
 def main():
-    logo = os.path.join(KATALOG, "polmedi-group.png")
+    logo = os.path.join(KATALOG, LOGO_PNG)
     logo = logo if os.path.exists(logo) else None
+    # Wersję w kontrze rasteryzuje `makiety_png.py`; bez niej okładka
+    # wraca do loga pełnokolorowego na białym podkładzie.
+    logo_kontra = os.path.join(KATALOG, LOGO_KONTRA_PNG)
+    logo_kontra = logo_kontra if os.path.exists(logo_kontra) else None
 
     prs = Presentation()
     prs.slide_width, prs.slide_height = px(1280), px(720)
 
     for numer, dane in enumerate(SLAJDY, start=1):
         if dane.get("typ") == "okladka":
-            slajd_okladka(prs, dane, logo)
+            slajd_okladka(prs, dane, logo, logo_kontra)
             continue
 
         s = prs.slides.add_slide(prs.slide_layouts[6])

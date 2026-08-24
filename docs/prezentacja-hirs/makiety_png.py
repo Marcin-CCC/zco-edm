@@ -11,7 +11,8 @@ import subprocess
 import tempfile
 import time
 
-from generuj import KATALOG, STYL, makieta_czat, makieta_pliki
+from generuj import (KATALOG, LOGO_KONTRA_PNG, LOGO_KONTRA_SVG, STYL,
+                     makieta_czat, makieta_pliki)
 
 EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 SZEROKOSC = 560          # szerokość makiety w pikselach (2× dla ostrości = 1120)
@@ -60,9 +61,49 @@ def przytnij_biel(sciezka, margines=6):
                   min(img.width, p + margines), min(img.height, d + margines))).save(sciezka)
 
 
+def logo_kontra_png():
+    """SVG loga w kontrze → PNG z przezroczystym tłem, na okładkę w PPTX.
+
+    `python-pptx` nie przyjmuje SVG (`add_picture` wywraca się na nim), a znak jest
+    biały, więc rasteryzacja na domyślnym białym tle dałaby biel na bieli. Stąd
+    `--default-background-color=00000000` i renderowanie przeglądarką zamiast
+    ImageMagickiem — Edge jest tu jedynym rzetelnym silnikiem SVG pod ręką.
+    """
+    zrodlo = os.path.join(KATALOG, LOGO_KONTRA_SVG)
+    cel = os.path.join(KATALOG, LOGO_KONTRA_PNG)
+    if not os.path.exists(zrodlo):
+        return None
+    szerokosc, wysokosc = 800, 178          # proporcja znaku 1999 × 444
+    strona = (f"<!doctype html><meta charset='utf-8'>"
+              f"<style>html,body{{margin:0;padding:0;background:transparent;}}"
+              f"img{{display:block;width:{szerokosc}px;}}</style>"
+              f"<img src='file:///{zrodlo.replace(os.sep, '/')}'>")
+    html_path = os.path.join(tempfile.mkdtemp(), "logo.html")
+    with open(html_path, "w", encoding="utf-8") as f:
+        f.write(strona)
+    if os.path.exists(cel):
+        os.remove(cel)
+    profil = tempfile.mkdtemp(prefix="logo_")
+    subprocess.run(
+        [EDGE, "--headless=new", "--disable-gpu", f"--user-data-dir={profil}",
+         f"--window-size={szerokosc},{wysokosc}", "--hide-scrollbars",
+         "--default-background-color=00000000", "--force-device-scale-factor=2",
+         "--virtual-time-budget=5000", f"--screenshot={cel}",
+         f"file:///{html_path.replace(os.sep, '/')}"],
+        capture_output=True, timeout=180)
+    for _ in range(60):
+        if os.path.exists(cel) and os.path.getsize(cel) > 0:
+            break
+        time.sleep(0.4)
+    return cel if os.path.exists(cel) else None
+
+
 def main():
     for nazwa, html in (("makieta-pliki", makieta_pliki()), ("makieta-czat", makieta_czat())):
         cel = zrzut(nazwa, html)
+        print(f"  {os.path.basename(cel)}: {os.path.getsize(cel)//1024} KB")
+    cel = logo_kontra_png()
+    if cel:
         print(f"  {os.path.basename(cel)}: {os.path.getsize(cel)//1024} KB")
 
 

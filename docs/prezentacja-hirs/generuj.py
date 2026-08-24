@@ -52,12 +52,29 @@ LINIA = "#e2e8f0"
 TLO = "#f8fafc"
 
 
+# Logo w dwóch odmianach. Na okładce tło jest granatowe, więc idzie tam wersja
+# w kontrze — inaczej trzeba by podkładać pod znak biały prostokąt, a to na ciemnym
+# slajdzie wygląda jak naklejka.
+LOGO_PNG = "polmedi-group.png"          # wersja pełnokolorowa, na białych slajdach
+LOGO_KONTRA_SVG = "polmedi-group-logo-white.svg"    # wersja biała, na okładce
+LOGO_KONTRA_PNG = "polmedi-group-white.png"         # to samo dla PPTX (rasteryzuje makiety_png)
+
+
 def logo_data_uri():
-    plik = os.path.join(KATALOG, "polmedi-group.png")
+    plik = os.path.join(KATALOG, LOGO_PNG)
     if not os.path.exists(plik):
         return None
     with open(plik, "rb") as f:
         return "data:image/png;base64," + base64.b64encode(f.read()).decode()
+
+
+def logo_kontra_data_uri():
+    """Logo w kontrze jako data URI. SVG wstawiamy wprost — przeglądarka je zna."""
+    plik = os.path.join(KATALOG, LOGO_KONTRA_SVG)
+    if not os.path.exists(plik):
+        return None
+    with open(plik, "rb") as f:
+        return "data:image/svg+xml;base64," + base64.b64encode(f.read()).decode()
 
 
 def punkty(*tresc):
@@ -520,8 +537,10 @@ table.cennik tr.suma td {{ font-weight:700; color:var(--niebieski); font-size:23
 .slajd.okladka .obietnica {{ font-size:26px; line-height:1.5; color:#fff; max-width:860px; }}
 .slajd.okladka .meta {{ position:absolute; left:64px; bottom:48px; font-size:16px; color:#b9c6ea; }}
 .slajd.okladka .meta b {{ color:#eaf0ff; }}
-.slajd.okladka .logo {{ position:absolute; right:64px; bottom:44px; height:40px; opacity:.95;
-                       background:#fff; border-radius:8px; padding:6px 10px; }}
+/* Znak w kontrze kładziemy wprost na granacie — bez białego podkładu, bo ten na
+   ciemnym tle wygląda jak naklejka. Stąd też większa wysokość: bez ramki znak
+   optycznie maleje. */
+.slajd.okladka .logo {{ position:absolute; right:64px; bottom:44px; height:46px; }}
 
 .marka {{ position:absolute; left:64px; bottom:22px; font-size:13px; color:#9aa5a5; }}
 .numer {{ position:absolute; right:32px; bottom:22px; font-size:13px; color:#9aa5a5; }}
@@ -601,10 +620,12 @@ SKRYPT = """
 
 def render():
     logo = logo_data_uri()
+    logo_kontra = logo_kontra_data_uri() or logo
     html = []
     for numer, s in enumerate(SLAJDY, start=1):
         if s.get("typ") == "okladka":
-            znak = f'<img class="logo" src="{logo}" alt="Polmedi Group">' if logo else ""
+            znak = (f'<img class="logo" src="{logo_kontra}" alt="Polmedi Group">'
+                    if logo_kontra else "")
             html.append(
                 f'<div class="slajd okladka"><div class="kreska"></div>'
                 f'<h1>{s["tytul"]}</h1>'
