@@ -14,7 +14,7 @@
 import { useEffect } from 'react';
 import type { ButtonHTMLAttributes, ReactNode, TdHTMLAttributes } from 'react';
 
-import { IconClose } from '@/components/icons';
+import { IconChevronDown, IconClose } from '@/components/icons';
 
 /* ---------------------------------------------------------------- nagłówek */
 
@@ -167,10 +167,49 @@ export function Table({ children, className = '' }: { children: ReactNode; class
   );
 }
 
-export function Th({ children, className = '' }: { children?: ReactNode; className?: string }) {
+// Odstępy trzymamy OSOBNO od reszty klas, bo w wariancie sortowalnym wędrują
+// z komórki na przycisk. Gdyby siedziały w jednym napisie, trzeba by je zbijać
+// klasą `p-0`, a o tym, która wygra, decyduje kolejność reguł w arkuszu, nie
+// kolejność klas w atrybucie.
+const TH_BASE = 'border-b border-app-line bg-[#fafbfd] text-left text-[11px] uppercase tracking-[.02em] text-[#65738a]';
+const TH_PAD = 'px-[14px] py-3';
+
+export function Th({
+  children,
+  className = '',
+  sorted,
+  onSort,
+}: {
+  children?: ReactNode;
+  className?: string;
+  /** Kierunek, w którym ułożona jest lista — ustawiany TYLKO na aktywnej kolumnie. */
+  sorted?: 'asc' | 'desc';
+  /** Obsługa kliknięcia. Brak = nagłówek zwykły, nieklikalny. */
+  onSort?: () => void;
+}) {
+  if (!onSort) {
+    return <th className={`${TH_BASE} ${TH_PAD} ${className}`}>{children}</th>;
+  }
   return (
-    <th className={`border-b border-app-line bg-[#fafbfd] px-[14px] py-3 text-left text-[11px] uppercase tracking-[.02em] text-[#65738a] ${className}`}>
-      {children}
+    <th
+      className={`${TH_BASE} ${className}`}
+      aria-sort={sorted ? (sorted === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
+      {/* Przycisk, a nie samo `onClick` na komórce: nagłówek ma być osiągalny
+          z klawiatury i czytany jako element sterujący. */}
+      <button
+        type="button"
+        onClick={onSort}
+        className={`${TH_PAD} flex w-full items-center gap-1 uppercase transition-colors hover:text-app-text ${sorted ? 'text-app-text' : ''}`}
+      >
+        {children}
+        {/* Strzałka blada, dopóki lista nie jest ułożona po tej kolumnie —
+            podpowiada, że nagłówek da się kliknąć, i nie krzyczy. */}
+        <IconChevronDown
+          size={12}
+          className={`shrink-0 transition-transform ${sorted ? 'opacity-100' : 'opacity-30'} ${sorted === 'asc' ? 'rotate-180' : ''}`}
+        />
+      </button>
     </th>
   );
 }

@@ -14,6 +14,7 @@ import {
   Sub, Table, Td, Th, inputClass,
 } from '@/components/ui/primitives';
 import { docSchemasApi, filesApi, foldersApi, settingsApi } from '@/lib/api';
+import type { SortKey, SortOrder } from '@/lib/api';
 import { czasLokalny, kiedy } from '@/lib/czas';
 import { ROLE_ADMIN, isAdmin as czyAdmin, roleLabel, useRoles } from '@/lib/roles';
 import { useAuth } from '@/lib/store';
@@ -130,6 +131,9 @@ function FilesPageInner() {
   // Stronicowanie jest po stronie przeglądarki — dzielimy listę, którą już mamy.
   const [strona, setStrona] = useState(1);
   const [naStronie, setNaStronie] = useState(25);
+  // Kolejność listy plików. Sortuje backend, tu trzymamy tylko wybór użytkownika.
+  const [sortBy, setSortBy] = useState<SortKey>('name');
+  const [kierunek, setKierunek] = useState<SortOrder>('asc');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -206,7 +210,12 @@ function FilesPageInner() {
       // limit: backend domyślnie oddaje 50 pozycji, a lista plików nie ma
       // stronicowania — bierzemy maksymalną dozwoloną porcję, żeby przy większym
       // folderze nie chować plików bez śladu
-      const params: { folder_id?: number; search?: string; limit?: number } = { limit: LIMIT_LISTY };
+      // Sortowanie idzie do backendu, a nie robimy go po pobraniu: lista ma limit,
+      // więc układanie w przeglądarce porządkowałoby tylko pobraną porcję.
+      const params: {
+        folder_id?: number; search?: string; limit?: number;
+        sort_by?: SortKey; order?: SortOrder;
+      } = { limit: LIMIT_LISTY, sort_by: sortBy, order: kierunek };
       if (folderId !== null) params.folder_id = folderId;
       if (searchQuery) params.search = searchQuery;
 
@@ -217,7 +226,7 @@ function FilesPageInner() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, currentFolderId]);
+  }, [searchQuery, currentFolderId, sortBy, kierunek]);
 
   // Wejście do innego folderu MUSI najpierw wyczyścić widok. Bez tego przez ułamek
   // sekundy widać jeszcze listę plików z folderu, z którego wychodzimy — a użytkownik
@@ -547,7 +556,7 @@ function FilesPageInner() {
     const timeout = setTimeout(() => loadFiles(currentFolderId), pisanie ? 300 : 0);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, currentFolderId]);
+  }, [searchQuery, currentFolderId, sortBy, kierunek]);
 
   // Drzewo folderów ładujemy raz — nie zależy od bieżącego folderu
   useEffect(() => {
@@ -622,6 +631,28 @@ function FilesPageInner() {
   );
 
   // Top folders (root or current folder children)
+  // Kolumny, dla których pierwsze kliknięcie ma układać MALEJĄCO. Przy rozmiarze
+  // i dacie szuka się największych i najnowszych, więc zaczynanie od najmniejszych
+  // i najstarszych zmuszałoby do drugiego kliknięcia za każdym razem.
+  const NAJPIERW_MALEJACO: SortKey[] = ['size', 'date'];
+
+  const sortuj = (kolumna: SortKey) => {
+    if (kolumna === sortBy) {
+      setKierunek(kierunek === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(kolumna);
+      setKierunek(NAJPIERW_MALEJACO.includes(kolumna) ? 'desc' : 'asc');
+    }
+    // Bez tego po przesortowaniu zostaje się na stronie 4 zupełnie innej listy.
+    setStrona(1);
+  };
+
+  /** Propsy nagłówka: kierunek podajemy WYŁĄCZNIE aktywnej kolumnie. */
+  const naglowek = (kolumna: SortKey) => ({
+    sorted: sortBy === kolumna ? kierunek : undefined,
+    onSort: () => sortuj(kolumna),
+  });
+
   // Foldery pokazujemy alfabetycznie. localeCompare z 'pl' układa polskie znaki
   // we właściwej kolejności (ą po a, ł po l), czego zwykłe sortowanie po kodach
   // znaków nie robi — wypchnęłoby je na koniec listy.
@@ -942,11 +973,11 @@ function FilesPageInner() {
                       />
                     </Th>
                   )}
-                  <Th className="w-[62px]">Typ</Th>
-                  <Th>Nazwa</Th>
-                  <Th className="whitespace-nowrap">Rozmiar</Th>
-                  <Th>Kategoria</Th>
-                  <Th className="whitespace-nowrap">Data dodania</Th>
+                  <Th className="w-[62px]" {...naglowek('type')}>Typ</Th>
+                  <Th {...naglowek('name')}>Nazwa</Th>
+                  <Th className="whitespace-nowrap" {...naglowek('size')}>Rozmiar</Th>
+                  <Th {...naglowek('category')}>Kategoria</Th>
+                  <Th className="whitespace-nowrap" {...naglowek('date')}>Data dodania</Th>
                   <Th className="w-[120px]" />
                 </tr>
               </thead>

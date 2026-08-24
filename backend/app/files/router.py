@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, 
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, case, func, nullslast, or_
 
 from app.database import get_db
 from app.models import File as FileModel, Folder, FolderPermission, User, DocumentStatus, DocTypeSchema
@@ -242,12 +242,73 @@ async def upload_file(
     }
 
 
+# Kolumny, po których wolno sortować listę plików — nazwy odpowiadają nagłówkom
+# tabeli na ekranie Pliki. Ta krotka jest jednocześnie białą listą: klucz przychodzi
+# z adresu, więc do SQL-a nigdy nie trafia nazwa kolumny podana przez użytkownika.
+SORT_KEYS = ("name", "type", "size", "category", "date")
+
+
+def apply_sort(query, sort_by: str, order: str, db: Session):
+    """Dokłada `ORDER BY` do listy plików.
+
+    Zwraca zapytanie, a nie samo wyrażenie, bo sortowanie po kategorii wymaga
+    dołączenia rejestru typów dokumentów.
+
+    Dwie rzeczy, które muszą tu być, żeby lista nie myliła użytkownika:
+
+    * **Puste zawsze na końcu.** Bez `NULLS LAST` odwrócenie kolejności wypycha
+      na górę pliki bez rozmiaru albo bez rozpoznanej kategorii, czyli same puste
+      komórki.
+    * **Nazwa jako drugi klucz.** Pliki o tym samym rozmiarze, dacie czy kategorii
+      bez tego układają się w kolejności przypadkowej i zmiennej między
+      odświeżeniami. `id` na końcu domyka remis do końca.
+    """
+    postgres = db.bind is not None and db.bind.dialect.name == "postgresql"
+
+    nazwa = FileModel.filename
+    if name_collation_available():
+        nazwa = nazwa.collate(NAME_COLLATION)
+
+    if sort_by == "size":
+        klucz = FileModel.size
+    elif sort_by == "date":
+        klucz = FileModel.created_at
+    elif sort_by == "type" and postgres:
+        # W kolumnie Typ widać ikonę dobraną po ROZSZERZENIU nazwy, więc po nim
+        # sortujemy. `mime_type` dałby kolejność wg „application/vnd.openxml…",
+        # która dla patrzącego jest przypadkowa. Dwuargumentowy `substring`
+        # to w Postgresie wariant regexowy.
+        klucz = func.lower(func.substring(FileModel.filename, r"\.([^.]+)$"))
+    elif sort_by == "category" and postgres:
+        # Kategoria nie jest kolumną, tylko polem w JSON-ie `metadata` (zob.
+        # `File.doc_type`). Sortujemy po NAZWIE typu z rejestru, nie po slugu:
+        # administrator może typ przemianować i wtedy kolejność rozjechałaby się
+        # z tym, co widać w tabeli. `coalesce` ratuje typ spoza rejestru.
+        slug = func.jsonb_extract_path_text(FileModel.metadata_, "doc_type")
+        query = query.outerjoin(DocTypeSchema, DocTypeSchema.slug == slug)
+        # „inny" znaczy to samo co brak kategorii — tabela pokazuje wtedy
+        # „nierozpoznana", więc i przy sortowaniu ma być pustką.
+        klucz = case(
+            (func.nullif(slug, "inny").is_(None), None),
+            else_=func.coalesce(DocTypeSchema.name, slug),
+        )
+    else:
+        klucz = nazwa
+
+    kierunek = nullslast(klucz.desc() if order == "desc" else klucz.asc())
+    if klucz is nazwa:
+        return query.order_by(kierunek, FileModel.id.asc())
+    return query.order_by(kierunek, nazwa.asc(), FileModel.id.asc())
+
+
 @router.get("/", response_model=List[FileResponseSchema])
 def list_files(
     folder_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     mime_type: Optional[str] = Query(None),
+    sort_by: str = Query("name", pattern="^(name|type|size|category|date)$"),
+    order: str = Query("asc", pattern="^(asc|desc)$"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
@@ -290,18 +351,10 @@ def list_files(
             FileModel.filename.ilike(f"%{search}%"),
         ))
 
-    # Kolejność alfabetyczna po nazwie. Sortujemy w bazie, a nie po pobraniu:
-    # zapytanie ma limit, więc sortowanie dopiero w przeglądarce układałoby
-    # alfabetycznie wyłącznie pobraną porcję i ukrywało resztę plików.
-    #
-    # Kolacja ICU jest tu konieczna, a nie kosmetyczna: bez niej baza (Alpine/musl)
-    # sortuje bajtami, więc zarządzenie nr 2 ląduje po nr 19, a `Łąka` po `zebra`.
-    # Zob. `schema_upgrade.create_name_collation`. Gdy kolacji nie ma, zostaje
-    # zwykłe `ORDER BY` — kolejność gorsza, ale lista działa.
-    nazwa = FileModel.filename
-    if name_collation_available():
-        nazwa = nazwa.collate(NAME_COLLATION)
-    files = query.order_by(nazwa.asc()).offset(skip).limit(limit).all()
+    # Sortujemy w bazie, a nie po pobraniu: zapytanie ma limit, więc układanie
+    # dopiero w przeglądarce porządkowałoby wyłącznie pobraną porcję i chowało
+    # resztę plików. Szczegóły kolejności — zob. `apply_sort`.
+    files = apply_sort(query, sort_by, order, db).offset(skip).limit(limit).all()
 
     result = []
     for f in files:

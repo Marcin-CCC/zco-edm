@@ -187,14 +187,20 @@ export const usersApi = {
     }),
 };
 
+/** Kolumny, po których backend potrafi posortować listę plików (`SORT_KEYS`). */
+export type SortKey = 'name' | 'type' | 'size' | 'category' | 'date';
+export type SortOrder = 'asc' | 'desc';
+
 // File management endpoints
 export const filesApi = {
-  list: (params: { folder_id?: number; search?: string; status?: string; mime_type?: string; skip?: number; limit?: number } = {}) => {
+  list: (params: { folder_id?: number; search?: string; status?: string; mime_type?: string; sort_by?: SortKey; order?: SortOrder; skip?: number; limit?: number } = {}) => {
     const query = new URLSearchParams();
     if (params.folder_id) query.append('folder_id', String(params.folder_id));
     if (params.search) query.append('search', params.search);
     if (params.status) query.append('status', params.status);
     if (params.mime_type) query.append('mime_type', params.mime_type);
+    if (params.sort_by) query.append('sort_by', params.sort_by);
+    if (params.order) query.append('order', params.order);
     if (params.skip) query.append('skip', String(params.skip));
     if (params.limit) query.append('limit', String(params.limit));
     return apiRequest<any[]>(`/api/files/?${query.toString()}`, { method: 'GET', token: getAuthToken() });
