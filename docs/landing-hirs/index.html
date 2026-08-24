@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HiRS — baza wiedzy o dokumentach szpitala, która nie wychodzi poza budynek</title>
+<meta name="description" content="HiRS (Hospital Information Retrieval System) odpowiada na pytania pracowników treścią z dokumentów szpitala i wskazuje stronę źródłową. Działa na urządzeniu w Waszej serwerowni — żaden dokument ani pytanie nie opuszcza sieci.">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="HiRS — Hospital Information Retrieval System">
+<meta property="og:description" content="Pytasz jak człowieka. Odpowiada z Waszych dokumentów. Nic nie wychodzi poza szpital.">
+<meta property="og:type" content="website">
+<link rel="stylesheet" href="styl.css">
+</head>
+<body>
+
+<header class="gora">
+  <div class="srodek">
+    <a class="marka" href="./">HiRS<span>Hospital Information Retrieval System</span></a>
+    <nav>
+      <a href="#mozliwosci">Możliwości</a>
+      <a href="#bezpieczenstwo">Bezpieczeństwo</a>
+      <a href="#wdrozenie">Wdrożenie</a>
+      <a href="#warunki">Warunki</a>
+      <a class="przycisk-maly" href="demo.php">Zamów demo</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<section class="hero">
+  <div class="srodek">
+    <div class="kreska"></div>
+    <h1>Pytasz jak człowieka.<br>Odpowiada z Waszych dokumentów.</h1>
+    <p class="rozwiniecie">HiRS — Hospital Information Retrieval System</p>
+    <p class="obietnica">Nic nie wychodzi poza szpital.</p>
+    <p class="pod">Pracownik pyta zwykłym zdaniem, a system odpowiada treścią z Waszych
+      regulaminów i procedur — wskazując dokument i stronę, na której to sprawdzicie.
+      Wszystko liczy się na urządzeniu w Waszej serwerowni.</p>
+    <div class="hero-akcje">
+      <a class="przycisk" href="demo.php">Zamów dostęp do demo</a>
+      <a class="przycisk obrys" href="#mozliwosci">Zobacz, co potrafi</a>
+    </div>
+  </div>
+</section>
+
+<section id="problem">
+  <div class="srodek">
+    <p class="nadtytul">Problem, który znają wszyscy</p>
+    <h2>Wiedza jest w dokumentach.<br>Problemem jest droga do niej.</h2>
+    <div class="karty dwie-kol">
+      <div class="karta">
+        <h3>Nie wiadomo, która wersja obowiązuje</h3>
+        <p>Dokument jest — tylko w którym folderze, i czy to na pewno aktualny tekst
+          jednolity, a nie wersja sprzed dwóch aneksów?</p>
+      </div>
+      <div class="karta">
+        <h3>Ta sama odpowiedź dziesiątki razy</h3>
+        <p>Kadry i dział jakości tłumaczą w kółko to samo. Nowy pracownik pyta koleżankę,
+          zamiast zajrzeć do regulaminu.</p>
+      </div>
+      <div class="karta">
+        <h3>Przy akredytacji liczy się czas</h3>
+        <p>Podczas kontroli i wizyty akredytacyjnej znaczenie ma to, jak szybko docieracie
+          do właściwego zapisu — nie to, że gdzieś go macie.</p>
+      </div>
+      <div class="karta">
+        <h3>Chmura odpada</h3>
+        <p>Dokumentacja szpitala nie może trafiać do zewnętrznego dostawcy. To zwykle
+          zamyka temat narzędzi działających w internecie.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="mozliwosci" class="jasna">
+  <div class="srodek">
+    <div class="dwie">
+      <div>
+        <p class="nadtytul">Co dostajecie</p>
+        <h2>Trzy drogi do dokumentu</h2>
+        <p class="wstep">Pracownik wybiera tę, która jest mu bliższa — nikogo nie zmuszamy
+          do zmiany przyzwyczajeń.</p>
+        <ul class="punkty">
+          <li><b>Repozytorium</b> — foldery, uprawnienia, statusy przetwarzania</li>
+          <li><b>Chat z AI</b> — pytanie zwykłym językiem, odpowiedź z odnośnikami do stron</li>
+          <li><b>Wyszukiwarka po polach</b> — „zarządzenia z 2024”, „procedury zatwierdzone przez…”</li>
+          <li><b>Automatyczne rozpoznawanie</b> — rodzaj pisma, numer, data, osoba zatwierdzająca</li>
+          <li>Instrukcja obsługi wbudowana w aplikację</li>
+        </ul>
+      </div>
+      <figure class="zrzut">
+        <img src="makieta-pliki.png" alt="Ekran Pliki: foldery z dokumentami szpitala i liczba plików w każdym z nich" loading="lazy">
+        <figcaption>Eksplorator plików. Dane na ilustracji są przykładowe.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="bezpieczenstwo">
+  <div class="srodek">
+    <p class="nadtytul">Bezpieczeństwo i prywatność</p>
+    <h2>Żaden dokument, fragment ani pytanie<br>nie opuszcza Waszej sieci</h2>
+    <div class="serwerownia">
+      <p class="etykieta">Wasza serwerownia</p>
+      <div class="warstwy">
+        <div class="warstwa"><b>Aplikacja</b><span>przeglądarka pracownika</span></div>
+        <div class="warstwa"><b>Model językowy</b><span>działa na Waszym urządzeniu</span></div>
+        <div class="warstwa"><b>Dokumenty i indeks</b><span>dysk w serwerowni</span></div>
+      </div>
+      <p class="mur">Brak połączenia z usługami zewnętrznymi — do internetu nie wychodzi
+        żaden dokument, fragment ani pytanie.</p>
+    </div>
+    <ul class="punkty">
+      <li>Dostęp do folderów nadawany rolom — użytkownik widzi tylko swoje, także w czacie</li>
+      <li>Historia pytań prywatna; administrator widzi statystyki, nie cudze rozmowy</li>
+      <li>Automatyczne wylogowanie po bezczynności, zmiana hasła za potwierdzeniem</li>
+    </ul>
+  </div>
+</section>
+
+<section id="pewnosc" class="jasna">
+  <div class="srodek">
+    <p class="nadtytul">Skąd pewność, że odpowiedź jest prawdziwa</p>
+    <h2>Nie trzeba wierzyć systemowi —<br>każde zdanie sprawdzicie w źródle</h2>
+    <div class="kroki">
+      <div class="krok"><div class="nr">1</div><b>Pytanie</b>
+        <span>zwykłym językiem, np. „jak zgłosić zdarzenie niepożądane?”</span></div>
+      <div class="krok"><div class="nr">2</div><b>Wyszukanie</b>
+        <span>system znajduje fragmenty w Waszych plikach</span></div>
+      <div class="krok"><div class="nr">3</div><b>Odpowiedź</b>
+        <span>zbudowana wyłącznie z tych fragmentów</span></div>
+      <div class="krok"><div class="nr">4</div><b>Dowód</b>
+        <span>numer przy zdaniu prowadzi do dokumentu i strony</span></div>
+    </div>
+    <ul class="punkty">
+      <li>Odpowiedź powstaje <b>wyłącznie</b> z fragmentów Waszych plików</li>
+      <li>Brak dopasowania = jasny komunikat zamiast wymyślonej treści</li>
+      <li>Widać też, ile dokumentów sprawdzono i z których nie skorzystano</li>
+    </ul>
+  </div>
+</section>
+
+<section id="wydajnosc">
+  <div class="srodek">
+    <p class="nadtytul">Pojemność i szybkość</p>
+    <h2>Baza rośnie, czas odpowiedzi stoi w miejscu</h2>
+    <div class="liczby">
+      <div class="liczba"><b>128 GB</b><span>pamięci dla modelu</span>
+        <em>jedno urządzenie obsługuje cały szpital</em></div>
+      <div class="liczba"><b>4 TB</b><span>na dokumenty</span>
+        <em>setki tysięcy plików biurowych</em></div>
+      <div class="liczba"><b>~1 s</b><span>do pierwszego słowa odpowiedzi</span>
+        <em>cała odpowiedź gotowa w ok. 15 s</em></div>
+    </div>
+    <p class="wstep">Czasy pochodzą z pomiarów na działającym wdrożeniu. Przygotowanie
+      nowego dokumentu trwa średnio ok. 60 sekund i odbywa się raz, w tle, przy wgraniu pliku.
+      Pojemność ogranicza dysk, nie wydajność — urządzenie jest wielkości książki, a prądu
+      pobiera tyle co stacja robocza.</p>
+  </div>
+</section>
+
+<section id="obsluga" class="jasna">
+  <div class="srodek">
+    <div class="dwie">
+      <figure class="zrzut">
+        <img src="makieta-czat.png" alt="Ekran Chat z AI: pytanie o zgłaszanie zdarzeń niepożądanych i odpowiedź z odnośnikami do dokumentów" loading="lazy">
+        <figcaption>Chat z AI. Rozmowa i dokumenty na ilustracji są przykładowe.</figcaption>
+      </figure>
+      <div>
+        <p class="nadtytul">Łatwość obsługi</p>
+        <h2>Kto umie korzystać z wyszukiwarki internetowej, umie korzystać z tego</h2>
+        <ul class="punkty">
+          <li>Przeglądarka — nic do instalowania na komputerach pracowników</li>
+          <li>Trzy ekrany: <b>Dashboard</b>, <b>Pliki</b>, <b>Chat z AI</b>. Administracja tylko dla administratora</li>
+          <li>Pytanie potoczne działa: „delegacja” znajdzie „podróż służbową”, „L4” — „zwolnienie lekarskie”</li>
+          <li>Wystarczy sama nazwa dokumentu, żeby dostać jego opis i odnośnik</li>
+          <li><b>Szkolenie pracownika: 20 minut.</b> Instrukcja w aplikacji, pod przyciskiem Pomoc</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="zastosowania">
+  <div class="srodek">
+    <p class="nadtytul">Gdzie to pracuje</p>
+    <h2>Kolejny dział to wgranie dokumentów,<br>a nie nowe wdrożenie</h2>
+    <div class="karty trzy">
+      <div class="karta"><h3>Kadry</h3><p>regulaminy, wnioski, PPK, ZFŚS</p></div>
+      <div class="karta"><h3>Jakość i akredytacja</h3><p>procedury, instrukcje, wersje obowiązujące</p></div>
+      <div class="karta"><h3>Personel medyczny</h3><p>procedury kliniczne i pielęgniarskie</p></div>
+      <div class="karta"><h3>Administracja</h3><p>umowy, zarządzenia, przetargi</p></div>
+      <div class="karta"><h3>BHP · RODO · IT</h3><p>polityki i instrukcje wewnętrzne</p></div>
+      <div class="karta"><h3>Poza szpitalem</h3><p>uczelnie, urzędy, kancelarie, produkcja</p></div>
+    </div>
+    <p class="wstep">Zaczynamy zwykle od kadr — tam pytania powtarzają się najczęściej,
+      a efekt widać w pierwszym tygodniu.</p>
+  </div>
+</section>
+
+<section id="wdrozenie" class="jasna">
+  <div class="srodek">
+    <p class="nadtytul">Nasza rola</p>
+    <h2>Przychodzimy z Waszymi dokumentami już w środku</h2>
+    <div class="kroki">
+      <div class="krok"><div class="nr">1</div><b>Tydzień 1</b>
+        <span>Instalacja i uruchomienie: urządzenie w serwerowni, konta, uprawnienia</span></div>
+      <div class="krok"><div class="nr">2</div><b>Tydzień 2</b>
+        <span>Wasze dokumenty i wzorce: wgrywamy pierwszą partię, układamy schematy pism</span></div>
+      <div class="krok"><div class="nr">3</div><b>Tydzień 3</b>
+        <span>Szkolenia i start: 20 min dla użytkownika, 2 h dla administratora</span></div>
+      <div class="krok"><div class="nr">4</div><b>Dalej</b>
+        <span>Wsparcie miesięczne: aktualizacje, jakość odpowiedzi, nowe rodzaje dokumentów</span></div>
+    </div>
+    <ul class="punkty">
+      <li><b>Nie zostawiamy pustego systemu</b> — pierwsza partia dokumentów wgrana i sprawdzona przez nas</li>
+      <li><b>Wzorce pod Wasze pisma</b> — system sam wyciąga numer, datę i osobę zatwierdzającą</li>
+    </ul>
+  </div>
+</section>
+
+<section id="warunki">
+  <div class="srodek">
+    <p class="nadtytul">Warunki</p>
+    <h2>Bez opłat za użytkownika i za liczbę dokumentów</h2>
+    <table class="cennik">
+      <tr><th>Pozycja</th><th class="kwota">Netto</th></tr>
+      <tr><td>Sprzęt: NVIDIA DGX Spark — 128 GB pamięci, 4 TB SSD</td><td class="kwota">20 000 zł</td></tr>
+      <tr><td>Dostawa i wdrożenie oprogramowania</td><td class="kwota">25 000 zł</td></tr>
+      <tr><td>Wsparcie i rozwój</td><td class="kwota">1 000 zł / mies.</td></tr>
+      <tr class="suma"><td>Rok pierwszy łącznie</td><td class="kwota">57 000 zł</td></tr>
+    </table>
+    <div class="karty trzy">
+      <div class="karta"><h3>Sprzęt zostaje Wasz</h3>
+        <p>Nie płacicie abonamentu za dostęp do własnych danych.</p></div>
+      <div class="karta"><h3>Bez opłat za użytkownika</h3>
+        <p>Liczba kont i dokumentów nie zmienia ceny.</p></div>
+      <div class="karta"><h3>Trzy lata użytkowania</h3>
+        <p>81 000 zł netto łącznie, razem ze wsparciem.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="demo" class="jasna">
+  <div class="srodek">
+    <div class="demo-blok">
+      <p class="nadtytul" style="color:var(--turkus)">Zamów dostęp do demo</p>
+      <h2>Zobaczcie to na własnych pytaniach</h2>
+      <p>Pokazujemy działającą instancję z dokumentami przykładowymi — bez instalowania
+        czegokolwiek u Was. Umawiamy pokaz w terminie, który Wam pasuje, i odpowiadamy
+        na pytania techniczne. Kolejnym krokiem, jeśli zechcecie, jest dwutygodniowe
+        uruchomienie próbne na Waszych dokumentach.</p>
+      <a class="przycisk" href="demo.php">Zamów</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="srodek">
+    <div>
+      <strong style="color:#fff">Polmedi Group sp. z o.o.</strong> · Poznań ·
+      <a href="https://polmedi.com">polmedi.com</a><br>
+      Pytania o HiRS: <a href="mailto:hirs@polmedi.com">hirs@polmedi.com</a>
+    </div>
+    <img src="polmedi-group-logo-white.svg" alt="Polmedi Group">
+  </div>
+</footer>
+
+</body>
+</html>

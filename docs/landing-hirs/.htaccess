@@ -1,0 +1,25 @@
+# Zabezpieczenie DRUGIEJ linii obrony. Pierwszą jest trzymanie hasła i dziennika
+# POZA katalogiem publikowanym przez serwer (tak ustawia `konfiguracja.php`).
+# Ten plik ratuje sytuację, gdy ktoś mimo wszystko wgra hasło obok stron —
+# ale działa tylko na Apache'u. Po przesiadce na nginx trzeba to przenieść
+# do konfiguracji serwera, inaczej ochrona znika po cichu.
+
+<FilesMatch "\.(txt|log|md)$">
+  Require all denied
+</FilesMatch>
+
+# Starsze Apache 2.2 nie zna `Require` — bez tego bloku dyrektywa jest ignorowana.
+<IfModule !mod_authz_core.c>
+  <FilesMatch "\.(txt|log|md)$">
+    Order allow,deny
+    Deny from all
+  </FilesMatch>
+</IfModule>
+
+# Wyjątek: `robots.txt` musi zostać czytelny dla wyszukiwarek.
+<Files "robots.txt">
+  Require all granted
+</Files>
+
+# Bez listowania zawartości katalogu, gdyby zabrakło pliku startowego.
+Options -Indexes
