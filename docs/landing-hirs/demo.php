@@ -145,13 +145,17 @@ function h(?string $t): string
 <title>Zamów dostęp do demo — HiRS</title>
 <meta name="description" content="Zamów pokaz systemu HiRS na działającej instancji z dokumentami przykładowymi.">
 <meta name="robots" content="noindex, follow">
+<link rel="icon" href="hirs-znak.svg" type="image/svg+xml">
 <link rel="stylesheet" href="styl.css">
 </head>
 <body>
 
 <header class="gora">
   <div class="srodek">
-    <a class="marka" href="./">HiRS<span>Hospital Information Retrieval System</span></a>
+    <a class="marka" href="./">
+      <img class="znak" src="hirs-znak.svg" alt="" width="38" height="38">
+      <span><b>HiRS</b><span>Hospital Information Retrieval System</span></span>
+    </a>
   </div>
 </header>
 

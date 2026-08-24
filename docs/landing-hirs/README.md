@@ -16,8 +16,19 @@ te same argumenty, ta sama paleta, te same makiety ekranów z **wymyślonymi dan
 | `konfiguracja.php` | **jedyny plik do edycji po wgraniu** |
 | `styl.css` | style obu stron |
 | `.htaccess` | blokada dostępu do plików `.txt`, `.log`, `.md` |
+| `hirs-znak.svg` | znak HiRS w nagłówku i jako ikona karty przeglądarki |
 | `makieta-*.png`, `polmedi-group-logo-white.svg` | ilustracje |
 | `hirs-smtp-pass.txt.przyklad` | wzór pliku z hasłem |
+
+### Znak HiRS
+
+`hirs-znak.svg` powtarza kształt ikony aplikacji z hirs-demo.polmedi.com — biały krzyż
+na zaokrąglonym kwadracie — ale zamiast płaskiego błękitu `#2a85f9` ma markową
+przejściówkę Polmedi `#2448c8 → #09afaf`. Kolory nie są próbkowane z rastra logo,
+tylko wzięte ze stałych `NIEBIESKI`/`TURKUS` w generatorze prezentacji uniwersalnej,
+gdzie zapisano je ze strony polmedi.com. Geometria (promień 16, ramię 80 × 25 na
+kanwie 128) zdjęta z oryginalnej ikony, więc znak jest tym samym kształtem, nie
+podobnym. Wektor, bo stoi w nagłówku i w ikonie karty jednocześnie.
 
 ## Wdrożenie w pięciu krokach
 

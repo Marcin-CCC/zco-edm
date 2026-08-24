@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Znak HiRS: biały krzyż na zaokrąglonym kwadracie — ten sam kształt co ikona
+  aplikacji na hirs-demo.polmedi.com, ale zamiast płaskiego błękitu (#2a85f9)
+  markowa przejściówka Polmedi (#2448c8 → #09afaf, kolory ze strony polmedi.com).
+
+  Geometria zdjęta z oryginalnej ikony 128 × 128: promień narożnika 16, ramię
+  krzyża długie na 80 i grube na 25, wyśrodkowane. Wektor zamiast rastra, bo znak
+  stoi w nagłówku w różnych rozmiarach i musi być ostry na ekranach gęstych.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128"
+     role="img" aria-label="HiRS">
+  <defs>
+    <!-- Przejściówka po przekątnej, tak jak biegnie w znaku Polmedi. -->
+    <linearGradient id="tlo-hirs" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2448c8"/>
+      <stop offset="1" stop-color="#09afaf"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="16" ry="16" fill="url(#tlo-hirs)"/>
+  <path fill="#fff" d="M51.5 24h25v27.5H104v25H76.5V104h-25V76.5H24v-25h27.5z"/>
+</svg>
