@@ -18,6 +18,7 @@ from app.auth.auth import get_current_user
 from app.config import settings
 from app.spark_transfer import spark_transfer_enabled, transfer_to_spark, SPARK_SHARED_DIR
 from app.rbac import readable_folder_ids, writable_folder_ids, can_read_file_folder
+from app.schema_upgrade import NAME_COLLATION, name_collation_available
 
 router = APIRouter(prefix="/api/files", tags=["Files"])
 logger = logging.getLogger(__name__)
@@ -292,7 +293,15 @@ def list_files(
     # Kolejność alfabetyczna po nazwie. Sortujemy w bazie, a nie po pobraniu:
     # zapytanie ma limit, więc sortowanie dopiero w przeglądarce układałoby
     # alfabetycznie wyłącznie pobraną porcję i ukrywało resztę plików.
-    files = query.order_by(FileModel.filename.asc()).offset(skip).limit(limit).all()
+    #
+    # Kolacja ICU jest tu konieczna, a nie kosmetyczna: bez niej baza (Alpine/musl)
+    # sortuje bajtami, więc zarządzenie nr 2 ląduje po nr 19, a `Łąka` po `zebra`.
+    # Zob. `schema_upgrade.create_name_collation`. Gdy kolacji nie ma, zostaje
+    # zwykłe `ORDER BY` — kolejność gorsza, ale lista działa.
+    nazwa = FileModel.filename
+    if name_collation_available():
+        nazwa = nazwa.collate(NAME_COLLATION)
+    files = query.order_by(nazwa.asc()).offset(skip).limit(limit).all()
 
     result = []
     for f in files:

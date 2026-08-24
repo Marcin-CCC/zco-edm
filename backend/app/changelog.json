@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.5.15",
+      "date": "2026-08-21",
+      "title": "Pliki w folderach ukladaja sie po ludzku",
+      "changes": [
+        "Lista plikow w folderze byla sortowana kodami znakow, a nie alfabetem. Zarzadzenie nr 2 stalo po nr 19, nazwy pisane wielka litera szly przed wszystkimi pisanymi mala, a nazwy z polskimi znakami ladowaly na koncu listy. Teraz obowiazuje polski alfabet, a numery porownywane sa jako liczby, wiec dokumenty numerowane ida po kolei.",
+        "Ta sama zasada objela liste folderow oraz wybor folderu docelowego przy przenoszeniu pliku — obie listy na ekranie Pliki ukladaja sie tak samo."
+      ]
+    },
+    {
       "version": "1.5.14",
       "date": "2026-08-17",
       "title": "Naprawa zakladki Wszystkie pytania",

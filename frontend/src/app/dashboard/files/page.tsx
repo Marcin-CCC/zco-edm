@@ -625,7 +625,11 @@ function FilesPageInner() {
   // Foldery pokazujemy alfabetycznie. localeCompare z 'pl' układa polskie znaki
   // we właściwej kolejności (ą po a, ł po l), czego zwykłe sortowanie po kodach
   // znaków nie robi — wypchnęłoby je na koniec listy.
-  const alfabetycznie = (a: Folder, b: Folder) => a.name.localeCompare(b.name, 'pl');
+  // `numeric` porównuje ciągi cyfr wg wartości, więc „Rok 2" stoi przed „Rok 10”.
+  // Ta sama reguła obowiązuje pliki (kolacja ICU po stronie bazy) — obie listy
+  // na tym ekranie mają układać się tak samo.
+  const PORZADEK: Intl.CollatorOptions = { numeric: true };
+  const alfabetycznie = (a: Folder, b: Folder) => a.name.localeCompare(b.name, 'pl', PORZADEK);
   const rootFolders = folders.filter(f => f.parent_id === null).sort(alfabetycznie);
   const currentFolderChildren = folders
     .filter(f => f.parent_id === currentFolderId)
@@ -1390,7 +1394,7 @@ function FilesPageInner() {
                 // rodzicami. Bez tego lista szla w kolejnosci drzewa, ktora dla
                 // szukajacego wyglada jak przypadkowa. `localeCompare` z 'pl',
                 // bo zwykle porownanie kodow znakow wypycha slowa z ogonkami na koniec.
-                .sort((a, b) => a.path.localeCompare(b.path, 'pl'))
+                .sort((a, b) => a.path.localeCompare(b.path, 'pl', { numeric: true }))
                 .map((f) => (
                   <option key={f.id} value={String(f.id)}>{f.path}</option>
                 ))}

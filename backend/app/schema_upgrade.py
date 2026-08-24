@@ -22,6 +22,10 @@ logger = logging.getLogger(__name__)
 # Kolumny trzymające kod roli. Do 1.0.21 były natywnym typem `userrole` Postgresa.
 ROLE_COLUMNS = [("users", "role"), ("folder_permissions", "role")]
 
+# Kolacja do sortowania nazw plików — zob. `create_name_collation`.
+NAME_COLLATION = "polish_natural"
+_collation_ready = False
+
 
 def convert_role_columns_to_text(engine: Engine) -> None:
     """Zamienia kolumny z rolą z natywnego enuma ``userrole`` na ``varchar(50)``.
@@ -88,6 +92,49 @@ def add_missing_columns(engine: Engine) -> None:
             conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {typ}"))
 
 
+def create_name_collation(engine: Engine) -> None:
+    """Zakłada kolację ICU do układania nazw plików.
+
+    Po co osobna kolacja: obraz bazy stoi na Alpine, czyli na bibliotece musl, która
+    NIE implementuje kolacji językowych. Mimo deklarowanego `en_US.utf8` zwykłe
+    `ORDER BY` schodzi w tej bazie do porządku bajtowego (sprawdzone: `'a' < 'B'`
+    zwraca fałsz). Skutki widać na liście plików: wielkie litery przed wszystkimi
+    małymi, polskie znaki za całym alfabetem (`Łąka` po `zebra`), a zarządzenie
+    nr 2 po nr 19. ICU jest w tym obrazie dostępne i działa niezależnie od libc.
+
+    `kn-true` to opcja ICU „numeric ordering": ciąg cyfr porównywany jest jako
+    liczba, a nie znak po znaku — dzięki temu `2_2025` stoi przed `10_2025`.
+
+    Idempotentne i bezpieczne dla poprzedniego obrazu: kolacja to nowy obiekt,
+    którego stary kod nie używa, więc cofnięcie wdrożenia niczego nie psuje.
+    Nieudane założenie NIE jest błędem krytycznym — flaga zostaje fałszywa,
+    a lista plików wraca do zwykłego `ORDER BY`: kolejność gorsza, ale działa.
+    """
+    global _collation_ready
+    if engine.dialect.name != "postgresql":
+        return
+    with engine.begin() as conn:
+        istnieje = conn.execute(
+            text("SELECT 1 FROM pg_collation WHERE collname = :n"),
+            {"n": NAME_COLLATION},
+        ).scalar()
+        if not istnieje:
+            logger.info("[SCHEMAT] Zakładam kolację %s (ICU pl-PL + liczby)", NAME_COLLATION)
+            conn.execute(text(
+                f'CREATE COLLATION "{NAME_COLLATION}" '
+                "(provider = icu, locale = 'pl-PL-u-kn-true')"
+            ))
+    _collation_ready = True
+
+
+def name_collation_available() -> bool:
+    """Czy `NAME_COLLATION` jest gotowa do użycia w `ORDER BY`.
+
+    Ustalane raz, przy starcie. Poza Postgresem (testy na SQLite) zostaje fałsz.
+    """
+    return _collation_ready
+
+
 def seed_roles(session: Session) -> None:
     """Uzupełnia słownik ról: role wbudowane oraz kody zastane w danych.
 
@@ -128,6 +175,12 @@ def run_startup_upgrades(engine: Engine) -> None:
         add_missing_columns(engine)
         with Session(engine) as session:
             seed_roles(session)
+        # Osobna klamra: brak ICU w bazie ma tylko pogorszyć kolejność na liście
+        # plików, a nie unieważnić uaktualnień wykonanych powyżej.
+        try:
+            create_name_collation(engine)
+        except Exception:
+            logger.exception("[SCHEMAT] Kolacja nazw niedostępna — sortowanie bajtowe")
     except Exception:
         # Aplikacja ma wstać nawet wtedy, gdy uaktualnienie się nie powiedzie —
         # inaczej jeden błąd w migracji odcina użytkowników od wszystkiego.
