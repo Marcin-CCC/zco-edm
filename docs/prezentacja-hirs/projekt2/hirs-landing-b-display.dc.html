@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="description" content="HiRS — baza wiedzy o dokumentach szpitala, która nie wychodzi poza budynek.">
+<link rel="stylesheet" href="_ds/modernist-136def47-7c30-41b1-9b2e-1c73c14ab55a/styles.css">
+<script src="_ds/modernist-136def47-7c30-41b1-9b2e-1c73c14ab55a/_ds_bundle.js"></script>
+<style>
+  body { margin: 0; background: #fff; color: #1e293b; font-family: "Archivo", system-ui, sans-serif; font-size: 16px; line-height: 1.55; }
+  h1, h2, h3, h4 { margin: 0; letter-spacing: -0.035em; }
+  p { margin: 0; }
+  a { color: #0f9b8e; text-decoration: none; }
+  a:hover { color: #1d2a4d; }
+  ::selection { background: #1fc8ba; color: #10233f; }
+  :focus-visible { outline: 2px solid #1fc8ba; outline-offset: 3px; }
+  input[type="range"] { accent-color: #1fc8ba; }
+  @keyframes blink { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
+  @keyframes puls { 0% { opacity: .25; transform: scale(.85) } 50% { opacity: 1; transform: scale(1) } 100% { opacity: .25; transform: scale(.85) } }
+</style>
+</helmet>
+
+<div style="max-width: 100%; overflow-x: hidden">
+
+<header style="position: sticky; top: 0; z-index: 40; background: rgba(16,26,50,.88); backdrop-filter: blur(12px)">
+  <div style="width: min(1280px, 100% - 56px); margin-inline: auto; display: flex; align-items: center; gap: 24px; min-height: 72px; padding: 10px 0; flex-wrap: wrap">
+    <a href="#top" style="display: flex; align-items: center; gap: 11px; color: #fff">
+      <img src="assets/hirs-znak.svg" alt="" width="32" height="32" style="width: 32px; height: 32px">
+      <b style="font-size: 24px; letter-spacing: -0.03em">HiRS</b>
+    </a>
+    <nav style="margin-left: auto; display: flex; align-items: center; gap: 20px; flex-wrap: wrap">
+      <a href="#mozliwosci" style="color: #b9c6ea; font-size: 14px" style-hover="color: #fff">Możliwości</a>
+      <a href="#bezpieczenstwo" style="color: #b9c6ea; font-size: 14px" style-hover="color: #fff">Bezpieczeństwo</a>
+      <a href="#kalkulator" style="color: #b9c6ea; font-size: 14px" style-hover="color: #fff">Kalkulator</a>
+      <a href="#warunki" style="color: #b9c6ea; font-size: 14px" style-hover="color: #fff">Warunki</a>
+      <a href="#demo" style="background: #1fc8ba; color: #10233f; padding: 10px 20px; font-weight: 800; font-size: 14px; white-space: nowrap" style-hover="background: #17b3a6">Zamów demo</a>
+    </nav>
+  </div>
+  <div style="height: 3px; background: rgba(255,255,255,.12)">
+    <div style="height: 3px; background: #1fc8ba; width: {{ postep }}"></div>
+  </div>
+</header>
+
+<main id="top">
+
+<section style="background: #10233f; color: #fff; position: relative; overflow: hidden">
+  <div style="position: absolute; inset: 0; background: radial-gradient(1100px 520px at 72% 0%, rgba(31,200,186,.22), transparent 70%); pointer-events: none"></div>
+  <div style="position: relative; width: min(1280px, 100% - 56px); margin-inline: auto; padding: 92px 0 0; text-align: left">
+    <div style="display: inline-flex; align-items: center; gap: 10px; border: 1px solid rgba(31,200,186,.45); padding: 7px 14px; margin-bottom: 34px">
+      <span style="width: 8px; height: 8px; background: #1fc8ba; border-radius: 50%; animation: puls 2.4s ease-in-out infinite"></span>
+      <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #9fe6de">Hospital Information Retrieval System</span>
+    </div>
+    <h1 style="font-size: clamp(46px, 9vw, 124px); line-height: 0.9; font-weight: 800; max-width: 15ch">Pytasz jak człowieka.</h1>
+    <h1 style="font-size: clamp(46px, 9vw, 124px); line-height: 0.9; font-weight: 800; color: #1fc8ba; max-width: 18ch; margin-top: 6px">Odpowiada z Waszych dokumentów.</h1>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 56px; align-items: end; margin-top: 48px; padding-bottom: 56px">
+      <p style="font-size: clamp(18px, 1.6vw, 22px); color: #dbe4f5; max-width: 50ch; line-height: 1.45">Pracownik pyta zwykłym zdaniem, a system odpowiada treścią z Waszych regulaminów i procedur — wskazując dokument i stronę. Wszystko liczy się na urządzeniu w Waszej serwerowni.</p>
+      <div style="display: flex; flex-wrap: wrap; gap: 14px; justify-content: flex-start">
+        <a href="#demo" style="background: #1fc8ba; color: #10233f; padding: 18px 34px; font-size: 17px; font-weight: 800; display: inline-flex; align-items: center; gap: 12px; white-space: nowrap" style-hover="background: #17b3a6">Zamów dostęp do demo
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+        </a>
+        <a href="#mozliwosci" style="border: 2px solid rgba(255,255,255,.4); color: #fff; padding: 16px 30px; font-size: 17px; font-weight: 700" style-hover="background: rgba(255,255,255,.1)">Zobacz, co potrafi</a>
+      </div>
+    </div>
+  </div>
+
+  <div style="position: relative; width: min(1280px, 100% - 56px); margin-inline: auto; padding-bottom: 92px">
+    <div style="background: #fff; color: #1e293b; box-shadow: 0 40px 90px rgba(0,0,0,.35)">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 14px 22px; background: #16203c; color: #fff">
+        <span style="width: 8px; height: 8px; background: #1fc8ba; border-radius: 50%; animation: puls 2.4s ease-in-out infinite"></span>
+        <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase">Chat z AI — wszystko liczy się w Waszej serwerowni</span>
+        <button onClick="{{ replay }}" style="margin-left: auto; background: transparent; border: 1px solid rgba(255,255,255,.35); color: #cfe9e6; font-family: inherit; font-size: 12px; padding: 6px 12px; cursor: pointer" style-hover="border-color: #1fc8ba; color: #1fc8ba">Odtwórz</button>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); min-height: 340px">
+        <div style="padding: 30px 34px; display: flex; flex-direction: column; gap: 18px; border-right: 1px solid #dfe4ec">
+          <div style="align-self: flex-end; background: #1d2a4d; color: #fff; padding: 12px 18px; font-size: 17px; max-width: 80%">{{ typed }}<span style="animation: blink 1s step-end infinite">|</span></div>
+          <sc-if value="{{ showAnswer }}" hint-placeholder-val="{{ true }}">
+            <div style="max-width: 92%">
+              <p style="font-size: 17px; line-height: 1.62">Zgłoszenie składa się w ciągu 24 godzin od stwierdzenia zdarzenia, na formularzu karty zdarzenia niepożądanego <b style="background: #dff6f3; color: #0f9b8e; font-size: 12px; padding: 2px 6px; vertical-align: super">1</b>. Kartę przekazuje się pełnomocnikowi do spraw jakości, który rejestruje ją i wszczyna analizę przyczyn <b style="background: #dff6f3; color: #0f9b8e; font-size: 12px; padding: 2px 6px; vertical-align: super">2</b>.</p>
+            </div>
+          </sc-if>
+        </div>
+        <div style="padding: 30px 30px; background: #f6f7f9; display: flex; flex-direction: column; gap: 14px">
+          <p style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #64748b">Dowód — źródła odpowiedzi</p>
+          <sc-if value="{{ showSearch }}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #0f9b8e">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
+              Przeszukano 412 dokumentów
+            </div>
+          </sc-if>
+          <sc-if value="{{ showAnswer }}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; flex-direction: column; gap: 10px">
+              <div style="background: #fff; border-left: 3px solid #1fc8ba; padding: 12px 14px">
+                <b style="display: block; font-size: 12px; color: #0f9b8e">1</b>
+                <span style="font-size: 14px">Procedura zgłaszania zdarzeń niepożądanych.pdf</span>
+                <span style="display: block; font-size: 12px; color: #64748b; margin-top: 2px">strona 2</span>
+              </div>
+              <div style="background: #fff; border-left: 3px solid #1fc8ba; padding: 12px 14px">
+                <b style="display: block; font-size: 12px; color: #0f9b8e">2</b>
+                <span style="font-size: 14px">Karta zdarzenia niepożądanego.docx</span>
+                <span style="display: block; font-size: 12px; color: #64748b; margin-top: 2px">strona 1</span>
+              </div>
+              <p style="font-size: 12px; color: #64748b; margin-top: auto">Rozmowa i dokumenty są przykładowe.</p>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="background: #1fc8ba; color: #10233f">
+  <div style="width: min(1280px, 100% - 56px); margin-inline: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr))">
+    <div style="padding: 34px 30px 34px 0; border-right: 1px solid rgba(16,35,63,.22)">
+      <b style="display: block; font-size: 44px; line-height: 1; letter-spacing: -0.04em">~1 s</b>
+      <span style="font-size: 14px; opacity: .8">do pierwszego słowa odpowiedzi</span>
+    </div>
+    <div style="padding: 34px 30px; border-right: 1px solid rgba(16,35,63,.22)">
+      <b style="display: block; font-size: 44px; line-height: 1; letter-spacing: -0.04em">20 min</b>
+      <span style="font-size: 14px; opacity: .8">szkolenie pracownika</span>
+    </div>
+    <div style="padding: 34px 30px; border-right: 1px solid rgba(16,35,63,.22)">
+      <b style="display: block; font-size: 44px; line-height: 1; letter-spacing: -0.04em">3 tyg.</b>
+      <span style="font-size: 14px; opacity: .8">od instalacji do startu</span>
+    </div>
+    <div style="padding: 34px 0 34px 30px">
+      <b style="display: block; font-size: 44px; line-height: 1; letter-spacing: -0.04em">0</b>
+      <span style="font-size: 14px; opacity: .8">dokumentów wysyłanych w internet</span>
+    </div>
+  </div>
+</section>
+
+<section id="problem" style="width: min(1280px, 100% - 56px); margin-inline: auto; padding: 100px 0">
+  <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #0f9b8e; margin-bottom: 20px">Problem</p>
+  <h2 style="font-size: clamp(34px, 5.6vw, 76px); color: #1d2a4d; line-height: 0.98; max-width: 22ch">Wiedza jest w dokumentach. Problemem jest droga do niej.</h2>
+  <div data-reveal style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 0; margin-top: 56px; border-top: 2px solid #1d2a4d">
+    <div style="padding: 32px 40px 32px 0; border-right: 1px solid #dfe4ec; border-bottom: 1px solid #dfe4ec; display: grid; grid-template-columns: 34px 1fr; gap: 20px">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0f9b8e" stroke-width="1.6" stroke-linecap="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M9 15h6"></path></svg>
+      <div>
+        <h3 style="font-size: 22px; color: #1d2a4d">Nie wiadomo, która wersja obowiązuje</h3>
+        <p style="font-size: 16px; color: #64748b; margin-top: 8px">Dokument jest — tylko w którym folderze, i czy to na pewno tekst jednolity, a nie wersja sprzed dwóch aneksów?</p>
+      </div>
+    </div>
+    <div style="padding: 32px 0 32px 40px; border-bottom: 1px solid #dfe4ec; display: grid; grid-template-columns: 34px 1fr; gap: 20px">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0f9b8e" stroke-width="1.6" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path></svg>
+      <div>
+        <h3 style="font-size: 22px; color: #1d2a4d">Ta sama odpowiedź dziesiątki razy</h3>
+        <p style="font-size: 16px; color: #64748b; margin-top: 8px">Kadry i dział jakości tłumaczą w kółko to samo. Nowy pracownik pyta koleżankę, zamiast zajrzeć do regulaminu.</p>
+      </div>
+    </div>
+    <div style="padding: 32px 40px 32px 0; border-right: 1px solid #dfe4ec; display: grid; grid-template-columns: 34px 1fr; gap: 20px">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0f9b8e" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+      <div>
+        <h3 style="font-size: 22px; color: #1d2a4d">Przy akredytacji liczy się czas</h3>
+        <p style="font-size: 16px; color: #64748b; margin-top: 8px">Podczas kontroli znaczenie ma to, jak szybko docieracie do właściwego zapisu — nie to, że gdzieś go macie.</p>
+      </div>
+    </div>
+    <div style="padding: 32px 0 32px 40px; display: grid; grid-template-columns: 34px 1fr; gap: 20px">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0f9b8e" stroke-width="1.6" stroke-linecap="round"><path d="m2 2 20 20"></path><path d="M5.8 5.8A5 5 0 0 0 7 15h9a4 4 0 0 0 1.5-7.7 6 6 0 0 0-9.3-2.9"></path></svg>
+      <div>
+        <h3 style="font-size: 22px; color: #1d2a4d">Chmura odpada</h3>
+        <p style="font-size: 16px; color: #64748b; margin-top: 8px">Dokumentacja szpitala nie może trafiać do zewnętrznego dostawcy. To zwykle zamyka temat narzędzi z internetu.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="mozliwosci" style="background: #f6f7f9; padding: 100px 0">
+  <div style="width: min(1280px, 100% - 56px); margin-inline: auto">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 60px; align-items: end">
+      <div>
+        <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #0f9b8e; margin-bottom: 20px">Co dostajecie</p>
+        <h2 style="font-size: clamp(34px, 5vw, 68px); color: #1d2a4d; line-height: 0.98">Trzy drogi<br>do dokumentu</h2>
+      </div>
+      <p style="font-size: 18px; color: #64748b; max-width: 46ch">Pracownik wybiera tę, która jest mu bliższa — nikogo nie zmuszamy do zmiany przyzwyczajeń.</p>
+    </div>
+    <div data-reveal style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 24px; margin-top: 52px">
+      <div style="background: #fff; padding: 32px; border-bottom: 4px solid #1fc8ba">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0f9b8e" stroke-width="1.6" stroke-linecap="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"></path></svg>
+        <h3 style="font-size: 24px; color: #1d2a4d; margin-top: 20px">Repozytorium</h3>
+        <p style="font-size: 16px; color: #64748b; margin-top: 8px">Foldery, uprawnienia, statusy przetwarzania — tak jak na dysku sieciowym, tylko z podglądem i opisem każdego pliku.</p>
+      </div>
+      <div style="background: #fff; padding: 32px; border-bottom: 4px solid #1fc8ba">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0f9b8e" stroke-width="1.6" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+        <h3 style="font-size: 24px; color: #1d2a4d; margin-top: 20px">Chat z AI</h3>
+        <p style="font-size: 16px; color: #64748b; margin-top: 8px">Pytanie zwykłym językiem, odpowiedź z odnośnikami do dokumentu i strony. „Delegacja” znajdzie „podróż służbową”.</p>
+      </div>
+      <div style="background: #fff; padding: 32px; border-bottom: 4px solid #1fc8ba">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0f9b8e" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
+        <h3 style="font-size: 24px; color: #1d2a4d; margin-top: 20px">Wyszukiwarka po polach</h3>
+        <p style="font-size: 16px; color: #64748b; margin-top: 8px">„Zarządzenia z 2024”, „procedury zatwierdzone przez…”. Rodzaj pisma, numer, datę i osobę system rozpoznaje sam.</p>
+      </div>
+    </div>
+    <figure data-reveal style="margin: 52px 0 0; position: relative">
+      <div style="position: absolute; inset: 20px -20px -20px 20px; background: #1fc8ba"></div>
+      <img src="assets/makieta-pliki.png" alt="Ekran Pliki: foldery z dokumentami szpitala i liczba plików w każdym z nich" loading="lazy" style="position: relative; width: 100%">
+      <figcaption style="font-size: 13px; color: #64748b; margin-top: 34px">Eksplorator plików. Dane na ilustracji są przykładowe.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="bezpieczenstwo" style="background: #10233f; color: #fff; padding: 100px 0">
+  <div style="width: min(1280px, 100% - 56px); margin-inline: auto">
+    <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #1fc8ba; margin-bottom: 20px">Bezpieczeństwo</p>
+    <h2 style="font-size: clamp(34px, 5.6vw, 76px); line-height: 0.98; max-width: 24ch">Żaden dokument, fragment ani pytanie nie opuszcza Waszej sieci</h2>
+    <div data-reveal style="border: 2px solid rgba(31,200,186,.5); margin-top: 56px">
+      <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #1fc8ba; padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,.18)">Wasza serwerownia</p>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr))">
+        <div style="padding: 34px 26px; border-right: 1px solid rgba(255,255,255,.18)">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1fc8ba" stroke-width="1.6" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="1"></rect><path d="M8 21h8"></path><path d="M12 17v4"></path></svg>
+          <b style="display: block; font-size: 22px; margin: 18px 0 6px">Aplikacja</b>
+          <span style="font-size: 15px; color: #b9c6ea">przeglądarka pracownika</span>
+        </div>
+        <div style="padding: 34px 26px; border-right: 1px solid rgba(255,255,255,.18)">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1fc8ba" stroke-width="1.6" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="1"></rect><rect x="9" y="9" width="6" height="6"></rect><path d="M9 2v2"></path><path d="M15 2v2"></path><path d="M9 20v2"></path><path d="M15 20v2"></path><path d="M2 9h2"></path><path d="M2 15h2"></path><path d="M20 9h2"></path><path d="M20 15h2"></path></svg>
+          <b style="display: block; font-size: 22px; margin: 18px 0 6px">Model językowy</b>
+          <span style="font-size: 15px; color: #b9c6ea">działa na Waszym urządzeniu</span>
+        </div>
+        <div style="padding: 34px 26px">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1fc8ba" stroke-width="1.6" stroke-linecap="round"><rect x="2" y="4" width="20" height="7" rx="1"></rect><rect x="2" y="13" width="20" height="7" rx="1"></rect><path d="M6 7.5h.01"></path><path d="M6 16.5h.01"></path></svg>
+          <b style="display: block; font-size: 22px; margin: 18px 0 6px">Dokumenty i indeks</b>
+          <span style="font-size: 15px; color: #b9c6ea">dysk w serwerowni</span>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 14px; padding: 20px 24px; border-top: 1px solid rgba(255,255,255,.18); background: rgba(31,200,186,.1)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1fc8ba" stroke-width="2" stroke-linecap="round"><path d="m2 2 20 20"></path><path d="M5.8 5.8A5 5 0 0 0 7 15h9a4 4 0 0 0 1.5-7.7 6 6 0 0 0-9.3-2.9"></path></svg>
+        <span style="font-size: 15px; color: #cfe9e6">Brak połączenia z usługami zewnętrznymi — do internetu nie wychodzi żaden dokument, fragment ani pytanie.</span>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 32px; margin-top: 48px">
+      <p style="font-size: 16px; color: #dbe4f5; border-top: 2px solid #1fc8ba; padding-top: 16px">Dostęp do folderów nadawany rolom — użytkownik widzi tylko swoje, także w czacie.</p>
+      <p style="font-size: 16px; color: #dbe4f5; border-top: 2px solid #1fc8ba; padding-top: 16px">Historia pytań prywatna; administrator widzi statystyki, nie cudze rozmowy.</p>
+      <p style="font-size: 16px; color: #dbe4f5; border-top: 2px solid #1fc8ba; padding-top: 16px">Automatyczne wylogowanie po bezczynności, zmiana hasła za potwierdzeniem.</p>
+    </div>
+  </div>
+</section>
+
+<section id="porownanie" style="width: min(1280px, 100% - 56px); margin-inline: auto; padding: 100px 0">
+  <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #0f9b8e; margin-bottom: 20px">Porównanie</p>
+  <h2 style="font-size: clamp(34px, 5vw, 68px); color: #1d2a4d; line-height: 0.98">HiRS a narzędzia<br>chmurowe</h2>
+  <div data-reveal style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 24px; margin-top: 52px">
+    <div style="background: #10233f; color: #fff; padding: 36px">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1fc8ba" stroke-width="2" stroke-linecap="round"><path d="M20 13c0 5-3.5 7.5-7.7 8.95a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg>
+        <b style="font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: #1fc8ba">HiRS — u Was w serwerowni</b>
+      </div>
+      <div style="display: flex; flex-direction: column">
+        <p style="font-size: 17px; padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,.16)">Dokumenty na dysku w Waszej serwerowni</p>
+        <p style="font-size: 17px; padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,.16)">Umowa powierzenia niepotrzebna — dane nie wychodzą</p>
+        <p style="font-size: 17px; padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,.16)">Sprzęt na własność, wsparcie miesięczne</p>
+        <p style="font-size: 17px; padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,.16)">Działa bez internetu</p>
+        <p style="font-size: 17px; padding: 15px 0">Dokument i numer strony przy każdym zdaniu</p>
+      </div>
+    </div>
+    <div style="background: #f6f7f9; padding: 36px">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"><path d="m2 2 20 20"></path><path d="M5.8 5.8A5 5 0 0 0 7 15h9a4 4 0 0 0 1.5-7.7 6 6 0 0 0-9.3-2.9"></path></svg>
+        <b style="font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: #64748b">Asystent w chmurze</b>
+      </div>
+      <div style="display: flex; flex-direction: column; color: #64748b">
+        <p style="font-size: 17px; padding: 15px 0; border-bottom: 1px solid #dfe4ec">Dokumenty na serwerach dostawcy</p>
+        <p style="font-size: 17px; padding: 15px 0; border-bottom: 1px solid #dfe4ec">Umowa powierzenia i analiza ryzyka wymagane</p>
+        <p style="font-size: 17px; padding: 15px 0; border-bottom: 1px solid #dfe4ec">Abonament za każdego użytkownika</p>
+        <p style="font-size: 17px; padding: 15px 0; border-bottom: 1px solid #dfe4ec">Bez internetu nie działa</p>
+        <p style="font-size: 17px; padding: 15px 0">Wskazanie źródła zależnie od narzędzia</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="pewnosc" style="background: #f6f7f9; padding: 100px 0">
+  <div style="width: min(1280px, 100% - 56px); margin-inline: auto">
+    <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #0f9b8e; margin-bottom: 20px">Wiarygodność</p>
+    <h2 style="font-size: clamp(34px, 5vw, 68px); color: #1d2a4d; line-height: 0.98; max-width: 24ch">Nie trzeba wierzyć systemowi — każde zdanie sprawdzicie w źródle</h2>
+    <div data-reveal style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 24px; margin-top: 56px">
+      <div>
+        <b style="display: block; font-size: 64px; color: #1fc8ba; line-height: 0.9; letter-spacing: -0.05em">01</b>
+        <b style="display: block; font-size: 21px; color: #1d2a4d; margin: 16px 0 6px">Pytanie</b>
+        <span style="font-size: 16px; color: #64748b">zwykłym językiem, np. „jak zgłosić zdarzenie niepożądane?”</span>
+      </div>
+      <div>
+        <b style="display: block; font-size: 64px; color: #1fc8ba; line-height: 0.9; letter-spacing: -0.05em">02</b>
+        <b style="display: block; font-size: 21px; color: #1d2a4d; margin: 16px 0 6px">Wyszukanie</b>
+        <span style="font-size: 16px; color: #64748b">system znajduje fragmenty w Waszych plikach</span>
+      </div>
+      <div>
+        <b style="display: block; font-size: 64px; color: #1fc8ba; line-height: 0.9; letter-spacing: -0.05em">03</b>
+        <b style="display: block; font-size: 21px; color: #1d2a4d; margin: 16px 0 6px">Odpowiedź</b>
+        <span style="font-size: 16px; color: #64748b">zbudowana wyłącznie z tych fragmentów</span>
+      </div>
+      <div>
+        <b style="display: block; font-size: 64px; color: #1fc8ba; line-height: 0.9; letter-spacing: -0.05em">04</b>
+        <b style="display: block; font-size: 21px; color: #1d2a4d; margin: 16px 0 6px">Dowód</b>
+        <span style="font-size: 16px; color: #64748b">numer przy zdaniu prowadzi do dokumentu i strony</span>
+      </div>
+    </div>
+    <p style="font-size: 17px; color: #1e293b; margin-top: 48px; max-width: 72ch">Brak dopasowania daje jasny komunikat zamiast wymyślonej treści. Widać też, ile dokumentów sprawdzono i z których nie skorzystano.</p>
+  </div>
+</section>
+
+<section id="wydajnosc" style="width: min(1280px, 100% - 56px); margin-inline: auto; padding: 100px 0">
+  <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #0f9b8e; margin-bottom: 20px">Pojemność i szybkość</p>
+  <h2 style="font-size: clamp(34px, 5vw, 68px); color: #1d2a4d; line-height: 0.98">Baza rośnie, czas<br>odpowiedzi stoi w miejscu</h2>
+  <div data-reveal style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 24px; margin-top: 56px">
+    <div style="border-top: 4px solid #1d2a4d; padding-top: 24px">
+      <b style="display: block; font-size: clamp(52px, 6.6vw, 92px); color: #1d2a4d; line-height: 0.9; letter-spacing: -0.05em">128 GB</b>
+      <span style="display: block; font-size: 18px; margin-top: 14px; color: #1e293b">pamięci dla modelu</span>
+      <span style="display: block; font-size: 15px; color: #64748b; margin-top: 4px">jedno urządzenie obsługuje cały szpital</span>
+    </div>
+    <div style="border-top: 4px solid #1d2a4d; padding-top: 24px">
+      <b style="display: block; font-size: clamp(52px, 6.6vw, 92px); color: #1d2a4d; line-height: 0.9; letter-spacing: -0.05em">4 TB</b>
+      <span style="display: block; font-size: 18px; margin-top: 14px; color: #1e293b">na dokumenty</span>
+      <span style="display: block; font-size: 15px; color: #64748b; margin-top: 4px">setki tysięcy plików biurowych</span>
+    </div>
+    <div style="border-top: 4px solid #1fc8ba; padding-top: 24px">
+      <b style="display: block; font-size: clamp(52px, 6.6vw, 92px); color: #0f9b8e; line-height: 0.9; letter-spacing: -0.05em">~1 s</b>
+      <span style="display: block; font-size: 18px; margin-top: 14px; color: #1e293b">do pierwszego słowa odpowiedzi</span>
+      <span style="display: block; font-size: 15px; color: #64748b; margin-top: 4px">cała odpowiedź gotowa w ok. 15 s</span>
+    </div>
+  </div>
+  <p style="font-size: 16px; color: #64748b; margin-top: 40px; max-width: 76ch">Czasy pochodzą z pomiarów na działającym wdrożeniu. Przygotowanie nowego dokumentu trwa średnio ok. 60 sekund i odbywa się raz, w tle, przy wgraniu pliku. Pojemność ogranicza dysk, nie wydajność — urządzenie jest wielkości książki, a prądu pobiera tyle co stacja robocza.</p>
+</section>
+
+<section id="kalkulator" style="background: #10233f; color: #fff; padding: 100px 0">
+  <div style="width: min(1280px, 100% - 56px); margin-inline: auto">
+    <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #1fc8ba; margin-bottom: 20px">Kalkulator</p>
+    <h2 style="font-size: clamp(34px, 5vw, 68px); line-height: 0.98">Ile czasu schodzi dziś<br>na szukanie</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 64px; margin-top: 56px; align-items: start">
+      <div style="display: flex; flex-direction: column; gap: 32px">
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px">
+            <label for="b-osoby" style="font-size: 15px; font-weight: 700">Pracownicy korzystający z dokumentów</label>
+            <b style="font-size: 24px; color: #1fc8ba">{{ osoby }}</b>
+          </div>
+          <input id="b-osoby" type="range" min="20" max="2000" step="20" value="{{ osoby }}" onChange="{{ setOsoby }}" style="width: 100%">
+        </div>
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px">
+            <label for="b-pytania" style="font-size: 15px; font-weight: 700">Pytania o dokumenty na osobę / miesiąc</label>
+            <b style="font-size: 24px; color: #1fc8ba">{{ pytania }}</b>
+          </div>
+          <input id="b-pytania" type="range" min="1" max="30" step="1" value="{{ pytania }}" onChange="{{ setPytania }}" style="width: 100%">
+        </div>
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px">
+            <label for="b-minuty" style="font-size: 15px; font-weight: 700">Minut na znalezienie odpowiedzi dziś</label>
+            <b style="font-size: 24px; color: #1fc8ba">{{ minuty }}</b>
+          </div>
+          <input id="b-minuty" type="range" min="2" max="45" step="1" value="{{ minuty }}" onChange="{{ setMinuty }}" style="width: 100%">
+        </div>
+        <p style="font-size: 13px; color: #9fb3d9; border-top: 1px solid rgba(255,255,255,.2); padding-top: 18px">Założenia: z HiRS jedno pytanie zajmuje ok. 1 minuty; godzina pracy liczona po 60 zł. Wynik nie jest ofertą ani obietnicą oszczędności.</p>
+      </div>
+      <div>
+        <div style="background: #1fc8ba; color: #10233f; padding: 40px">
+          <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase">Czas odzyskany z HiRS</p>
+          <b style="display: block; font-size: clamp(52px, 6.4vw, 96px); line-height: 0.92; letter-spacing: -0.05em; margin-top: 14px">{{ godzinyOszcz }} h</b>
+          <span style="display: block; font-size: 20px; margin-top: 10px">rocznie — równowartość {{ etaty }} pełnych etatów</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 24px; margin-top: 24px">
+          <div style="border-top: 2px solid rgba(255,255,255,.3); padding-top: 18px">
+            <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #9fb3d9">Dziś na szukanie</p>
+            <b style="display: block; font-size: 34px; margin-top: 8px; letter-spacing: -0.03em">{{ godzinyDzis }} h</b>
+          </div>
+          <div style="border-top: 2px solid rgba(255,255,255,.3); padding-top: 18px">
+            <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #9fb3d9">W koszcie pracy</p>
+            <b style="display: block; font-size: 34px; margin-top: 8px; letter-spacing: -0.03em">{{ zlotowki }} zł</b>
+            <span style="display: block; font-size: 14px; color: #9fb3d9; margin-top: 6px">Rok pierwszy z HiRS: 57 000 zł netto.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="zastosowania" style="width: min(1280px, 100% - 56px); margin-inline: auto; padding: 100px 0">
+  <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #0f9b8e; margin-bottom: 20px">Gdzie to pracuje</p>
+  <h2 style="font-size: clamp(34px, 5vw, 68px); color: #1d2a4d; line-height: 0.98; max-width: 24ch">Kolejny dział to wgranie dokumentów, a nie nowe wdrożenie</h2>
+  <div data-reveal style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 2px; margin-top: 52px; background: #dfe4ec">
+    <div style="background: #fff; padding: 30px">
+      <h3 style="font-size: 22px; color: #1d2a4d">Kadry</h3>
+      <p style="font-size: 16px; color: #64748b; margin-top: 8px">regulaminy, wnioski, PPK, ZFŚS</p>
+    </div>
+    <div style="background: #fff; padding: 30px">
+      <h3 style="font-size: 22px; color: #1d2a4d">Jakość i akredytacja</h3>
+      <p style="font-size: 16px; color: #64748b; margin-top: 8px">procedury, instrukcje, wersje obowiązujące</p>
+    </div>
+    <div style="background: #fff; padding: 30px">
+      <h3 style="font-size: 22px; color: #1d2a4d">Personel medyczny</h3>
+      <p style="font-size: 16px; color: #64748b; margin-top: 8px">procedury kliniczne i pielęgniarskie</p>
+    </div>
+    <div style="background: #fff; padding: 30px">
+      <h3 style="font-size: 22px; color: #1d2a4d">Administracja</h3>
+      <p style="font-size: 16px; color: #64748b; margin-top: 8px">umowy, zarządzenia, przetargi</p>
+    </div>
+    <div style="background: #fff; padding: 30px">
+      <h3 style="font-size: 22px; color: #1d2a4d">BHP · RODO · IT</h3>
+      <p style="font-size: 16px; color: #64748b; margin-top: 8px">polityki i instrukcje wewnętrzne</p>
+    </div>
+    <div style="background: #fff; padding: 30px">
+      <h3 style="font-size: 22px; color: #1d2a4d">Poza szpitalem</h3>
+      <p style="font-size: 16px; color: #64748b; margin-top: 8px">uczelnie, urzędy, kancelarie, produkcja</p>
+    </div>
+  </div>
+  <p style="font-size: 17px; color: #64748b; margin-top: 32px; max-width: 66ch">Zaczynamy zwykle od kadr — tam pytania powtarzają się najczęściej, a efekt widać w pierwszym tygodniu.</p>
+</section>
+
+<section id="obsluga" style="background: #f6f7f9; padding: 100px 0">
+  <div style="width: min(1280px, 100% - 56px); margin-inline: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 64px; align-items: center">
+    <figure data-reveal style="margin: 0; position: relative">
+      <div style="position: absolute; inset: 20px -20px -20px 20px; background: #1d2a4d"></div>
+      <img src="assets/makieta-czat.png" alt="Ekran Chat z AI: pytanie o zgłaszanie zdarzeń niepożądanych i odpowiedź z odnośnikami do dokumentów" loading="lazy" style="position: relative; width: 100%">
+      <figcaption style="font-size: 13px; color: #64748b; margin-top: 34px">Chat z AI. Rozmowa i dokumenty na ilustracji są przykładowe.</figcaption>
+    </figure>
+    <div>
+      <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #0f9b8e; margin-bottom: 20px">Łatwość obsługi</p>
+      <h2 style="font-size: clamp(30px, 3.6vw, 50px); color: #1d2a4d; line-height: 1.02">Kto umie korzystać z wyszukiwarki, umie korzystać z tego</h2>
+      <div style="display: flex; flex-direction: column; margin-top: 32px">
+        <p style="font-size: 17px; padding: 16px 0; border-bottom: 1px solid #cfd6e2">Przeglądarka — nic do instalowania na komputerach pracowników.</p>
+        <p style="font-size: 17px; padding: 16px 0; border-bottom: 1px solid #cfd6e2">Trzy ekrany: <b style="color: #1d2a4d">Dashboard</b>, <b style="color: #1d2a4d">Pliki</b>, <b style="color: #1d2a4d">Chat z AI</b>.</p>
+        <p style="font-size: 17px; padding: 16px 0; border-bottom: 1px solid #cfd6e2">Wystarczy sama nazwa dokumentu, żeby dostać jego opis i odnośnik.</p>
+        <p style="font-size: 17px; padding: 16px 0"><b style="color: #1d2a4d">Szkolenie pracownika: 20 minut.</b> Instrukcja w aplikacji, pod przyciskiem Pomoc.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="wdrozenie" style="width: min(1280px, 100% - 56px); margin-inline: auto; padding: 100px 0">
+  <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #0f9b8e; margin-bottom: 20px">Nasza rola</p>
+  <h2 style="font-size: clamp(34px, 5vw, 68px); color: #1d2a4d; line-height: 0.98; max-width: 22ch">Przychodzimy z Waszymi dokumentami już w środku</h2>
+  <div data-reveal style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 24px; margin-top: 56px">
+    <div style="border-top: 4px solid #1fc8ba; padding-top: 22px">
+      <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: #0f9b8e">TYDZIEŃ 1</span>
+      <b style="display: block; font-size: 21px; color: #1d2a4d; margin: 12px 0 8px">Instalacja i uruchomienie</b>
+      <span style="font-size: 16px; color: #64748b">urządzenie w serwerowni, konta, uprawnienia</span>
+    </div>
+    <div style="border-top: 4px solid #1fc8ba; padding-top: 22px">
+      <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: #0f9b8e">TYDZIEŃ 2</span>
+      <b style="display: block; font-size: 21px; color: #1d2a4d; margin: 12px 0 8px">Wasze dokumenty i wzorce</b>
+      <span style="font-size: 16px; color: #64748b">wgrywamy pierwszą partię, układamy schematy pism</span>
+    </div>
+    <div style="border-top: 4px solid #1fc8ba; padding-top: 22px">
+      <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: #0f9b8e">TYDZIEŃ 3</span>
+      <b style="display: block; font-size: 21px; color: #1d2a4d; margin: 12px 0 8px">Szkolenia i start</b>
+      <span style="font-size: 16px; color: #64748b">20 min dla użytkownika, 2 h dla administratora</span>
+    </div>
+    <div style="border-top: 4px solid #cfd6e2; padding-top: 22px">
+      <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: #64748b">DALEJ</span>
+      <b style="display: block; font-size: 21px; color: #1d2a4d; margin: 12px 0 8px">Wsparcie miesięczne</b>
+      <span style="font-size: 16px; color: #64748b">aktualizacje, jakość odpowiedzi, nowe rodzaje dokumentów</span>
+    </div>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 32px; margin-top: 48px">
+    <p style="font-size: 17px"><b style="color: #1d2a4d">Nie zostawiamy pustego systemu</b> — pierwsza partia dokumentów wgrana i sprawdzona przez nas.</p>
+    <p style="font-size: 17px"><b style="color: #1d2a4d">Wzorce pod Wasze pisma</b> — system sam wyciąga numer, datę i osobę zatwierdzającą.</p>
+  </div>
+</section>
+
+<section id="warunki" style="background: #f6f7f9; padding: 100px 0">
+  <div style="width: min(1280px, 100% - 56px); margin-inline: auto">
+    <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #0f9b8e; margin-bottom: 20px">Warunki</p>
+    <h2 style="font-size: clamp(34px, 5vw, 68px); color: #1d2a4d; line-height: 0.98">Bez opłat za użytkownika<br>i za liczbę dokumentów</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 56px; margin-top: 56px; align-items: start">
+      <table style="width: 100%; border-collapse: collapse">
+        <tbody>
+          <tr>
+            <td style="padding: 18px 0; border-bottom: 1px solid #cfd6e2; font-size: 17px">Sprzęt: NVIDIA DGX Spark — 128 GB pamięci, 4 TB SSD</td>
+            <td style="padding: 18px 0; border-bottom: 1px solid #cfd6e2; font-size: 17px; text-align: right; white-space: nowrap">20 000 zł</td>
+          </tr>
+          <tr>
+            <td style="padding: 18px 0; border-bottom: 1px solid #cfd6e2; font-size: 17px">Dostawa i wdrożenie oprogramowania</td>
+            <td style="padding: 18px 0; border-bottom: 1px solid #cfd6e2; font-size: 17px; text-align: right; white-space: nowrap">25 000 zł</td>
+          </tr>
+          <tr>
+            <td style="padding: 18px 0; border-bottom: 1px solid #cfd6e2; font-size: 17px">Wsparcie i rozwój</td>
+            <td style="padding: 18px 0; border-bottom: 1px solid #cfd6e2; font-size: 17px; text-align: right; white-space: nowrap">1 000 zł / mies.</td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 0 0; font-size: clamp(22px, 2.4vw, 30px); font-weight: 800; color: #1d2a4d">Rok pierwszy łącznie</td>
+            <td style="padding: 24px 0 0; font-size: clamp(22px, 2.4vw, 30px); font-weight: 800; color: #0f9b8e; text-align: right; white-space: nowrap">57 000 zł</td>
+          </tr>
+          <tr>
+            <td colspan="2" style="padding-top: 8px; font-size: 14px; color: #64748b">Netto. Trzy lata użytkowania: 81 000 zł netto łącznie, razem ze wsparciem.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="display: flex; flex-direction: column; gap: 2px; background: #dfe4ec">
+        <div style="background: #fff; padding: 24px">
+          <h3 style="font-size: 19px; color: #1d2a4d">Sprzęt zostaje Wasz</h3>
+          <p style="font-size: 16px; color: #64748b; margin-top: 6px">Nie płacicie abonamentu za dostęp do własnych danych.</p>
+        </div>
+        <div style="background: #fff; padding: 24px">
+          <h3 style="font-size: 19px; color: #1d2a4d">Bez opłat za użytkownika</h3>
+          <p style="font-size: 16px; color: #64748b; margin-top: 6px">Liczba kont i dokumentów nie zmienia ceny.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="faq" style="width: min(1280px, 100% - 56px); margin-inline: auto; padding: 100px 0">
+  <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #0f9b8e; margin-bottom: 20px">Pytania</p>
+  <h2 style="font-size: clamp(34px, 5vw, 68px); color: #1d2a4d; line-height: 0.98">Najczęściej pytacie o to</h2>
+  <div style="margin-top: 52px">
+    <sc-for list="{{ faq }}" as="item" hint-placeholder-count="6">
+      <div style="border-bottom: 1px solid #dfe4ec">
+        <button onClick="{{ item.toggle }}" style="width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 24px; text-align: left; background: transparent; border: 0; padding: 26px 0; cursor: pointer; font-family: inherit; color: #1d2a4d; font-size: clamp(19px, 1.9vw, 26px); font-weight: 700; letter-spacing: -0.02em" style-hover="color: #0f9b8e">
+          {{ item.q }}
+          <span style="color: #1fc8ba; font-size: 28px; flex: 0 0 auto; line-height: 1">{{ item.znak }}</span>
+        </button>
+        <sc-if value="{{ item.otwarte }}" hint-placeholder-val="{{ false }}">
+          <p style="font-size: 17px; color: #64748b; padding: 0 80px 30px 0; max-width: 76ch">{{ item.a }}</p>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+  <p style="font-size: 17px; color: #64748b; margin-top: 32px">Nie ma tu Waszego pytania? Napiszcie na <a href="mailto:hirs@polmedi.com">hirs@polmedi.com</a> — odpowiadamy tego samego dnia.</p>
+</section>
+
+<section id="demo" style="background: #1fc8ba; color: #10233f; padding: 110px 0">
+  <div style="width: min(1280px, 100% - 56px); margin-inline: auto">
+    <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 24px">Zamów dostęp do demo</p>
+    <h2 style="font-size: clamp(40px, 7.4vw, 104px); line-height: 0.92; max-width: 20ch">Zobaczcie to na własnych pytaniach</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 56px; align-items: end; margin-top: 48px">
+      <p style="font-size: 19px; max-width: 56ch">Pokazujemy działającą instancję z dokumentami przykładowymi — bez instalowania czegokolwiek u Was. Pokaz trwa 45 minut, zdalnie albo u Was. Kolejnym krokiem, jeśli zechcecie, jest dwutygodniowe uruchomienie próbne na Waszych dokumentach.</p>
+      <div>
+        <a href="demo.php" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; background: #10233f; color: #fff; padding: 22px 28px; font-size: 19px; font-weight: 800" style-hover="background: #1d2a4d">Zamów demo
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+        </a>
+        <p style="font-size: 15px; margin-top: 16px">albo napiszcie: <a href="mailto:hirs@polmedi.com" style="color: #10233f; text-decoration: underline">hirs@polmedi.com</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer style="background: #10233f; color: #9fb3d9; padding: 52px 0">
+  <div style="width: min(1280px, 100% - 56px); margin-inline: auto; display: flex; flex-wrap: wrap; gap: 24px; align-items: center; justify-content: space-between">
+    <div style="font-size: 15px">
+      <strong style="color: #fff">Polmedi Group sp. z o.o.</strong> · Poznań · <a href="https://polmedi.com" style="color: #cfd9ec">polmedi.com</a><br>
+      Pytania o HiRS: <a href="mailto:hirs@polmedi.com" style="color: #cfd9ec">hirs@polmedi.com</a>
+    </div>
+    <img src="assets/polmedi-group-logo-white.svg" alt="Polmedi Group" style="height: 34px">
+  </div>
+</footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280}}">
+const PYTANIE = "jak zgłosić zdarzenie niepożądane?";
+
+const FAQ = [
+  { q: "Czy dokumenty naprawdę nie wychodzą poza szpital?",
+    a: "Nie wychodzą. Urządzenie stoi w Waszej serwerowni i nie łączy się z żadną usługą zewnętrzną — model językowy, indeks i pliki są na tym samym sprzęcie. Sieć można odciąć od internetu i system dalej działa." },
+  { q: "Co, jeśli system nie zna odpowiedzi?",
+    a: "Napisze to wprost. Odpowiedź powstaje wyłącznie z fragmentów Waszych plików, więc gdy nie ma dopasowania, zamiast wymyślonej treści pojawia się komunikat o braku źródła." },
+  { q: "Kto widzi historię pytań?",
+    a: "Pracownik widzi tylko swoją. Administrator widzi statystyki użycia — liczbę pytań, obciążenie, najczęstsze tematy — ale nie treść cudzych rozmów." },
+  { q: "Jakie formaty plików obsługujecie?",
+    a: "Typowe dokumenty biurowe: PDF (także skany z OCR), DOCX, XLSX, PPTX, TXT. Przygotowanie jednego dokumentu zajmuje średnio ok. 60 sekund i dzieje się raz, w tle." },
+  { q: "Ile pracy jest po stronie naszego IT?",
+    a: "Wpuszczenie urządzenia do sieci, adres w intranecie i konta użytkowników. Reszta — instalacja, wgranie pierwszej partii dokumentów, wzorce pism, szkolenia — jest po naszej stronie." },
+  { q: "Czy da się to najpierw sprawdzić na naszych dokumentach?",
+    a: "Tak. Po pokazie demo proponujemy dwutygodniowe uruchomienie próbne na Waszej dokumentacji, w Waszej sieci, bez zobowiązania do zakupu." },
+];
+
+class Component extends DCLogic {
+  state = { typed: "", showSearch: false, showAnswer: false, otwarte: 0,
+            osoby: 400, pytania: 6, minuty: 12, postep: 0 };
+
+  componentDidMount() {
+    this.reveal();
+    this.play();
+    this._scroll = () => {
+      const h = document.documentElement.scrollHeight - window.innerHeight;
+      this.setState({ postep: h > 0 ? Math.min(window.scrollY / h, 1) : 0 });
+    };
+    window.addEventListener("scroll", this._scroll, { passive: true });
+    this._scroll();
+  }
+  componentWillUnmount() {
+    this.stop();
+    if (this._io) this._io.disconnect();
+    if (this._scroll) window.removeEventListener("scroll", this._scroll);
+  }
+
+  reveal() {
+    const mniej = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (mniej || !("IntersectionObserver" in window)) return;
+    const nodes = Array.from(document.querySelectorAll("[data-reveal]"));
+    nodes.forEach((n) => {
+      n.style.opacity = "0";
+      n.style.transform = "translateY(24px)";
+      n.style.transition = "opacity .8s cubic-bezier(.2,.7,.3,1), transform .8s cubic-bezier(.2,.7,.3,1)";
+    });
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) {
+          e.target.style.opacity = "1";
+          e.target.style.transform = "none";
+          io.unobserve(e.target);
+        }
+      });
+    }, { rootMargin: "0px 0px -10% 0px", threshold: 0.06 });
+    nodes.forEach((n) => io.observe(n));
+    this._io = io;
+    setTimeout(() => nodes.forEach((n) => { if (n.style.opacity === "0") n.style.opacity = "1"; }), 4000);
+  }
+
+  stop() { (this._t || []).forEach(clearTimeout); this._t = []; }
+  later(fn, ms) { (this._t = this._t || []).push(setTimeout(fn, ms)); }
+
+  play() {
+    (this._t || []).forEach(clearTimeout); this._t = [];
+    this.setState({ typed: "", showSearch: false, showAnswer: false });
+    for (let i = 1; i <= PYTANIE.length; i++) {
+      this.later(() => this.setState({ typed: PYTANIE.slice(0, i) }), 600 + i * 36);
+    }
+    const koniec = 600 + PYTANIE.length * 36;
+    this.later(() => this.setState({ showSearch: true }), koniec + 400);
+    this.later(() => this.setState({ showAnswer: true }), koniec + 1400);
+  }
+
+  renderVals() {
+    const { osoby, pytania, minuty } = this.state;
+    const godzinyDzis = Math.round((osoby * pytania * 12 * minuty) / 60);
+    const godzinyOszcz = Math.round((osoby * pytania * 12 * Math.max(minuty - 1, 0)) / 60);
+    const fmt = (n) => n.toLocaleString("pl-PL").replace(/\u00a0/g, " ");
+    return {
+      typed: this.state.typed,
+      showSearch: this.state.showSearch,
+      showAnswer: this.state.showAnswer,
+      replay: () => this.play(),
+      postep: (this.state.postep * 100).toFixed(2) + "%",
+      osoby, pytania, minuty,
+      setOsoby: (e) => this.setState({ osoby: +e.target.value }),
+      setPytania: (e) => this.setState({ pytania: +e.target.value }),
+      setMinuty: (e) => this.setState({ minuty: +e.target.value }),
+      godzinyDzis: fmt(godzinyDzis),
+      godzinyOszcz: fmt(godzinyOszcz),
+      etaty: (godzinyOszcz / 1720).toFixed(1).replace(".", ","),
+      zlotowki: fmt(Math.round(godzinyOszcz * 60 / 1000) * 1000),
+      faq: FAQ.map((f, i) => ({
+        q: f.q, a: f.a,
+        otwarte: this.state.otwarte === i,
+        znak: this.state.otwarte === i ? "−" : "+",
+        toggle: () => this.setState((s) => ({ otwarte: s.otwarte === i ? -1 : i })),
+      })),
+    };
+  }
+}
+</script>
+</body>
+</html>

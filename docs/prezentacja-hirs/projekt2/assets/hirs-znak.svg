@@ -1,0 +1,11 @@
+<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="HiRS">
+  <defs>
+    
+    <linearGradient id="tlo-hirs" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2448c8"></stop>
+      <stop offset="1" stop-color="#09afaf"></stop>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="16" ry="16" fill="url(#tlo-hirs)"></rect>
+  <path fill="#fff" d="M51.5 24h25v27.5H104v25H76.5V104h-25V76.5H24v-25h27.5z"></path>
+</svg>
