@@ -5,6 +5,7 @@
       "date": "2026-08-24",
       "title": "Sortowanie listy plikow klikniekiem w naglowek",
       "changes": [
+        "Kategorie ukladaja sie polskim alfabetem — Zalacznik przed Zarzadzeniem, a nie odwrotnie.",
         "Naglowki tabeli z plikami sa teraz klikalne: Typ, Nazwa, Rozmiar, Kategoria i Data dodania. Kolejne klikniecie w te sama kolumne odwraca kolejnosc, a strzalka przy naglowku pokazuje, wedlug czego lista jest ulozona.",
         "Rozmiar i data zaczynaja od najwiekszych i najnowszych, bo tego zwykle sie szuka. Pliki bez rozmiaru i bez rozpoznanej kategorii trafiaja zawsze na koniec listy, niezaleznie od kierunku sortowania.",
         "Kolejnosc ustala baza dla calego folderu, a nie przegladarka dla widocznej strony — przy folderze wiekszym niz jedna strona sortowanie obejmuje wszystkie pliki."

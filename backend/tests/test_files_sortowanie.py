@@ -128,3 +128,11 @@ class TestKolacji:
         assert schema_upgrade.NAME_COLLATION in order_by(db, "name")
         # Także jako drugi klucz — inaczej remisy układałyby się bajtami.
         assert schema_upgrade.NAME_COLLATION in order_by(db, "size")
+
+    def test_kategoria_tez_po_polsku(self, db):
+        """Nazwy kategorii są polskie, więc bajtowo „Załącznik" wypada PO
+        „Zarządzeniu" (`ł` jest dwubajtowe) — odwrotnie niż w alfabecie.
+        Zmierzone na danych ZCO, zanim kolacja objęła ten klucz."""
+        schema_upgrade._collation_ready = True
+        klucz_glowny = order_by(db, "category").split("NULLS LAST")[0]
+        assert schema_upgrade.NAME_COLLATION in klucz_glowny

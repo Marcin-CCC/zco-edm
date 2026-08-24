@@ -265,9 +265,16 @@ def apply_sort(query, sort_by: str, order: str, db: Session):
     """
     postgres = db.bind is not None and db.bind.dialect.name == "postgresql"
 
-    nazwa = FileModel.filename
-    if name_collation_available():
-        nazwa = nazwa.collate(NAME_COLLATION)
+    def po_polsku(wyrazenie):
+        """Kolacja polska dla klucza TEKSTOWEGO — bez niej baza sortuje bajtami.
+
+        Dotyczy tak samo nazw plików, jak i nazw kategorii: `ł` jest w UTF-8
+        dwubajtowe, więc bajtowo „Załącznik" wypada PO „Zarządzeniu", odwrotnie
+        niż w polskim alfabecie (zmierzone na danych ZCO).
+        """
+        return wyrazenie.collate(NAME_COLLATION) if name_collation_available() else wyrazenie
+
+    nazwa = po_polsku(FileModel.filename)
 
     if sort_by == "size":
         klucz = FileModel.size
@@ -288,10 +295,10 @@ def apply_sort(query, sort_by: str, order: str, db: Session):
         query = query.outerjoin(DocTypeSchema, DocTypeSchema.slug == slug)
         # „inny" znaczy to samo co brak kategorii — tabela pokazuje wtedy
         # „nierozpoznana", więc i przy sortowaniu ma być pustką.
-        klucz = case(
+        klucz = po_polsku(case(
             (func.nullif(slug, "inny").is_(None), None),
             else_=func.coalesce(DocTypeSchema.name, slug),
-        )
+        ))
     else:
         klucz = nazwa
 
