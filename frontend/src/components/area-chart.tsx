@@ -25,7 +25,7 @@ interface Props {
   color: string;
   /** Nazwa mierzonej wielkości, używana w dymku (np. „sparsowanych plików"). */
   unitLabel: string;
-  emptyText?: string;
+  emptyText: string;
 }
 
 const WYS = 155;      // wysokość pola danych
@@ -53,7 +53,7 @@ function gornaGranica(max: number): number {
   return 10 * rzad;
 }
 
-export function AreaChart({ data, color, unitLabel, emptyText = 'Brak danych z tego okresu' }: Props) {
+export function AreaChart({ data, color, unitLabel, emptyText }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const [szerokosc, setSzerokosc] = useState(0);
   const [hover, setHover] = useState<number | null>(null);

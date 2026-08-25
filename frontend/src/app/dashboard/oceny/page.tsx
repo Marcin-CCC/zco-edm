@@ -265,7 +265,7 @@ export default function OcenyPage() {
         ? `/api/chat/oceny?tylko_negatywne=${tylkoNegatywne}${osoba}${zakres}`
         : `/api/chat/rejestr?tylko_ocenione=${tylkoOcenione}${osoba}${zakres}`;
       const res = await fetch(url, { headers: authHeaders() });
-      if (!res.ok) throw new Error(res.status === 403 ? 'Tylko dla administratora.' : t('errStatus', { status: res.status }));
+      if (!res.ok) throw new Error(res.status === 403 ? t('errAdminOnly') : t('errStatus', { status: res.status }));
       const d = await res.json();
       if (widok === 'oceny') {
         setOceny(d.oceny || []);

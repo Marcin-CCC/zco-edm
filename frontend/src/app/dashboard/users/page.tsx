@@ -195,7 +195,7 @@ export default function UsersPage() {
             <div className="flex justify-end gap-2 md:col-span-2">
               <Button type="button" onClick={resetForm}>{tWspolne('cancel')}</Button>
               <Button type="submit" variant="primary">
-                {editingId ? 'Zapisz zmiany' : 'Dodaj'}
+                {editingId ? t('saveChanges') : tWspolne('add')}
               </Button>
             </div>
           </form>

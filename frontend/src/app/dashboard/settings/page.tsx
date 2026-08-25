@@ -52,6 +52,7 @@ const PROBKI = ['#ffffff', '#1fc8ba', '#7cc4ff', '#ffd166', '#b9c6da'];
 
 export default function SettingsPage() {
   const t = useTranslations('settings');
+  const tWspolne = useTranslations('common');
   const marka = useMarka();
   const [dane, setDane] = useState<any>(null);
   const [form, setForm] = useState({
@@ -115,7 +116,7 @@ export default function SettingsPage() {
         if (String(wartosc).trim() === '') continue;
         await settingsApi.updateKey(klucz, wartosc);
       }
-      setKomunikat('Ustawienia zapisane.');
+      setKomunikat(t('saved'));
       await wczytaj();
     } catch (e: unknown) {
       setBlad(e instanceof Error ? e.message : t('errSave'));
@@ -341,7 +342,7 @@ export default function SettingsPage() {
           {t('discard')}
         </Button>
         <Button variant="primary" onClick={zapisz} disabled={saving}>
-          {saving ? 'Zapisywanie…' : 'Zapisz ustawienia'}
+          {saving ? tWspolne('saving') : t('saveButton')}
         </Button>
       </div>
     </div>

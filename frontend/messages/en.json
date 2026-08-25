@@ -30,6 +30,7 @@
     "emptyNoneRated": "None of the questions has been rated yet.",
     "emptyRatings": "No ratings yet.",
     "emptyRatingsHint": "Ratings will appear once people start rating answers in the AI chat.",
+    "errAdminOnly": "Administrators only.",
     "errFetch": "Download error ({status})",
     "errLoad": "Could not load the data.",
     "errOpenDocument": "Could not open the document.",
@@ -109,6 +110,7 @@
     "opGte": "from",
     "opLt": "before",
     "opLte": "to",
+    "recognisedTypes": "Recognised types: {types}.",
     "sampleShowType": "Show documents of type {name}",
     "searchCardAction": "Go to search ›",
     "searchCardHint": "Build a query over metadata fields and search the documents.",
@@ -118,7 +120,7 @@
     "stop": "Stop",
     "stopTitle": "Stop generating the answer",
     "title": "AI chat",
-    "unknownType": "_There is no document type „{type}\" in the system. ",
+    "unknownType": "_There is no document type “{type}” in the system. ",
     "usedMany": "Documents used in the answer",
     "usedOne": "Document used in the answer",
     "waitNewTopic": "New topic in this conversation — checking the question on its own…",
@@ -134,6 +136,7 @@
     "delete": "Delete",
     "errXlsx": "Could not prepare the spreadsheet ({status}).",
     "loading": "Loading…",
+    "noDataInPeriod": "No data for this period",
     "openDocument": "Open document",
     "reorderHint": "Drag to reorder (↑ ↓ arrow keys work too)",
     "reorderItem": "Reorder item {nr}",
@@ -390,12 +393,12 @@
     "translating": "Translating…"
   },
   "login": {
-    "title": "Sign in",
     "email": "E-mail address",
+    "error": "Sign-in failed",
     "password": "Password",
     "submit": "Sign in",
     "submitting": "Signing in…",
-    "error": "Sign-in failed"
+    "title": "Sign in"
   },
   "nav": {
     "accessList": "Access list",
@@ -543,7 +546,7 @@
     "colPattern": "Name pattern",
     "colStatus": "Status",
     "colType": "Type",
-    "confirmDelete": "Delete schema „{slug}\"?",
+    "confirmDelete": "Delete schema “{slug}”?",
     "criteriaLabel": "Classification criteria (optional)",
     "criteriaPlaceholder": "How to recognise this document type (hints for the classifier).",
     "deleteField": "Delete field",
@@ -561,6 +564,8 @@
     "fieldNamePlaceholder": "field name (e.g. date)",
     "fieldsHeading": "Header fields",
     "fieldsOrderHint": "the order (drag by the handle) sets the column layout in the spreadsheet",
+    "formEdit": "Edit schema: {slug}",
+    "formNew": "New schema",
     "inactive": "Inactive",
     "loading": "Loading…",
     "nameLabel": "Name",
@@ -591,7 +596,7 @@
     "docsCount": "{count, plural, one {# document} other {# documents}}",
     "errDownload": "Download error ({status})",
     "errNlp": "Could not understand the query",
-    "errOpenNamed": "Could not open „{filename}\".",
+    "errOpenNamed": "Could not open “{filename}”.",
     "errSearch": "Search error",
     "errXlsx": "Could not download the spreadsheet.",
     "fieldPlaceholder": "field",
@@ -607,10 +612,11 @@
     "pageDescription": "Build a query over metadata fields and search the documents.",
     "pageTitle": "Search",
     "recognisedHint": "The recognised query fills the filter below — you can correct it and search again.",
+    "recognisedTypes": "Recognised types: {types}.",
     "removeCondition": "Remove condition",
     "setCriteria": "Set the criteria and click “Search”.",
     "title": "Field search",
-    "unknownType": "There is no document type „{type}\" in the system. ",
+    "unknownType": "There is no document type “{type}” in the system. ",
     "valuePlaceholder": "value",
     "xlsxDownload": "Download this list as XLSX",
     "xlsxPreparing": "Preparing the spreadsheet…"
@@ -638,7 +644,7 @@
     "loading": "Loading…",
     "mail": "Outgoing mail",
     "mailFrom": "Sender address",
-    "mailHint": "Used by the “Contact support” screen",
+    "mailHint": "Used by the “Contact support” screen.",
     "mailSupport": "Support address (receives requests)",
     "nameColor": "Name colour",
     "nameColorHint": "Colour of the text on the dark menu background — pick one that stays readable.",
@@ -646,6 +652,8 @@
     "pickFile": "Choose file",
     "preview": "Preview",
     "restoreDefault": "Restore default",
+    "saveButton": "Save settings",
+    "saved": "Settings saved.",
     "smtpHost": "SMTP server",
     "smtpPassword": "Password",
     "smtpPasswordSet": "The password is saved. Leave empty to keep it.",
@@ -656,11 +664,11 @@
     "title": "Application settings"
   },
   "shell": {
-    "openMenu": "Open menu",
-    "profile": "Profile",
-    "manual": "User manual",
+    "language": "Interface language",
     "logout": "Sign out",
-    "language": "Interface language"
+    "manual": "User manual",
+    "openMenu": "Open menu",
+    "profile": "Profile"
   },
   "sidebar": {
     "admin": "Administration",
@@ -695,6 +703,7 @@
     "loading": "Loading…",
     "password": "Password",
     "passwordHint": "Leave empty to keep the current one.",
+    "saveChanges": "Save changes",
     "title": "Users"
   }
 }

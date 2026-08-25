@@ -118,7 +118,7 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
       if (res.unknown_type) {
         setError(
           t('unknownType', { type: res.unknown_type }) +
-          `Rozpoznawane rodzaje: ${(res.known_types || []).join(', ')}.`
+          t('recognisedTypes', { types: (res.known_types || []).join(', ') })
         );
       }
     } catch (e: any) {

@@ -30,6 +30,7 @@
     "emptyNoneRated": "Żadne z pytań nie zostało jeszcze ocenione.",
     "emptyRatings": "Nie ma jeszcze żadnych ocen.",
     "emptyRatingsHint": "Oceny pojawią się, gdy użytkownicy zaczną oceniać odpowiedzi w Chacie z AI.",
+    "errAdminOnly": "Tylko dla administratora.",
     "errFetch": "Błąd pobierania ({status})",
     "errLoad": "Nie udało się wczytać danych.",
     "errOpenDocument": "Nie udało się otworzyć dokumentu.",
@@ -109,6 +110,7 @@
     "opGte": "od",
     "opLt": "przed",
     "opLte": "do",
+    "recognisedTypes": "Rozpoznawane rodzaje: {types}.",
     "sampleShowType": "Pokaż dokumenty typu {name}",
     "searchCardAction": "Przejdź do wyszukiwania ›",
     "searchCardHint": "Zbuduj zapytanie po polach metadanych i przeszukaj dokumenty.",
@@ -118,7 +120,7 @@
     "stop": "Zatrzymaj",
     "stopTitle": "Przerwij generowanie odpowiedzi",
     "title": "Chat z AI",
-    "unknownType": "_W systemie nie ma rodzaju dokumentów „{type}\". ",
+    "unknownType": "_W systemie nie ma rodzaju dokumentów „{type}”. ",
     "usedMany": "Dokumenty użyte w odpowiedzi",
     "usedOne": "Dokument użyty w odpowiedzi",
     "waitNewTopic": "Nowy temat w tej rozmowie — sprawdzam samo pytanie…",
@@ -134,6 +136,7 @@
     "delete": "Usuń",
     "errXlsx": "Nie udało się przygotować arkusza ({status}).",
     "loading": "Ładowanie…",
+    "noDataInPeriod": "Brak danych z tego okresu",
     "openDocument": "Otwórz dokument",
     "reorderHint": "Przeciągnij, aby zmienić kolejność (strzałki ↑ ↓ z klawiatury)",
     "reorderItem": "Zmień kolejność pozycji {nr}",
@@ -390,12 +393,12 @@
     "translating": "Tłumaczę…"
   },
   "login": {
-    "title": "Zaloguj się",
     "email": "Adres e-mail",
+    "error": "Błąd logowania",
     "password": "Hasło",
     "submit": "Zaloguj się",
     "submitting": "Logowanie…",
-    "error": "Błąd logowania"
+    "title": "Zaloguj się"
   },
   "nav": {
     "accessList": "Lista dostępów",
@@ -543,7 +546,7 @@
     "colPattern": "Wzorzec nazwy",
     "colStatus": "Status",
     "colType": "Typ",
-    "confirmDelete": "Czy na pewno usunąć schemat „{slug}\"?",
+    "confirmDelete": "Czy na pewno usunąć schemat „{slug}”?",
     "criteriaLabel": "Kryteria klasyfikacji (opcjonalnie)",
     "criteriaPlaceholder": "Jak rozpoznać ten typ dokumentu (wskazówki dla klasyfikatora).",
     "deleteField": "Usuń pole",
@@ -561,6 +564,8 @@
     "fieldNamePlaceholder": "nazwa pola (np. data)",
     "fieldsHeading": "Pola nagłówkowe",
     "fieldsOrderHint": "kolejność (przeciąganie za uchwyt) wyznacza układ kolumn w arkuszu",
+    "formEdit": "Edytuj schemat: {slug}",
+    "formNew": "Nowy schemat",
     "inactive": "Nieaktywny",
     "loading": "Ładowanie…",
     "nameLabel": "Nazwa",
@@ -591,7 +596,7 @@
     "docsCount": "{count, plural, one {# dokument} few {# dokumenty} other {# dokumentów}}",
     "errDownload": "Błąd pobierania ({status})",
     "errNlp": "Nie udało się zrozumieć zapytania",
-    "errOpenNamed": "Nie udało się otworzyć „{filename}\".",
+    "errOpenNamed": "Nie udało się otworzyć „{filename}”.",
     "errSearch": "Błąd wyszukiwania",
     "errXlsx": "Nie udało się pobrać arkusza.",
     "fieldPlaceholder": "pole",
@@ -607,10 +612,11 @@
     "pageDescription": "Zbuduj zapytanie po polach metadanych i przeszukaj dokumenty.",
     "pageTitle": "Wyszukiwanie",
     "recognisedHint": "Rozpoznane zapytanie wypełni filtr poniżej — możesz go poprawić i wyszukać ponownie.",
+    "recognisedTypes": "Rozpoznawane rodzaje: {types}.",
     "removeCondition": "Usuń warunek",
     "setCriteria": "Ustaw kryteria i kliknij „Szukaj”.",
     "title": "Wyszukiwarka po polach",
-    "unknownType": "W systemie nie ma rodzaju dokumentów „{type}\". ",
+    "unknownType": "W systemie nie ma rodzaju dokumentów „{type}”. ",
     "valuePlaceholder": "wartość",
     "xlsxDownload": "Pobierz tę listę w pliku XLSX",
     "xlsxPreparing": "Przygotowuję arkusz…"
@@ -646,6 +652,8 @@
     "pickFile": "Wybierz plik",
     "preview": "Podgląd",
     "restoreDefault": "Przywróć domyślną",
+    "saveButton": "Zapisz ustawienia",
+    "saved": "Ustawienia zapisane.",
     "smtpHost": "Serwer SMTP",
     "smtpPassword": "Hasło",
     "smtpPasswordSet": "Hasło jest zapisane. Puste pole = bez zmiany.",
@@ -656,11 +664,11 @@
     "title": "Ustawienia aplikacji"
   },
   "shell": {
-    "openMenu": "Otwórz menu",
-    "profile": "Profil",
-    "manual": "Instrukcja",
+    "language": "Język interfejsu",
     "logout": "Wyloguj",
-    "language": "Język interfejsu"
+    "manual": "Instrukcja",
+    "openMenu": "Otwórz menu",
+    "profile": "Profil"
   },
   "sidebar": {
     "admin": "Administracja",
@@ -695,6 +703,7 @@
     "loading": "Ładowanie…",
     "password": "Hasło",
     "passwordHint": "Zostaw puste, by nie zmieniać.",
+    "saveChanges": "Zapisz zmiany",
     "title": "Użytkownicy"
   }
 }

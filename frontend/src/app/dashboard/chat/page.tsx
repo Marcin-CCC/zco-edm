@@ -587,7 +587,7 @@ export default function ChatPage() {
         // takiego rodzaju nie zna), a nie zapowiedź odpowiedzi — ta zostaje.
         const notice = rejestr.listRes.unknown_type
           ? t('unknownType', { type: rejestr.listRes.unknown_type }) +
-            `Rozpoznawane rodzaje: ${(rejestr.listRes.known_types || []).join(', ')}._\n\n`
+            t('recognisedTypes', { types: (rejestr.listRes.known_types || []).join(', ') }) + '_\n\n'
           : '';
         assistantText = notice;
         prefiks = notice;

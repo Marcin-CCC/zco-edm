@@ -185,7 +185,7 @@ export default function DocSchemasPage() {
       {showForm && (
         <Card className="mb-5 p-[18px]">
           <h2 className="mb-4 text-base font-bold text-app-text">
-            {editingSlug ? `Edytuj schemat: ${editingSlug}` : 'Nowy schemat'}
+            {editingSlug ? t('formEdit', { slug: editingSlug }) : t('formNew')}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

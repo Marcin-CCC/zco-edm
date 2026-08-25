@@ -1,6 +1,19 @@
 {
   "entries": [
     {
+      "version": "1.5.34",
+      "date": "2026-08-25",
+      "title": "Przeglad jakosci tlumaczen",
+      "changes": [
+        "Poprawione dwa komunikaty, ktore mowily cos przeciwnego niz polski oryginal: opis uprawnien do folderu w czeskim i ukrainskim kierowal do BIEZACEGO folderu zamiast do nadrzednego, a ukrainska podpowiedz przy zmianie nazw kazala pozycje zaznaczyc zamiast odznaczyc.",
+        "Pytanie „przerwac przetwarzanie i wyslac plik od nowa?” bylo uciete we wszystkich czterech nowych jezykach — zostawalo samo zdanie opisowe, bez pytania. W niemieckim doszlo do tego „juz przetworzony” zamiast „przetwarzany”.",
+        "Poprawiona gramatyka i spojnosc: rejestr grzecznosciowy (niemieckie du/Sie, hiszpanskie tu/usted), przypadki, mieszanie slow „folder” i „katalog” w jednym zdaniu.",
+        "Nazwa triggera n8n „When chat message received” zostaje po angielsku takze w hiszpanskim i ukrainskim — administrator musi ja znalezc w n8n, wiec przetlumaczona byla bezuzyteczna.",
+        "Domkniete napisy, ktore przeszly przez wczesniejsze sita, bo nie zawieraja polskich znakow diakrytycznych: „Rozpoznawane rodzaje”, „Zapisz zmiany”, „Ustawienia zapisane”, „Brak danych z tego okresu”.",
+        "Tlumaczenia dla czterech nowych jezykow nadal warto dac do przejrzenia osobie znajacej jezyk — sprawdzono to, co da sie sprawdzic bez native speakera."
+      ]
+    },
+    {
       "version": "1.5.33",
       "date": "2026-08-25",
       "title": "Wszystkie szesc jezykow kompletne",
