@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "1.5.20",
+      "date": "2026-08-25",
+      "title": "Licznik plikow w folderze obejmuje podfoldery",
+      "changes": [
+        "Liczba przy folderze pokazuje teraz wszystkie dokumenty z jego galezi, na dowolna glebokosc. Wczesniej liczyla tylko pliki lezace bezposrednio w folderze, wiec folder porzadkujacy — majacy w srodku same podfoldery — pokazywal „0 plikow” i zniechecal do wejscia glebiej.",
+        "Gdy w samym folderze nie ma nic, podpis mowi o tym wprost („12 plikow w podfolderach”), a przy folderze majacym i swoje, i zagniezdzone, podpowiedz pod kursorem podaje, ile lezy bezposrednio w nim.",
+        "Suma obejmuje wylacznie foldery widoczne dla zalogowanej osoby — licznik nie zdradza, ile dokumentow lezy w galezi, do ktorej nie ma dostepu."
+      ]
+    },
+    {
       "version": "1.5.19",
       "date": "2026-08-25",
       "title": "Import materialow od dostawcow (pliki Markdown) z PDF-em dla czytelnika",

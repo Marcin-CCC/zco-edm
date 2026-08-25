@@ -44,7 +44,10 @@ interface Folder {
   path: string;
   parent_id: number | null;
   can_write?: boolean;
+  /** Razem z podfolderami, na dowolną głębokość. */
   file_count?: number;
+  /** Ile z tego leży bezpośrednio w tym folderze. */
+  direct_file_count?: number;
   children?: Folder[];
 }
 
@@ -630,6 +633,23 @@ function FilesPageInner() {
       .catch(() => { /* brak słownika = pokażemy slug */ });
   }, []);
 
+  /** Podpis z liczbą dokumentów w folderze.
+   *
+   *  Liczba jest sumą Z PODFOLDERAMI. Gdy w samym folderze nie ma nic, mówimy o tym
+   *  wprost — inaczej kafelek obiecuje „42 pliki", a po wejściu wita „Brak plików
+   *  w tym folderze" i wygląda to na usterkę.
+   */
+  const opisLiczbyPlikow = useCallback((f: Folder) => {
+    const razem = f.file_count ?? 0;
+    const wlasne = f.direct_file_count ?? razem;
+    const etykieta = `${razem} ${odmianaPlikow(razem)}`;
+    if (razem > 0 && wlasne === 0) return { tekst: `${etykieta} w podfolderach`, tytul: undefined };
+    if (razem > wlasne) {
+      return { tekst: etykieta, tytul: `w tym ${wlasne} bezpośrednio w tym folderze` };
+    }
+    return { tekst: etykieta, tytul: undefined };
+  }, []);
+
   const czyZewnetrzny = useCallback(
     (slug: string | null | undefined) => !!slug && zewnetrzne.has(slug),
     [zewnetrzne],
@@ -808,8 +828,11 @@ function FilesPageInner() {
                         // powtarzanie jej pod spodem nic nie wnosi.
                         <span className="mt-0.5 block break-words text-[11px] text-app-muted">{folder.path}</span>
                       )}
-                      <span className="mt-1 block text-[11px] text-app-muted">
-                        {folder.file_count ?? 0} {odmianaPlikow(folder.file_count ?? 0)}
+                      <span
+                        className="mt-1 block text-[11px] text-app-muted"
+                        title={opisLiczbyPlikow(folder).tytul}
+                      >
+                        {opisLiczbyPlikow(folder).tekst}
                       </span>
                     </span>
                   </button>
@@ -859,8 +882,9 @@ function FilesPageInner() {
                       {currentFolderId !== null && (
                         <Td className="break-words text-app-muted">{folder.path}</Td>
                       )}
-                      <Td className="whitespace-nowrap text-app-muted">
-                        {folder.file_count ?? 0} {odmianaPlikow(folder.file_count ?? 0)}
+                      <Td className="whitespace-nowrap text-app-muted"
+                          title={opisLiczbyPlikow(folder).tytul}>
+                        {opisLiczbyPlikow(folder).tekst}
                       </Td>
                       <Td onClick={(e) => e.stopPropagation()}>
                         {isAdmin && (

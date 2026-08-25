@@ -133,7 +133,12 @@ class FolderResponse(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     can_write: bool = False  # czy bieżący użytkownik ma prawo Zapis w tym folderze
-    file_count: int = 0  # liczba plików bezpośrednio w tym folderze
+    # Liczba plików w folderze RAZEM Z PODFOLDERAMI, na dowolną głębokość.
+    # Tak czyta ją człowiek patrzący na kafelek: „ile tu jest dokumentów”.
+    file_count: int = 0
+    # Ile z tego leży bezpośrednio w tym folderze — do wyjaśnienia różnicy
+    # w podpowiedzi, gdy wszystko siedzi w podfolderach.
+    direct_file_count: int = 0
 
     model_config = {"from_attributes": True}
 

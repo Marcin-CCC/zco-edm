@@ -30,6 +30,14 @@ def build_folder_tree(
     ``writable`` = zbiór id folderów zapisywalnych dla bieżącego użytkownika
     (``None`` = admin → zapis wszędzie).
     ``file_counts`` = mapa folder_id → liczba plików bezpośrednio w folderze.
+    Zwracane ``file_count`` jest SUMĄ Z PODFOLDERAMI, na dowolną głębokość:
+    folder pokazujący „0 plików", w którego gałęzi leży kilkadziesiąt dokumentów,
+    zniechęcał do wejścia głębiej. Sumujemy po zbudowanych już dzieciach, więc
+    kosztuje to jedno przejście po drzewie, a nie dodatkowe zapytania do bazy.
+
+    Podliczamy WYŁĄCZNIE foldery, które trafiły do drzewa, a te są już zawężone
+    do czytelnych dla użytkownika (``allowed_ids``). Dzięki temu suma nie zdradza,
+    ile dokumentów leży w gałęzi, do której ktoś nie ma dostępu.
     ``allowed_ids`` = zbiór id folderów widocznych dla użytkownika (``None`` =
     admin). Gdy rodzic folderu NIE jest w tym zbiorze, folder jest przenoszony na
     najwyższy poziom (efektywny rodzic = None), by nie pokazywać niedostępnego
@@ -43,6 +51,8 @@ def build_folder_tree(
             eff_parent = None  # rodzic niewidoczny → traktuj jako folder najwyższego poziomu
         if eff_parent == parent_id:
             children = build_folder_tree(folders, folder.id, writable, file_counts, allowed_ids)
+            # Dzieci mają już sumy ze swoich gałęzi, więc wystarczy je dodać.
+            wlasne = file_counts.get(folder.id, 0)
             tree.append(FolderTreeResponse(
                 id=folder.id,
                 name=folder.name,
@@ -53,7 +63,8 @@ def build_folder_tree(
                 created_at=folder.created_at,
                 updated_at=folder.updated_at,
                 can_write=(writable is None) or (folder.id in writable),
-                file_count=file_counts.get(folder.id, 0),
+                file_count=wlasne + sum(c.file_count for c in children),
+                direct_file_count=wlasne,
                 children=children,
             ))
     return tree
