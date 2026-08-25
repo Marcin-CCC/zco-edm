@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.5.25",
+      "date": "2026-08-25",
+      "title": "Nowe jezyki daja sie wybrac",
+      "changes": [
+        "Czeski, ukrainski, hiszpanski i niemiecki pojawily sie w przelaczniku. Po wydaniu 1.5.24 byly juz w aplikacji, ale konfiguracja wdrozenia niosla starsza liste dwoch jezykow i przycinala wybor do polskiego i angielskiego.",
+        "Lista wlaczonych jezykow nie jest juz powtarzana w konfiguracji. Wdrozenie, ktore ma pozostac jednojezyczne, wpisuje swoja liste samo — a domyslnie dostepne jest wszystko, co niesie aplikacja."
+      ]
+    },
+    {
       "version": "1.5.24",
       "date": "2026-08-25",
       "title": "Szesc jezykow interfejsu i poprawiony krój pisma",
