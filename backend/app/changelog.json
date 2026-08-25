@@ -1,6 +1,19 @@
 {
   "entries": [
     {
+      "version": "1.6.1",
+      "date": "2026-08-25",
+      "title": "Instrukcje obslugi w szesciu jezykach",
+      "changes": [
+        "Instrukcja administratora i instrukcja uzytkownika sa dostepne we wszystkich szesciu jezykach interfejsu. Ekran Pomoc podaje wydanie zgodne z jezykiem, ktory ma wlaczony uzytkownik — razem 24 dokumenty na dwa wdrozenia.",
+        "Tlumaczenie wykonane recznie, nie modelem z serwera. Nazwy ekranow i przyciskow w instrukcji sa dokladnie te, ktore widac w interfejsie w danym jezyku — sprawdzone wobec katalogow tlumaczen, a nie napisane na nowo.",
+        "Zrzuty ekranu pozostaja polskie. Sa te same we wszystkich wydaniach; ich powtorzenie w szesciu jezykach wymaga osobnego przebiegu na produkcji dla kazdego jezyka.",
+        "Poziomy dostepu do folderow („Odczyt”, „Zapis”) byly zaszyte po polsku i nie tlumaczyly sie wcale. Poprawione.",
+        "Ujednolicone nazwy ekranow: pozycja menu i tytul strony mowily w czterech nowych jezykach dwie rozne rzeczy o tym samym ekranie (np. „Přehled” w menu, „Dashboard” w tytule). Podobnie nazwa katalogu glownego w oknie uprawnien.",
+        "Instrukcje powstaja teraz wprost w katalogu aplikacji, a zrzuty leza obok plikow zamiast w kazdym z nich. Bez tego szesc jezykow zajeloby 180 MB w repozytorium zamiast 88 MB."
+      ]
+    },
+    {
       "version": "1.6.0",
       "date": "2026-08-25",
       "title": "Szesc jezykow interfejsu",

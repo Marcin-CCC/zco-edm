@@ -1,3 +1,9 @@
 zrzuty/
 .edge-*/
 .shots-*.json
+
+# Gotowe instrukcje powstaja wprost w `frontend/public/pomoc/` i tam sa
+# wersjonowane. Do 1.6.0 lezaly w dwoch kopiach — tu i tam — czyli 60 MB
+# tego samego w repozytorium. Przy szesciu jezykach byloby 180 MB.
+*.html
+*.pdf

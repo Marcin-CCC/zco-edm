@@ -6,8 +6,10 @@ kilkanaście megabajtów, a instrukcja otwiera się w aplikacji w ramce — czek
 kilku sekund na obrazki jest tam odczuwalne.
 
 Dwa kroki, oba bezpieczne dla czytelności:
-  * zmniejszenie do 2000 px szerokości — nadal około 170 dpi na szerokość kolumny
-    w druku, czyli więcej, niż potrzebuje tekst zrzutu,
+  * zmniejszenie do 1600 px szerokości — zrzut powstaje przy 1600 CSS px w gęstości
+    2x, więc 1600 px to dokładnie skala 1:1 dla liter interfejsu. Niżej zaczynają
+    mięknąć, wyżej rośnie tylko plik: kolumna druku ma 160 mm, czyli 254 dpi.
+    (Do 1.6.0 było 2000 px — 317 dpi i 4,7 MB na wdrożenie zamiast 3,4 MB.)
   * paleta 256 kolorów — zrzut interfejsu to płaskie plamy barwne i kilka
     gradientów; z ditheringiem różnicy nie widać, a plik chudnie kilkukrotnie.
 
@@ -19,7 +21,7 @@ import sys
 
 from PIL import Image
 
-MAKS_SZEROKOSC = 2000
+MAKS_SZEROKOSC = 1600
 KATALOG = os.path.dirname(os.path.abspath(__file__))
 
 

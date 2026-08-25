@@ -13,17 +13,23 @@ wydania administratora, uNN-*.png dla wydania użytkownika.
 """
 import base64
 import html
+import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 import time
 
-WERSJA = "1.5.11"
-DATA = "17 sierpnia 2026"
+WERSJA = "1.6.0"
 WYKONAWCA = "Polmedi Group sp. z o.o., Poznań"
 KATALOG = os.path.dirname(os.path.abspath(__file__))
 EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+
+# Katalog aplikacji — instrukcje powstają OD RAZU tam, skąd czyta je ekran Pomoc.
+# Wcześniej leżały w dwóch miejscach (tu i w `public/pomoc/`) i trzeba je było
+# kopiować ręcznie; przy sześciu językach byłoby to 48 plików do przenoszenia.
+PUBLIC = os.path.abspath(os.path.join(KATALOG, "..", "..", "frontend", "public", "pomoc"))
 
 # --------------------------------------------------------------- wdrożenia
 #
@@ -58,6 +64,163 @@ WDROZENIA = {
 # Bieżące wdrożenie — ustawiane w main() z argumentu wywołania. Rozdziały czytają
 # je przez W["..."], więc nie ma w treści ani jednej nazwy wpisanej na sztywno.
 W = WDROZENIA["zco"]
+
+# --------------------------------------------------------------- języki
+#
+# Rozdziały są napisane po polsku i pozostają jedynym źródłem treści. Tłumaczenia
+# leżą w `tlumaczenia/<jezyk>.json` — słownik „polskie zdanie -> zdanie obce".
+# Klucz jest CAŁYM polskim zdaniem, nie identyfikatorem: poprawka polskiego tekstu
+# ma świadomie odciąć nieaktualne tłumaczenie i pokazać zdanie po polsku, zamiast
+# zostawić w obcym wydaniu zdanie mówiące coś innego niż oryginał.
+#
+# Nazwy wdrożenia NIE mogą wejść do klucza — inaczej ten sam akapit miałby osobne
+# tłumaczenie dla ZCO i dla HiRS. Dlatego dokument składamy ze ZNACZNIKAMI
+# (⟦NAZWA⟧, ⟦PELNA⟧…), a prawdziwe nazwy wstawiamy dopiero w gotowy HTML.
+JEZYKI = ["pl", "en", "cs", "de", "es", "uk"]
+JEZYK = "pl"
+
+ZNACZNIKI = {
+    "nazwa": "⟦NAZWA⟧",
+    "pelna": "⟦PELNA⟧",
+    "odbiorca": "⟦ODBIORCA⟧",
+    "wlasciciel": "⟦WLASCICIEL⟧",
+    "plik": "⟦PLIK⟧",
+    "zrodlo_zrzutow": "⟦ZRODLO⟧",
+}
+
+# Napisy szkieletu dokumentu: okładka, spis treści, etykiety ramek. Trzymamy je
+# osobno od treści rozdziałów, bo pojawiają się w każdym dokumencie i nie zmieniają
+# się razem z opisami ekranów.
+SZKIELET = {
+    "pl": {"instrukcja": "Instrukcja obsługi", "admin": "wydanie dla administratora",
+           "user": "wydanie dla użytkownika", "odbiorca": "Odbiorca", "wykonawca": "Wykonawca",
+           "wersja": "Wersja aplikacji", "data": "Data wydania", "wewnetrzny": "Dokument wewnętrzny.",
+           "spis": "Spis treści", "rozdzial": "Rozdział", "do_gory": "↑ Spis treści",
+           "wskazowka": "Wskazówka", "uwaga": "Uwaga"},
+    "en": {"instrukcja": "User guide", "admin": "administrator edition",
+           "user": "user edition", "odbiorca": "For", "wykonawca": "Prepared by",
+           "wersja": "Application version", "data": "Issue date", "wewnetrzny": "Internal document.",
+           "spis": "Contents", "rozdzial": "Chapter", "do_gory": "↑ Contents",
+           "wskazowka": "Tip", "uwaga": "Note"},
+    "cs": {"instrukcja": "Návod k obsluze", "admin": "vydání pro správce",
+           "user": "vydání pro uživatele", "odbiorca": "Pro", "wykonawca": "Zpracoval",
+           "wersja": "Verze aplikace", "data": "Datum vydání", "wewnetrzny": "Interní dokument.",
+           "spis": "Obsah", "rozdzial": "Kapitola", "do_gory": "↑ Obsah",
+           "wskazowka": "Tip", "uwaga": "Upozornění"},
+    "de": {"instrukcja": "Bedienungsanleitung", "admin": "Ausgabe für Administratoren",
+           "user": "Ausgabe für Benutzer", "odbiorca": "Für", "wykonawca": "Erstellt von",
+           "wersja": "Anwendungsversion", "data": "Ausgabedatum", "wewnetrzny": "Internes Dokument.",
+           "spis": "Inhalt", "rozdzial": "Kapitel", "do_gory": "↑ Inhalt",
+           "wskazowka": "Tipp", "uwaga": "Hinweis"},
+    "es": {"instrukcja": "Manual de uso", "admin": "edición para administradores",
+           "user": "edición para usuarios", "odbiorca": "Para", "wykonawca": "Elaborado por",
+           "wersja": "Versión de la aplicación", "data": "Fecha de edición",
+           "wewnetrzny": "Documento interno.", "spis": "Índice", "rozdzial": "Capítulo",
+           "do_gory": "↑ Índice", "wskazowka": "Consejo", "uwaga": "Atención"},
+    "uk": {"instrukcja": "Посібник користувача", "admin": "видання для адміністратора",
+           "user": "видання для користувача", "odbiorca": "Для", "wykonawca": "Підготував",
+           "wersja": "Версія застосунку", "data": "Дата видання", "wewnetrzny": "Внутрішній документ.",
+           "spis": "Зміст", "rozdzial": "Розділ", "do_gory": "↑ Зміст",
+           "wskazowka": "Порада", "uwaga": "Увага"},
+}
+
+# Data wydania po polsku jest zapisana słownie („25 sierpnia 2026"), a nazwy
+# miesięcy się odmieniają — w każdym języku inaczej. Prościej podać ją raz na
+# język, niż budować odmianę dla sześciu gramatyk.
+DATY = {
+    "pl": "25 sierpnia 2026", "en": "25 August 2026", "cs": "25. srpna 2026",
+    "de": "25. August 2026", "es": "25 de agosto de 2026", "uk": "25 серпня 2026 р.",
+}
+
+# Wartości wdrożenia zależne OD JĘZYKA. Nazwa własna zostaje bez zmian, ale
+# słowa pospolite trzeba odmienić: polskie „na serwerze Zachodniopomorskiego
+# Centrum Onkologii" jest dopełniaczem, którego w innych językach nie ma, a
+# „szpitala" musi wejść w przypadek wymagany przez zdanie danego języka.
+WDROZENIA_JEZYKOWO = {
+    "zco": {
+        "wlasciciel": {
+            "pl": "Zachodniopomorskiego Centrum Onkologii",
+            "en": "Zachodniopomorskie Centrum Onkologii",
+            "cs": "Zachodniopomorskie Centrum Onkologii",
+            "de": "Zachodniopomorskie Centrum Onkologii",
+            "es": "Zachodniopomorskie Centrum Onkologii",
+            "uk": "Zachodniopomorskie Centrum Onkologii",
+        },
+        "zrodlo_zrzutow": {
+            "pl": "Zrzuty ekranu pochodzą z działającej instancji i przedstawiają "
+                  "rzeczywiste dokumenty ZCO.",
+            "en": "The screenshots come from a running instance and show real ZCO documents.",
+            "cs": "Snímky obrazovky pocházejí z běžící instance a zobrazují skutečné "
+                  "dokumenty ZCO.",
+            "de": "Die Bildschirmfotos stammen aus einer laufenden Instanz und zeigen "
+                  "echte Dokumente von ZCO.",
+            "es": "Las capturas de pantalla proceden de una instancia en funcionamiento "
+                  "y muestran documentos reales de ZCO.",
+            "uk": "Знімки екрана походять із діючого примірника й показують справжні "
+                  "документи ZCO.",
+        },
+    },
+    "hirs": {
+        "odbiorca": {
+            "pl": "wersja demonstracyjna", "en": "demonstration version",
+            "cs": "demonstrační verze", "de": "Demonstrationsversion",
+            "es": "versión de demostración", "uk": "демонстраційна версія",
+        },
+        "wlasciciel": {
+            "pl": "szpitala", "en": "the hospital", "cs": "nemocnici",
+            "de": "dem Krankenhaus", "es": "un hospital", "uk": "лікарні",
+        },
+        "zrodlo_zrzutow": {
+            "pl": "Zrzuty ekranu pochodzą z instancji demonstracyjnej i przedstawiają "
+                  "dokumenty przykładowe.",
+            "en": "The screenshots come from a demonstration instance and show sample documents.",
+            "cs": "Snímky obrazovky pocházejí z demonstrační instance a zobrazují "
+                  "vzorové dokumenty.",
+            "de": "Die Bildschirmfotos stammen aus einer Demonstrationsinstanz und "
+                  "zeigen Beispieldokumente.",
+            "es": "Las capturas de pantalla proceden de una instancia de demostración "
+                  "y muestran documentos de ejemplo.",
+            "uk": "Знімки екрана походять із демонстраційного примірника й показують "
+                  "зразкові документи.",
+        },
+    },
+}
+
+_katalogi_tlumaczen = {}
+
+
+def katalog_tlumaczen(jezyk):
+    """Słownik tłumaczeń dla języka; pusty dla polskiego (to język źródłowy)."""
+    if jezyk not in _katalogi_tlumaczen:
+        sciezka = os.path.join(KATALOG, "tlumaczenia", f"{jezyk}.json")
+        if jezyk == "pl" or not os.path.exists(sciezka):
+            _katalogi_tlumaczen[jezyk] = {}
+        else:
+            with open(sciezka, encoding="utf-8") as f:
+                _katalogi_tlumaczen[jezyk] = json.load(f)
+    return _katalogi_tlumaczen[jezyk]
+
+
+# Zdania bez tłumaczenia — zbierane w trakcie składania, wypisywane na końcu.
+# Cisza byłaby tu najgorsza: brak tłumaczenia widać dopiero w gotowym PDF-ie,
+# a to 60 stron do przejrzenia.
+BRAKI = set()
+
+
+def tr(tekst):
+    """Zdanie w bieżącym języku; przy braku tłumaczenia zostaje polskie."""
+    if JEZYK == "pl" or not isinstance(tekst, str) or not tekst.strip():
+        return tekst
+    przeklad = katalog_tlumaczen(JEZYK).get(tekst)
+    if przeklad:
+        return przeklad
+    BRAKI.add((JEZYK, tekst))
+    return tekst
+
+
+def s(klucz):
+    """Napis szkieletu w bieżącym języku."""
+    return SZKIELET[JEZYK][klucz]
 
 
 # ---------------------------------------------------------------- bloki treści
@@ -806,69 +969,82 @@ def obraz_data_uri(katalog_zrzutow, plik):
         return "data:image/png;base64," + base64.b64encode(f.read()).decode()
 
 
-def render_blok(blok, katalog_zrzutow):
+def render_blok(blok, katalog_zrzutow, osadz_obrazy):
+    """Blok treści jako HTML. `osadz_obrazy` decyduje, czy zrzut wchodzi do pliku
+    jako data URI (wydanie samodzielne, do wysłania mailem i do druku PDF), czy
+    zostaje odnośnikiem do wspólnego katalogu (wydanie dla aplikacji — obrazki są
+    te same we wszystkich sześciu językach, więc powielanie ich razy sześć byłoby
+    czystą stratą: 4,7 MB na wdrożenie zamiast 28 MB)."""
     rodzaj, dane = blok
     if rodzaj == "p":
-        return f"<p>{dane}</p>"
+        return f"<p>{tr(dane)}</p>"
     if rodzaj == "h3":
-        return f"<h3>{dane}</h3>"
+        return f"<h3>{tr(dane)}</h3>"
     if rodzaj == "ul":
-        return "<ul>" + "".join(f"<li>{x}</li>" for x in dane) + "</ul>"
+        return "<ul>" + "".join(f"<li>{tr(x)}</li>" for x in dane) + "</ul>"
     if rodzaj == "ol":
-        return "<ol>" + "".join(f"<li>{x}</li>" for x in dane) + "</ol>"
+        return "<ol>" + "".join(f"<li>{tr(x)}</li>" for x in dane) + "</ol>"
     if rodzaj == "table":
         naglowki, wiersze = dane
-        gl = "".join(f"<th>{h}</th>" for h in naglowki)
-        tr = "".join("<tr>" + "".join(f"<td>{k}</td>" for k in w) + "</tr>" for w in wiersze)
-        return f"<table><thead><tr>{gl}</tr></thead><tbody>{tr}</tbody></table>"
+        gl = "".join(f"<th>{tr(h)}</th>" for h in naglowki)
+        wrs = "".join("<tr>" + "".join(f"<td>{tr(k)}</td>" for k in w) + "</tr>" for w in wiersze)
+        return f"<table><thead><tr>{gl}</tr></thead><tbody>{wrs}</tbody></table>"
     if rodzaj == "fig":
         plik, podpis = dane
-        src = obraz_data_uri(katalog_zrzutow, plik)
-        if not src:
-            return ""
+        podpis = tr(podpis)
+        if osadz_obrazy:
+            src = obraz_data_uri(katalog_zrzutow, plik)
+            if not src:
+                return ""
+        else:
+            if not os.path.exists(os.path.join(katalog_zrzutow, plik)):
+                print(f"  UWAGA: brak zrzutu {plik} — pomijam ilustrację")
+                return ""
+            src = "../zrzuty/" + plik
         return (f'<figure><img src="{src}" alt="{html.escape(podpis)}">'
                 f"<figcaption>{podpis}</figcaption></figure>")
     if rodzaj == "tip":
-        return f'<div class="tip"><b class="etykieta">Wskazówka</b>{dane}</div>'
+        return f'<div class="tip"><b class="etykieta">{s("wskazowka")}</b>{tr(dane)}</div>'
     if rodzaj == "warn":
-        return f'<div class="warn"><b class="etykieta">Uwaga</b>{dane}</div>'
+        return f'<div class="warn"><b class="etykieta">{s("uwaga")}</b>{tr(dane)}</div>'
     raise ValueError(rodzaj)
 
 
-def render(tytul_wydania, sekcje, katalog_zrzutow):
+def render(klucz_wydania, sekcje, katalog_zrzutow, osadz_obrazy=True):
     # Kotwice: numer rozdziału zamiast slugu z tytułu — odnośnik przeżyje poprawkę
     # tytułu, a w PDF-ie Edge zamienia je na wewnętrzne przejścia do stron.
+    tytul_wydania = s(klucz_wydania)
     spis = "".join(
-        f'<li><a href="#rozdzial-{numer}">{html.escape(t)}</a></li>'
+        f'<li><a href="#rozdzial-{numer}">{html.escape(tr(t))}</a></li>'
         for numer, (t, _) in enumerate(sekcje, start=1)
     )
     tresc = []
     for numer, (tytul, bloki) in enumerate(sekcje, start=1):
-        ciało = "".join(render_blok(b, katalog_zrzutow) for b in bloki)
+        ciało = "".join(render_blok(b, katalog_zrzutow, osadz_obrazy) for b in bloki)
         tresc.append(
             f'<section id="rozdzial-{numer}">'
-            f'<div class="naglowek-sekcji">Rozdział {numer}</div>'
-            f'<h2>{html.escape(tytul)}</h2>{ciało}'
-            f'<a class="do-gory" href="#spis-tresci">↑ Spis treści</a>'
+            f'<div class="naglowek-sekcji">{s("rozdzial")} {numer}</div>'
+            f'<h2>{html.escape(tr(tytul))}</h2>{ciało}'
+            f'<a class="do-gory" href="#spis-tresci">{s("do_gory")}</a>'
             f"</section>"
         )
     return f"""<!doctype html>
-<html lang="pl"><head><meta charset="utf-8">
+<html lang="{JEZYK}"><head><meta charset="utf-8">
 <title>{html.escape(W["pelna"])} — {html.escape(tytul_wydania)}</title>
 <style>{STYL}</style></head><body><div class="strona">
 <div class="oklada">
   <div class="kreska"></div>
   <h1>{html.escape(W["pelna"])}</h1>
-  <div class="wydanie">Instrukcja obsługi — {html.escape(tytul_wydania)}</div>
+  <div class="wydanie">{s("instrukcja")} — {html.escape(tytul_wydania)}</div>
   <dl>
-    <dt>Odbiorca</dt><dd>{W["odbiorca"]}</dd>
-    <dt>Wykonawca</dt><dd>{WYKONAWCA}</dd>
-    <dt>Wersja aplikacji</dt><dd>{WERSJA}</dd>
-    <dt>Data wydania</dt><dd>{DATA}</dd>
+    <dt>{s("odbiorca")}</dt><dd>{W["odbiorca"]}</dd>
+    <dt>{s("wykonawca")}</dt><dd>{WYKONAWCA}</dd>
+    <dt>{s("wersja")}</dt><dd>{WERSJA}</dd>
+    <dt>{s("data")}</dt><dd>{DATY[JEZYK]}</dd>
   </dl>
-  <div class="stopka">Dokument wewnętrzny. {W["zrodlo_zrzutow"]}</div>
+  <div class="stopka">{s("wewnetrzny")} {W["zrodlo_zrzutow"]}</div>
 </div>
-<section class="spis" id="spis-tresci"><h2>Spis treści</h2><ol>{spis}</ol></section>
+<section class="spis" id="spis-tresci"><h2>{s("spis")}</h2><ol>{spis}</ol></section>
 {''.join(tresc)}
 </div></body></html>"""
 
@@ -909,37 +1085,108 @@ def do_pdf(html_path, pdf_path, limit_sekund=240):
     raise RuntimeError(f"Edge nie ukonczyl pliku {pdf_path} w {limit_sekund} s")
 
 
-def main():
-    """python generuj.py <zco|hirs> [katalog_ze_zrzutami]
+def podstaw_nazwy(tekst, wdrozenie, wariant):
+    """Znaczniki ⟦…⟧ na prawdziwe nazwy wdrożenia — ostatni krok, już po tłumaczeniu.
 
-    Bez argumentu buduje oba wdrożenia po kolei — tak najczęściej się tego używa,
-    bo instrukcje mają wychodzić parami i z tej samej wersji aplikacji.
+    Pola wymienione w WDROZENIA_JEZYKOWO biorą wartość dla bieżącego języka;
+    reszta (nazwa produktu, nazwa odbiorcy) jest nazwą własną i zostaje bez zmian.
     """
-    global W
+    jezykowe = WDROZENIA_JEZYKOWO.get(wariant, {})
+    for pole, znacznik in ZNACZNIKI.items():
+        wartosc = jezykowe.get(pole, {}).get(JEZYK, wdrozenie[pole])
+        tekst = tekst.replace(znacznik, wartosc)
+    return tekst
+
+
+def main():
+    """python generuj.py [zco|hirs] [pl|en|cs|de|es|uk]
+
+    Bez argumentów buduje oba wdrożenia we wszystkich językach — tak najczęściej
+    się tego używa, bo instrukcje mają wychodzić kompletem z jednej wersji aplikacji.
+    Argumenty zawężają przebieg, gdy poprawiamy jedno wydanie.
+    """
+    global W, JEZYK
     warianty = [sys.argv[1]] if len(sys.argv) > 1 else list(WDROZENIA)
+    jezyki = [sys.argv[2]] if len(sys.argv) > 2 else JEZYKI
     for wariant in warianty:
         if wariant not in WDROZENIA:
             raise SystemExit(f"Nieznane wdrożenie: {wariant}. Dostępne: {', '.join(WDROZENIA)}")
-        W = WDROZENIA[wariant]
-        katalog_zrzutow = (sys.argv[2] if len(sys.argv) > 2
-                           else os.path.join(KATALOG, "zrzuty", wariant))
-        print(f"— {W['nazwa']} (zrzuty: {katalog_zrzutow})")
-        zbuduj(katalog_zrzutow)
+        prawdziwe = WDROZENIA[wariant]
+        katalog_zrzutow = os.path.join(KATALOG, "zrzuty", wariant)
+        # Zrzuty do katalogu aplikacji kopiujemy RAZ na wdrożenie — są identyczne
+        # we wszystkich językach i w obu wydaniach.
+        docelowe_zrzuty = os.path.join(PUBLIC, wariant, "zrzuty")
+        skopiuj_zrzuty(katalog_zrzutow, docelowe_zrzuty)
+        for jezyk in jezyki:
+            if jezyk not in JEZYKI:
+                raise SystemExit(f"Nieznany język: {jezyk}. Dostępne: {', '.join(JEZYKI)}")
+            JEZYK = jezyk
+            # Dokument składamy ze znacznikami, żeby klucz tłumaczenia był wspólny
+            # dla obu wdrożeń; `demo` musi być prawdziwe, bo steruje treścią.
+            W = dict(ZNACZNIKI, demo=prawdziwe["demo"])
+            print(f"— {prawdziwe['nazwa']} / {jezyk}")
+            zbuduj(katalog_zrzutow, wariant, prawdziwe)
+    raport_brakow()
 
 
-def zbuduj(katalog_zrzutow):
+def skopiuj_zrzuty(zrodlo, cel):
+    if not os.path.isdir(zrodlo):
+        print(f"  UWAGA: brak katalogu zrzutów {zrodlo}")
+        return
+    os.makedirs(cel, exist_ok=True)
+    for plik in sorted(os.listdir(zrodlo)):
+        if plik.lower().endswith(".png"):
+            shutil.copyfile(os.path.join(zrodlo, plik), os.path.join(cel, plik))
+
+
+def zbuduj(katalog_zrzutow, wariant, prawdziwe):
+    katalog_wyjscia = os.path.join(PUBLIC, wariant, JEZYK)
+    os.makedirs(katalog_wyjscia, exist_ok=True)
     wydania = [
-        ("wydanie dla administratora", dokument_admina(), W["plik"] + "-administratora"),
-        ("wydanie dla użytkownika", dokument_uzytkownika(), W["plik"] + "-uzytkownika"),
+        ("admin", dokument_admina(), "instrukcja-administratora"),
+        ("user", dokument_uzytkownika(), "instrukcja-uzytkownika"),
     ]
-    for tytul, sekcje, nazwa in wydania:
-        html_path = os.path.join(KATALOG, nazwa + ".html")
+    for klucz, sekcje, nazwa in wydania:
+        html_path = os.path.join(katalog_wyjscia, nazwa + ".html")
         with open(html_path, "w", encoding="utf-8") as f:
-            f.write(render(tytul, sekcje, katalog_zrzutow))
-        do_pdf(html_path, os.path.join(KATALOG, nazwa + ".pdf"))
-        print(f"{nazwa}: {len(sekcje)} rozdziałów, "
+            f.write(podstaw_nazwy(render(klucz, sekcje, katalog_zrzutow, osadz_obrazy=False),
+                                 prawdziwe, wariant))
+
+        # PDF drukujemy z wersji SAMODZIELNEJ (obrazki jako data URI). Edge w trybie
+        # headless czyta plik przez file://, więc odnośnik „../zrzuty/…" też by zadziałał,
+        # ale wtedy PDF zależałby od układu katalogów w chwili druku — a druk bywa
+        # powtarzany osobno. Plik pomocniczy kasujemy zaraz po wydruku.
+        pelny = podstaw_nazwy(render(klucz, sekcje, katalog_zrzutow, osadz_obrazy=True),
+                              prawdziwe, wariant)
+        with tempfile.NamedTemporaryFile("w", suffix=".html", encoding="utf-8",
+                                         delete=False, dir=katalog_wyjscia) as f:
+            f.write(pelny)
+            tymczasowy = f.name
+        pdf_path = os.path.join(katalog_wyjscia, nazwa + ".pdf")
+        try:
+            do_pdf(tymczasowy, pdf_path)
+        finally:
+            os.remove(tymczasowy)
+        print(f"   {nazwa}: {len(sekcje)} rozdz., "
               f"{os.path.getsize(html_path)//1024} KB HTML, "
-              f"{os.path.getsize(os.path.join(KATALOG, nazwa + '.pdf'))//1024} KB PDF")
+              f"{os.path.getsize(pdf_path)//1024} KB PDF")
+
+
+def raport_brakow():
+    """Czego nie przetłumaczono. Bez tego brak wychodzi dopiero przy czytaniu PDF-a."""
+    if not BRAKI:
+        print("\nTłumaczenia kompletne we wszystkich językach.")
+        return
+    print(f"\nBRAK TŁUMACZENIA — {len(BRAKI)} pozycji:")
+    wedlug_jezyka = {}
+    for jezyk, tekst in BRAKI:
+        wedlug_jezyka.setdefault(jezyk, []).append(tekst)
+    for jezyk, teksty in sorted(wedlug_jezyka.items()):
+        print(f"  {jezyk}: {len(teksty)}")
+        for t in sorted(teksty)[:5]:
+            print(f"      {t[:90]}")
+        if len(teksty) > 5:
+            print(f"      … i {len(teksty) - 5} więcej")
 
 
 if __name__ == "__main__":

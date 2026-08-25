@@ -67,7 +67,7 @@
     "showAnswerAndSources": "Mostrar respuesta y fuentes",
     "tabAll": "Todas las preguntas",
     "tabRatings": "Valoraciones",
-    "title": "Lista de respuestas",
+    "title": "Registro de respuestas",
     "total": "en total: {count}",
     "user": "Usuario:",
     "withThread": "con historial del hilo"
@@ -237,6 +237,8 @@
     "userActivity": "Actividad de usuarios"
   },
   "files": {
+    "accessRead": "Lectura",
+    "accessWrite": "Escritura",
     "breadcrumbAria": "Ruta de la carpeta",
     "bulkAction": "Ejecutar acción en los seleccionados",
     "bulkMove": "Mover a carpeta",
@@ -315,7 +317,7 @@
     "perPage": "Mostrar:",
     "permAllMax": "Todos los roles ya tienen acceso máximo (Escritura) — heredado o propio. No hay nada que añadir.",
     "permFolder": "Carpeta:",
-    "permInheritedTag": "(heredado del padre)",
+    "permInheritedTag": "(heredado de la carpeta superior)",
     "permIntro": "El rol con permiso ve archivos en esta carpeta <b>y sus subcarpetas</b>. Los permisos marcados como heredados provienen de la carpeta superior; los cambiarás en esa carpeta. El administrador siempre tiene acceso completo; solo el administrador ve los archivos en la carpeta raíz.",
     "permLevel": "Nivel",
     "permNone": "Sin permisos — solo el administrador ve esta carpeta.",
@@ -338,7 +340,7 @@
     "renameTitle": "Asignar nombres según la categoría",
     "renameToChange": "para cambiar: {count} de {total}",
     "renameTypeManually": "— escribe el nombre a mano",
-    "rootFolder": "Carpeta principal",
+    "rootFolder": "Carpeta raíz",
     "rootFolderInline": "carpeta principal",
     "searchAria": "Buscar archivo",
     "searchPlaceholder": "Buscar archivo…",
@@ -363,13 +365,13 @@
   },
   "help": {
     "adminDesc": "Rango completo: documentos, permisos, cuentas y parte administrativa.",
-    "adminName": "Instrucción del administrador",
+    "adminName": "Manual del administrador",
     "downloadPdf": "Descargar PDF",
     "openInNewTab": "Abrir en nueva pestaña",
     "scrollToToc": "Desplazarse al índice",
     "title": "Ayuda",
     "userDesc": "Lo que necesitas a diario: documentos, chat y buscador.",
-    "userName": "Instrucción del usuario"
+    "userName": "Manual del usuario"
   },
   "languages": {
     "colKey": "Clave",
@@ -413,7 +415,7 @@
     "accessList": "Lista de accesos",
     "answers": "Registro de respuestas",
     "chat": "Chat con IA",
-    "dashboard": "Panel",
+    "dashboard": "Panel de control",
     "docSchemas": "Esquemas de documentos",
     "fileQueue": "Cola de archivos",
     "files": "Archivos",

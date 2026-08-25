@@ -237,6 +237,8 @@
     "userActivity": "Aktywność użytkowników"
   },
   "files": {
+    "accessRead": "Odczyt",
+    "accessWrite": "Zapis",
     "breadcrumbAria": "Ścieżka folderu",
     "bulkAction": "Wykonaj akcję na zaznaczonych",
     "bulkMove": "Przenieś do folderu",

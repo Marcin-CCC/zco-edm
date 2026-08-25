@@ -237,6 +237,8 @@
     "userActivity": "User activity"
   },
   "files": {
+    "accessRead": "Read",
+    "accessWrite": "Write",
     "breadcrumbAria": "Folder path",
     "bulkAction": "Act on selected",
     "bulkMove": "Move to folder",
@@ -315,7 +317,7 @@
     "perPage": "Show:",
     "permAllMax": "Every role already has maximum access (Write), inherited or its own. Nothing left to add.",
     "permFolder": "Folder:",
-    "permInheritedTag": "(inherited from parent)",
+    "permInheritedTag": "(inherited from the parent folder)",
     "permIntro": "A role with permission sees the files in this folder <b>and its subfolders</b>. Permissions marked as inherited come from the parent folder — change them there. The administrator always has full access; files in the root folder are visible to the administrator only.",
     "permLevel": "Level",
     "permNone": "No permissions — only the administrator sees this folder.",

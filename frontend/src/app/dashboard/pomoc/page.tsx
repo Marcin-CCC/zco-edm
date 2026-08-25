@@ -11,7 +11,9 @@
  */
 
 import { useRef } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
+
+import { BASE_LOCALE, LOCALES } from '@/i18n/locales';
 
 import { useMarka } from '@/components/marka-provider';
 import { useAuth } from '@/lib/store';
@@ -37,13 +39,18 @@ const WYDANIA = {
 
 export default function PomocPage() {
   const t = useTranslations('help');
+  const jezyk = useLocale();
   const { user } = useAuth();
   const marka = useMarka();
   const w = czyAdmin(user) ? WYDANIA.admin : WYDANIA.user;
+  // Instrukcja idzie za językiem interfejsu. Obraz aplikacji niesie komplet
+  // sześciu wydań na wdrożenie, więc plik jest zawsze na miejscu; nieznany kod
+  // języka cofamy do polskiego, bo pusta ramka nie powiedziałaby nic.
+  const jezykInstrukcji = (LOCALES as readonly string[]).includes(jezyk) ? jezyk : BASE_LOCALE;
   const wydanie = {
     ...w,
-    html: `/pomoc/${marka.pomoc}/${w.plik}.html`,
-    pdf: `/pomoc/${marka.pomoc}/${w.plik}.pdf`,
+    html: `/pomoc/${marka.pomoc}/${jezykInstrukcji}/${w.plik}.html`,
+    pdf: `/pomoc/${marka.pomoc}/${jezykInstrukcji}/${w.plik}.pdf`,
   };
   const ramka = useRef<HTMLIFrameElement>(null);
 
@@ -95,8 +102,10 @@ export default function PomocPage() {
         </div>
       </div>
 
-      {/* Instrukcja jest samodzielnym plikiem HTML (zrzuty ekranu wbudowane
-          w treść), więc wystarczy ją osadzić — nie wymaga żadnych zasobów obok. */}
+      {/* Instrukcja to plik HTML obok zrzutów ekranu w `pomoc/<wdrożenie>/zrzuty/`.
+          Zrzuty leżą OBOK, a nie w treści: są te same we wszystkich sześciu
+          językach, więc wbudowanie ich w każdy plik ważyłoby 28 MB zamiast 3,4 MB.
+          PDF do pobrania jest za to samodzielny. */}
       <iframe
         ref={ramka}
         src={wydanie.html}

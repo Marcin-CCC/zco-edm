@@ -76,9 +76,10 @@ function findFolder(list: Folder[], id: number | null): Folder | null {
 
 type ViewMode = 'list' | 'grid';
 
-const ACCESS_LABELS: Record<string, string> = {
-  read: 'Odczyt',
-  write: 'Zapis',
+// KLUCZE, nie napisy: to stała modułu, a etykieta idzie za językiem interfejsu.
+const ACCESS_LABEL_KEYS: Record<string, string> = {
+  read: 'accessRead',
+  write: 'accessWrite',
 };
 // Ranga poziomu dostępu: brak < odczyt < zapis
 const accessRank = (lvl?: string): number => (lvl === 'write' ? 2 : lvl === 'read' ? 1 : 0);
@@ -115,6 +116,10 @@ function FilesPageInner() {
   const t = useTranslations('files');
   const tWspolne = useTranslations('common');
   const etykietyDat = { dzis: tWspolne('today'), wczoraj: tWspolne('yesterday') };
+  // Nazwa poziomu dostępu POKAZYWANA użytkownikowi. Sama wartość ('read'/'write')
+  // zostaje angielska: leży tak w bazie i po niej porównuje kod.
+  const nazwaPoziomu = (poziom?: string) =>
+    poziom && ACCESS_LABEL_KEYS[poziom] ? t(ACCESS_LABEL_KEYS[poziom]) : (poziom ?? '');
   const { user } = useAuth();
   const isAdmin = czyAdmin(user);
   // Role przypisywalne do folderów. Administrator ma pełny dostęp z definicji,
@@ -1217,7 +1222,7 @@ function FilesPageInner() {
                   {inheritedPerms.map((p) => (
                     <li key={p.role} className="px-3 py-1.5">
                       {roleLabel(roles, p.role)}
-                      <span className="text-app-muted"> · {ACCESS_LABELS[p.access_level] || p.access_level}</span>
+                      <span className="text-app-muted"> · {nazwaPoziomu(p.access_level)}</span>
                     </li>
                   ))}
                 </ul>
@@ -1259,7 +1264,7 @@ function FilesPageInner() {
                     <li key={eff.role} className="flex items-center justify-between gap-3 px-3 py-2 text-[13px]">
                       <span className="text-app-text">
                         {roleLabel(roles, eff.role)}
-                        <span className="text-app-muted"> · {ACCESS_LABELS[eff.access_level] || eff.access_level}</span>
+                        <span className="text-app-muted"> · {nazwaPoziomu(eff.access_level)}</span>
                         {!isOwn && (
                           <span className="ml-2 text-[11px] text-app-muted">{t('permInheritedTag')}</span>
                         )}
@@ -1303,7 +1308,7 @@ function FilesPageInner() {
                 <Field label={t('permLevel')}>
                   <select value={newPermAccess} onChange={(e) => setNewPermAccess(e.target.value)} className={`${inputClass} w-auto`}>
                     {permAvailableLevels.map((lvl) => (
-                      <option key={lvl} value={lvl}>{ACCESS_LABELS[lvl]}</option>
+                      <option key={lvl} value={lvl}>{nazwaPoziomu(lvl)}</option>
                     ))}
                   </select>
                 </Field>

@@ -1,16 +1,37 @@
 # Instrukcje obsługi — ZCO DM i HiRS
 
-Cztery dokumenty: dwa wdrożenia × dwa wydania, każde w HTML i PDF.
+Dwadzieścia cztery dokumenty: dwa wdrożenia × sześć języków × dwa wydania, każdy
+w HTML i PDF.
 
-| Plik | Zakres |
+| Wydanie | Zakres |
 |---|---|
-| `ZCO-DM-instrukcja-administratora.*` | 17 rozdziałów: pełny zakres z uprawnieniami, częścią administracyjną i rozpoznawaniem dokumentów |
-| `ZCO-DM-instrukcja-uzytkownika.*` | 12 rozdziałów: to, co potrzebne na co dzień |
-| `HiRS-instrukcja-administratora.*` | jak wyżej, dla demo uniwersalnego |
-| `HiRS-instrukcja-uzytkownika.*` | jak wyżej, dla demo uniwersalnego |
+| `instrukcja-administratora.*` | 17 rozdziałów: pełny zakres z uprawnieniami, częścią administracyjną i rozpoznawaniem dokumentów |
+| `instrukcja-uzytkownika.*` | 12 rozdziałów: to, co potrzebne na co dzień |
 
-Pliki HTML są samodzielne — zrzuty ekranu siedzą w nich jako `data:` URI, więc wystarczy
-przesłać jeden plik, bez katalogu z obrazkami.
+Języki: `pl`, `en`, `cs`, `de`, `es`, `uk` — te same, które ma interfejs.
+
+## Gdzie leżą gotowe pliki
+
+Generator pisze **wprost do katalogu aplikacji**, bo to jedyne miejsce, z którego
+instrukcja jest czytana:
+
+```
+frontend/public/pomoc/<zco|hirs>/
+    zrzuty/*.png                          <- raz na wdrożenie, wspólne dla języków
+    <pl|en|cs|de|es|uk>/
+        instrukcja-administratora.html    <- obrazki przez ../zrzuty/, ~45 KB
+        instrukcja-administratora.pdf     <- samodzielny, do wysłania i do druku
+        instrukcja-uzytkownika.html
+        instrukcja-uzytkownika.pdf
+```
+
+**Dlaczego zrzuty leżą obok, a nie w HTML-u.** Do 1.6.0 były wbudowane jako `data:` URI
+i plik ważył 4,5 MB. Przy sześciu językach dałoby to 28 MB tych samych obrazków na
+wdrożenie. PDF zostaje samodzielny — jego się wysyła mailem, więc nie może zależeć od
+katalogu obok.
+
+Ekran **Pomoc** dobiera plik po języku interfejsu (`useLocale()`), wydanie po roli konta,
+a wdrożenie po zmiennej `HELP_VARIANT`.
 
 ## Dlaczego jeden generator, a nie cztery dokumenty
 
@@ -31,24 +52,38 @@ dopiero po wdrożeniu poprzedniego kroku.
 # 1. Zrzuty z produkcji: wszystko poza ekranem Instrukcja
 python zrzuty_config.py            # cztery przebiegi: zco/hirs × admin/user
 
-# 2. Zmniejszenie zrzutów (13 MB -> 4,6 MB na wdrożenie, bez straty czytelności)
+# 2. Zmniejszenie zrzutów (13 MB -> 3,4 MB na wdrożenie, bez straty czytelności)
 python optymalizuj_zrzuty.py
 
-# 3. Złożenie dokumentów
-python generuj.py                  # oba wdrożenia; `generuj.py zco` tylko jedno
-
-# 4. Do aplikacji i wdrożenie
-cp ZCO-DM-instrukcja-administratora.html ../../frontend/public/pomoc/zco/instrukcja-administratora.html
-#   … pozostałe trzy pary analogicznie (zco/, hirs/)
+# 3. Złożenie dokumentów — od razu do katalogu aplikacji, bez kopiowania
+python generuj.py                  # 24 dokumenty; `generuj.py zco de` zawęża przebieg
 #   commit + push -> CI wdraża ZCO; HiRS ręcznie (zob. główne README)
 
-# 5. Zrzut ekranu Instrukcja — teraz pokazuje już nowe wydanie
+# 4. Zrzut ekranu Instrukcja — teraz pokazuje już nowe wydanie
 ETAP=2 python zrzuty_config.py
 python optymalizuj_zrzuty.py && python generuj.py
-#   ponownie skopiować i wdrożyć
 ```
 
-Po każdej zmianie zaktualizuj `WERSJA` i `DATA` na górze `generuj.py`.
+Po każdej zmianie zaktualizuj `WERSJA` na górze `generuj.py` oraz wpis w `DATY`.
+
+## Tłumaczenia
+
+Rozdziały są napisane **po polsku i pozostają jedynym źródłem treści**. Tłumaczenia leżą
+w `tlumaczenia/<język>.json` jako słownik „polskie zdanie → zdanie obce".
+
+Kluczem jest **całe polskie zdanie**, nie identyfikator. Jest to wybór świadomy: poprawka
+polskiego tekstu odcina nieaktualne tłumaczenie i w obcym wydaniu pojawia się zdanie po
+polsku. Lepiej to, niż zostawić zdanie mówiące coś innego niż oryginał — a przy kluczach
+symbolicznych dokładnie tak by się stało, po cichu.
+
+Czego nie widać w kluczach: nazwy wdrożenia. Dokument składa się ze **znacznikami**
+(`⟦NAZWA⟧`, `⟦PELNA⟧`, `⟦WLASCICIEL⟧`), które podmieniamy dopiero w gotowym HTML-u —
+inaczej ten sam akapit miałby osobne tłumaczenie dla ZCO i dla HiRS. Wartości zależne
+od języka (`szpitala` → `dem Krankenhaus`) siedzą w `WDROZENIA_JEZYKOWO`.
+
+Po każdym przebiegu generator wypisuje, czego nie przetłumaczono. **Cisza byłaby tu
+najgorsza** — brak tłumaczenia widać inaczej dopiero przy czytaniu sześćdziesięciu stron
+PDF-a.
 
 ### Powtórzenie pojedynczego zrzutu
 

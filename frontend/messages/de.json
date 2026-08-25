@@ -67,7 +67,7 @@
     "showAnswerAndSources": "Antwort und Quellen anzeigen",
     "tabAll": "Alle Fragen",
     "tabRatings": "Bewertungen",
-    "title": "Antwortliste",
+    "title": "Antwortprotokoll",
     "total": "insgesamt: {count}",
     "user": "Benutzer:",
     "withThread": "mit Threadverlauf"
@@ -127,7 +127,7 @@
     "showDocuments": "Dokumente anzeigen",
     "stop": "Stoppen",
     "stopTitle": "Generierung der Antwort abbrechen",
-    "title": "Chat mit KI",
+    "title": "KI-Chat",
     "unknownType": "_Im System gibt es keinen Dokumententyp „{type}“. ",
     "usedMany": "Dokumente, die in der Antwort verwendet wurden",
     "usedOne": "Dokument, das in der Antwort verwendet wurde",
@@ -163,7 +163,7 @@
     "send": "Senden",
     "sending": "Senden…",
     "sent": "Anfrage an {adres} gesendet. Die Antwort geht an Ihre E-Mail-Adresse.",
-    "title": "Kontaktieren"
+    "title": "Kontakt aufnehmen"
   },
   "dashboard": {
     "chartParsedEmpty": "Keine geparsten Dateien in den letzten {days} Tagen",
@@ -233,10 +233,12 @@
     "tileFolders": "Ordner",
     "tileProcessed": "Verarbeitet",
     "tileUsers": "Benutzer",
-    "title": "Dashboard",
+    "title": "Übersicht",
     "userActivity": "Benutzeraktivität"
   },
   "files": {
+    "accessRead": "Lesen",
+    "accessWrite": "Schreiben",
     "breadcrumbAria": "Ordnerpfad",
     "bulkAction": "Aktion auf ausgewählte anwenden",
     "bulkMove": "In Ordner verschieben",
@@ -315,7 +317,7 @@
     "perPage": "Zeigen:",
     "permAllMax": "Alle Rollen haben bereits den maximalen Zugriff (Schreiben) – entweder vererbt oder eigen. Es gibt nichts mehr hinzuzufügen.",
     "permFolder": "Ordner:",
-    "permInheritedTag": "(vererbt vom übergeordneten)",
+    "permInheritedTag": "(vom übergeordneten Ordner geerbt)",
     "permIntro": "Eine Rolle mit Berechtigung sieht Dateien in diesem Ordner <b>und seinen Unterordnern</b>. Als vererbt gekennzeichnete Berechtigungen stammen aus dem übergeordneten Ordner — Sie ändern sie in jenem Ordner. Der Administrator hat immer vollen Zugriff; Dateien im Stammordner sieht nur der Administrator.",
     "permLevel": "Ebene",
     "permNone": "Keine Berechtigungen – nur der Administrator sieht diesen Ordner.",
@@ -338,7 +340,7 @@
     "renameTitle": "Namen entsprechend der Kategorie zuweisen",
     "renameToChange": "zur Änderung: {count} von {total}",
     "renameTypeManually": "— Namen von Hand eingeben",
-    "rootFolder": "Hauptverzeichnis",
+    "rootFolder": "Stammordner",
     "rootFolderInline": "Hauptverzeichnis",
     "searchAria": "Datei suchen",
     "searchPlaceholder": "Datei suchen…",
@@ -545,7 +547,7 @@
     "renameTitle": "Rolle „{name}“ umbenennen",
     "renamed": "Rollenname geändert in „{name}“.",
     "roleName": "Rollenname",
-    "saveName": "Speichern Sie den Namen",
+    "saveName": "Namen speichern",
     "startEmpty": "— beginn ohne Zugriff —"
   },
   "schemas": {
