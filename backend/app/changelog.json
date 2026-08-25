@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "1.5.27",
+      "date": "2026-08-25",
+      "title": "Przelacznik jezyka w naglowku okna logowania",
+      "changes": [
+        "Przelacznik jezyka przeniosl sie znad okna logowania do jego wnetrza — do wiersza z napisem „Zaloguj sie”, wyrownany do prawej krawedzi pol na dane.",
+        "Kula ziemska i kod jezyka sa teraz w tym samym ciemnym kolorze co naglowek obok, zamiast przygaszonego odcienia z paska aplikacji.",
+        "Rozwijana lista jezykow trzyma te sama prawa krawedz co pola formularza pod nia."
+      ]
+    },
+    {
       "version": "1.5.26",
       "date": "2026-08-25",
       "title": "Ekran Pliki po angielsku",

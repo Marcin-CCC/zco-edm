@@ -63,13 +63,6 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Przełącznik języka JEST tu mimo braku górnej belki: bez niego osoba
-            anglojęzyczna musiałaby zalogować się na polskim ekranie, żeby dopiero
-            potem przestawić język. Wybór z tego miejsca zostaje na stałe. */}
-        <div className="mb-2 flex justify-end">
-          <LanguageSwitcher wariant="ciemny" />
-        </div>
-
         {/* Znak instancji — dokładnie ten sam co na szczycie menu bocznego, tylko
             wyśrodkowany i większy. Wspólny komponent, żeby logowanie i aplikacja
             nie rozjechały się przy pierwszej zmianie marki. */}
@@ -87,7 +80,16 @@ export default function LoginPage() {
 
         {/* Card */}
         <div className="bg-white rounded-xl shadow-xl p-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">{t('title')}</h2>
+          {/* Przełącznik języka JEST na tym ekranie mimo braku górnej belki: bez
+              niego osoba anglojęzyczna musiałaby zalogować się na polskim ekranie,
+              żeby dopiero potem przestawić język. Wybór z tego miejsca zostaje
+              na stałe.
+              `-mr-2` znosi własny odstęp przycisku, żeby kula wypadła w tej samej
+              pionowej linii co prawa krawędź pól formularza. */}
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <h2 className="text-2xl font-bold text-gray-800">{t('title')}</h2>
+            <LanguageSwitcher wariant="naKarcie" />
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

@@ -10,9 +10,10 @@
  * Wybrany język znaczymy PTASZKIEM, nie niebieskim tłem: w layoucie 1.5 niebieski
  * jest kolorem akcji, a stan odróżniamy kształtem.
  *
- * Dwa warianty, bo przełącznik stoi w dwóch miejscach o odwrotnym kontraście:
- * w białej belce aplikacji i na ciemnym ekranie logowania. Rozwinięte menu zostaje
- * białe w obu — to ta sama lista i ma wyglądać tak samo.
+ * Trzy warianty, bo przełącznik stoi w miejscach o różnym kontraście: w białej
+ * belce aplikacji, na ciemnym tle ekranu logowania i na białej karcie logowania
+ * obok nagłówka. Rozwinięte menu zostaje białe we wszystkich — to ta sama lista
+ * i ma wyglądać tak samo.
  */
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
@@ -23,17 +24,22 @@ import { LOCALE_NAMES, isLocale, type Locale } from '@/i18n/locales';
 import { przelaczJezyk } from '@/lib/locale';
 import { useAuth } from '@/lib/store';
 
-/** `belka` — biały pasek aplikacji; `ciemny` — ekran logowania. */
-type Wariant = 'belka' | 'ciemny';
+/** `belka` — biały pasek aplikacji; `ciemny` — tło ekranu logowania;
+ *  `naKarcie` — biała karta logowania, w wierszu nagłówka. */
+type Wariant = 'belka' | 'ciemny' | 'naKarcie';
 
 const STYL_PRZYCISKU: Record<Wariant, string> = {
   belka: 'text-app-muted hover:bg-app-hover hover:text-app-text',
   ciemny: 'text-slate-300 hover:bg-white/10 hover:text-white',
+  // Ten sam kolor co nagłówek „Zaloguj się" tuż obok — kula i kod mają być
+  // równie ciemne jak on, a nie przygaszone jak w belce aplikacji.
+  naKarcie: 'text-gray-800 hover:bg-gray-100',
 };
 
 const STYL_KODU: Record<Wariant, string> = {
   belka: 'text-app-text',
   ciemny: 'text-white',
+  naKarcie: 'text-gray-800',
 };
 
 export function LanguageSwitcher({ wariant = 'belka' }: { wariant?: Wariant } = {}) {
@@ -74,7 +80,10 @@ export function LanguageSwitcher({ wariant = 'belka' }: { wariant?: Wariant } = 
   if (jezyki.length < 2) return null;
 
   return (
-    <div className="relative" ref={menuRef}>
+    // `-mr-2` znosi własny odstęp przycisku, żeby kod języka wypadł w tej samej
+    // pionowej linii co prawa krawędź pól formularza pod spodem. Idzie na POJEMNIK,
+    // bo rozwinięta lista jest pozycjonowana względem niego (`right-0`).
+    <div className={`relative ${wariant === 'naKarcie' ? '-mr-2' : ''}`} ref={menuRef}>
       <button
         onClick={() => setOtwarte((v) => !v)}
         className={`flex items-center gap-1.5 rounded-ctl px-2 py-2 ${STYL_PRZYCISKU[wariant]}`}
@@ -91,7 +100,12 @@ export function LanguageSwitcher({ wariant = 'belka' }: { wariant?: Wariant } = 
       {otwarte && (
         <div
           role="menu"
-          className="absolute right-0 top-[46px] w-52 rounded-xl border border-app-line bg-white py-1 shadow-card"
+          // Lista trzyma tę samą prawą krawędź co kod języka, nie co przycisk:
+          // na karcie logowania przycisk wystaje o własny odstęp (`-mr-2` na
+          // pojemniku), więc `right-0` wypuściłoby listę poza krawędź pól.
+          className={`absolute top-[46px] w-52 rounded-xl border border-app-line bg-white py-1 shadow-card ${
+            wariant === 'naKarcie' ? 'right-2' : 'right-0'
+          }`}
         >
           <div className="border-b border-app-line px-3 py-2 text-xs text-app-muted">
             {t('language')}
