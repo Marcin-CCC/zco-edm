@@ -12,6 +12,7 @@
  * neutralne tła.
  */
 import { useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import type { ButtonHTMLAttributes, ReactNode, TdHTMLAttributes } from 'react';
 
 import { IconChevronDown, IconClose } from '@/components/icons';
@@ -288,6 +289,8 @@ export function Modal({
   footer?: ReactNode;
   size?: 'md' | 'lg' | 'xl';
 }) {
+  const tWspolne = useTranslations('common');
+
   useEffect(() => {
     const naKlawisz = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -315,7 +318,7 @@ export function Modal({
           <button
             onClick={onClose}
             className="-mr-1 shrink-0 rounded-ctl p-1 text-app-muted hover:bg-app-hover hover:text-app-text"
-            aria-label="Zamknij"
+            aria-label={tWspolne('close')}
           >
             <IconClose size={18} />
           </button>

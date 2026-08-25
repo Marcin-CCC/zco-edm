@@ -7,6 +7,7 @@
  * i kasuje uprawnienia w jednej transakcji (zob. app/roles/router.py).
  */
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
 import { IconEdit, IconPlus, IconTrash } from '@/components/icons';
@@ -38,6 +39,7 @@ interface AccessItem {
 const ACCESS_LABELS: Record<string, string> = { read: 'Odczyt', write: 'Zapis' };
 
 export default function AccessListPage() {
+  const t = useTranslations('access');
   const { user } = useAuth();
   const isAdmin = czyAdmin(user);
   const { roles, refresh: odswiezRole } = useRoles();
@@ -55,7 +57,7 @@ export default function AccessListPage() {
     foldersApi
       .accessOverview()
       .then((d) => setData(d || {}))
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Błąd pobierania listy dostępów'))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : t('errFetch')))
       .finally(() => setLoading(false));
   }, [isAdmin]);
 
@@ -72,7 +74,7 @@ export default function AccessListPage() {
   };
 
   if (!isAdmin) {
-    return <div className="text-sm text-app-muted">Ta strona jest dostępna tylko dla administratora.</div>;
+    return <div className="text-sm text-app-muted">{t('adminOnly')}</div>;
   }
 
   // Kolejność ze słownika ról; administratora pomijamy, bo ma pełny dostęp
@@ -84,12 +86,12 @@ export default function AccessListPage() {
   return (
     <div>
       <PageHeader
-        title="Lista dostępów"
-        description="Dostęp efektywny każdej roli do folderów, z uwzględnieniem dziedziczenia. Administrator ma zawsze pełny dostęp."
+        title={t('title')}
+        description={t('description')}
         actions={
           <Button variant="primary" onClick={() => { setKomunikat(''); setOkno({ mode: 'create' }); }}>
             <IconPlus size={18} />
-            Dodaj rolę
+            {t('addRole')}
           </Button>
         }
       />
@@ -106,7 +108,7 @@ export default function AccessListPage() {
       )}
 
       {loading ? (
-        <Card><EmptyState title="Ładowanie…" /></Card>
+        <Card><EmptyState title={t('loading')} /></Card>
       ) : (
         <div className="space-y-4">
           {kody.map((kod) => {
@@ -119,8 +121,8 @@ export default function AccessListPage() {
                     <h2 className="text-[15px] font-bold text-app-text">{roleLabel(roles, kod)}</h2>
                     {rola?.is_system && (
                       <Badge tone="gray">
-                        <span title="Rola wbudowana — aplikacja się do niej odwołuje, więc nie można jej usunąć">
-                          rola systemowa
+                        <span title={t('systemRoleTitle')}>
+                          {t('systemRole')}
                         </span>
                       </Badge>
                     )}
@@ -133,17 +135,17 @@ export default function AccessListPage() {
                     <div className="flex items-center gap-1.5">
                       <IconButton
                         tone="edit"
-                        title="Zmień nazwę"
+                        title={t('rename')}
                         onClick={() => { setKomunikat(''); setOkno({ mode: 'rename', role: rola }); }}
                       >
                         <IconEdit size={16} />
                       </IconButton>
                       {rola.is_system ? (
-                        <span className="px-1 text-[11px] text-app-muted">bez usuwania</span>
+                        <span className="px-1 text-[11px] text-app-muted">{t('noRemoval')}</span>
                       ) : (
                         <IconButton
                           tone="danger"
-                          title="Usuń rolę"
+                          title={t('deleteRole')}
                           onClick={() => { setKomunikat(''); setOkno({ mode: 'delete', role: rola }); }}
                         >
                           <IconTrash size={16} />
@@ -154,15 +156,15 @@ export default function AccessListPage() {
                 </CardHeader>
 
                 {items.length === 0 ? (
-                  <EmptyState title="Ta rola nie ma dostępu do żadnego folderu." />
+                  <EmptyState title={t('noAccess')} />
                 ) : (
                   <Table>
                     <thead>
                       <tr>
-                        <Th>Folder</Th>
-                        <Th>Ścieżka</Th>
-                        <Th>Poziom</Th>
-                        <Th>Źródło</Th>
+                        <Th>{t('colFolder')}</Th>
+                        <Th>{t('colPath')}</Th>
+                        <Th>{t('colLevel')}</Th>
+                        <Th>{t('colSource')}</Th>
                         <Th className="text-right" />
                       </tr>
                     </thead>
@@ -177,14 +179,14 @@ export default function AccessListPage() {
                             </Badge>
                           </Td>
                           <Td className="text-app-muted">
-                            {it.source === 'inherited' ? 'dziedziczony' : 'bezpośredni'}
+                            {it.source === 'inherited' ? t('inherited') : t('direct')}
                           </Td>
                           <Td className="text-right">
                             <Link
                               href={`/dashboard/files?folder=${it.folder_id}`}
                               className="text-xs font-semibold text-app-blue hover:underline"
                             >
-                              Otwórz w Plikach ›
+                              {t('openInFiles')}
                             </Link>
                           </Td>
                         </tr>

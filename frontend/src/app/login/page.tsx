@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { authApi, versionApi } from '@/lib/api';
-import { ustawJezykZKonta } from '@/lib/locale';
+import { odbierzRecznyWybor, ustawJezykZKonta } from '@/lib/locale';
 import { useAuth } from '@/lib/store';
 import { useMarka } from '@/components/marka-provider';
 import { LanguageSwitcher } from '@/components/shell/language-switcher';
@@ -13,6 +13,7 @@ import { Logo } from '@/components/shell/logo';
 export default function LoginPage() {
   const marka = useMarka();
   const t = useTranslations('login');
+  const tMarka = useTranslations('brand');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -33,6 +34,16 @@ export default function LoginPage() {
 
     try {
       const data = await authApi.login(email, password);
+      // Język wybrany przed chwilą NA TYM EKRANIE bije ten zapisany przy koncie:
+      // to świeższa i wyraźniejsza decyzja tej samej osoby. Zapisujemy go od razu
+      // przy koncie, żeby nie trzeba było przełączać za każdym logowaniem.
+      const recznyWybor = odbierzRecznyWybor();
+      if (recznyWybor && recznyWybor !== data.locale) {
+        authApi.updateProfile({ locale: recznyWybor }).catch(() => {
+          // Nieudany zapis nie może zablokować wejścia — interfejs i tak jest
+          // w wybranym języku, bo ciasteczko już stoi.
+        });
+      }
       login(data.access_token, {
         id: data.user_id,
         email: data.email || email,
@@ -41,14 +52,15 @@ export default function LoginPage() {
         role: data.role,
         is_active: true,
         is_admin: data.is_admin,
-        locale: data.locale ?? null,
+        locale: recznyWybor ?? data.locale ?? null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         last_login: data.last_login,
       });
-      // Konto niosące własny język wymaga PEŁNEGO wejścia na pulpit: teksty ustala
-      // układ główny na serwerze, a przy nawigacji klienckiej Next go nie odtwarza.
-      if (ustawJezykZKonta(data.locale)) {
+      // Zmiana języka wymaga PEŁNEGO wejścia na pulpit: teksty ustala układ główny
+      // na serwerze, a przy nawigacji klienckiej Next go nie odtwarza. Przy wyborze
+      // ręcznym ciasteczko już jest właściwe, więc wystarczy zwykłe przejście.
+      if (!recznyWybor && ustawJezykZKonta(data.locale)) {
         window.location.href = '/dashboard';
         return;
       }
@@ -75,7 +87,7 @@ export default function LoginPage() {
             rozmiarNazwy={36}
             className="justify-center"
           />
-          <p className="mt-3 text-slate-300">{marka.opis}</p>
+          <p className="mt-3 text-slate-300">{marka.opis || tMarka('tagline')}</p>
         </div>
 
         {/* Card */}

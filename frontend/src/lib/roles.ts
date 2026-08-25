@@ -9,6 +9,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 export interface Role {
   code: string;
@@ -79,6 +80,7 @@ export function invalidateRoles(): void {
 }
 
 export function useRoles() {
+  const t = useTranslations('roles');
   const [roles, setRoles] = useState<Role[]>(cache || []);
   const [loading, setLoading] = useState(cache === null);
   const [error, setError] = useState('');
@@ -100,7 +102,7 @@ export function useRoles() {
       return data;
     } catch (e: unknown) {
       inFlight = null;
-      setError(e instanceof Error ? e.message : 'Nie udało się pobrać listy ról');
+      setError(e instanceof Error ? e.message : t('errFetch'));
       return [];
     } finally {
       setLoading(false);

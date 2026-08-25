@@ -103,3 +103,40 @@ class TestStrumienia:
     def test_bez_koncowej_formulki_zdejmuje_obie_postacie(self):
         assert bez_koncowej_formulki(f"Treść.\n{ZNACZNIK_BRAKU}").strip() == "Treść."
         assert bez_koncowej_formulki(f"Treść.\n{FORMULKA}").strip() == "Treść."
+
+
+class TestZnacznikaBezTrafien:
+    """Komunikaty tworzone przez APLIKACJĘ (nie przez model): „nie znalazłem
+    dokumentów spełniających kryteria", „nie wiem, o które dokumenty chodzi".
+
+    Nie wolno ich wpuścić do historii dla modelu — odmowa w jego pamięci powoduje
+    kolejne odmowy (zmierzone, 0.5.4). Rozpoznawaliśmy je po POCZĄTKU polskiego
+    zdania, więc po przetłumaczeniu interfejsu przestałyby pasować i wróciłyby do
+    historii. Znacznik `[[NOMATCH]]` jest identyczny w każdym języku.
+    """
+
+    @pytest.mark.parametrize("tresc", [
+        "[[NOMATCH]]I found no documents matching the criteria.",
+        "[[NOMATCH]]Nie znalazłem dokumentów spełniających kryteria (typ: Zarządzenie).",
+        "[[NOMATCH]]Ich habe keine passenden Dokumente gefunden.",
+    ])
+    def test_znacznik_dziala_w_kazdym_jezyku(self, tresc):
+        assert _is_refusal(tresc) is True
+
+    @pytest.mark.parametrize("tresc", [
+        "Nie znalazłem dokumentów spełniających kryteria (typ: Zarządzenie).",
+        "_Nie znalazłem dokumentów spełniających kryteria_",
+        "Nie wiem, o które dokumenty chodzi. Doprecyzuj — możesz podać rodzaj.",
+        "W systemie nie ma rodzaju dokumentów o takiej nazwie.",
+    ])
+    def test_dawne_polskie_postacie_nadal_rozpoznane(self, tresc):
+        """Rozmowy zapisane przed wprowadzeniem znacznika mają czytać się tak samo."""
+        assert _is_refusal(tresc) is True
+
+    @pytest.mark.parametrize("tresc", [
+        "Znalazłem 3 dokumenty.",
+        "Nie znaleziono terminu, ale procedura opisuje tryb zgłoszenia.",
+        "I found 3 documents matching the criteria.",
+    ])
+    def test_zwykla_odpowiedz_wchodzi_do_historii(self, tresc):
+        assert _is_refusal(tresc) is False

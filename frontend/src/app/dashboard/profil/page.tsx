@@ -14,6 +14,7 @@
  */
 
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 
 import { authApi } from '@/lib/api';
@@ -29,6 +30,8 @@ function dataPl(iso?: string | null): string {
 }
 
 export default function ProfilPage() {
+  const t = useTranslations('profile');
+  const tWspolne = useTranslations('common');
   const { roles } = useRoles();
   const router = useRouter();
   const { user, setUser, logout } = useAuth();
@@ -81,7 +84,7 @@ export default function ProfilPage() {
       setEdycja(false);
       setZapisano(true);
     } catch (e: any) {
-      setBladDanych(e?.message || 'Nie udało się zapisać zmian.');
+      setBladDanych(e?.message || t('errSave'));
     } finally {
       setZapisywanie(false);
     }
@@ -107,14 +110,14 @@ export default function ProfilPage() {
         router.push('/login');
       }, 2000);
     } catch (e: any) {
-      setBladHasla(e?.message || 'Nie udało się zmienić hasła.');
+      setBladHasla(e?.message || t('errPassword'));
     } finally {
       setZapisywanie(false);
     }
   };
 
   if (!user) {
-    return <div className="text-gray-500">Wczytywanie danych konta…</div>;
+    return <div className="text-gray-500">{t('loading')}</div>;
   }
 
   const poleKlasy =
@@ -123,7 +126,7 @@ export default function ProfilPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Profil</h1>
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">{t('title')}</h1>
 
       {/* ===================== DANE KONTA ===================== */}
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
@@ -144,14 +147,14 @@ export default function ProfilPage() {
               onClick={rozpocznijEdycje}
               className="shrink-0 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
             >
-              Edytuj dane
+              {t('editData')}
             </button>
           )}
         </div>
 
         {zapisano && !edycja && (
           <div className="mb-4 px-3 py-2 rounded-md bg-green-50 border border-green-200 text-sm text-green-800">
-            Zmiany zostały zapisane.
+            {t('saved')}
           </div>
         )}
         {bladDanych && (
@@ -163,7 +166,7 @@ export default function ProfilPage() {
         {edycja ? (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Nazwa wyświetlana</label>
+              <label className="block text-sm text-gray-600 mb-1">{t('displayName')}</label>
               <input
                 value={form.username}
                 onChange={(e) => setForm({ ...form, username: e.target.value })}
@@ -171,12 +174,11 @@ export default function ProfilPage() {
                 autoFocus
               />
               <p className="mt-1 text-xs text-gray-500">
-                Widoczna w nagłówku i w zestawieniach. Nie służy do logowania, więc
-                możesz ją zmieniać dowolnie.
+                {t('displayNameHint')}
               </p>
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Imię i nazwisko</label>
+              <label className="block text-sm text-gray-600 mb-1">{t('fullName')}</label>
               <input
                 value={form.full_name}
                 onChange={(e) => setForm({ ...form, full_name: e.target.value })}
@@ -184,7 +186,7 @@ export default function ProfilPage() {
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Adres e-mail</label>
+              <label className="block text-sm text-gray-600 mb-1">{t('email')}</label>
               <input
                 type="email"
                 value={form.email}
@@ -192,7 +194,7 @@ export default function ProfilPage() {
                 className={poleKlasy}
               />
               <p className="mt-1 text-xs text-gray-500">
-                Tym adresem logujesz się do aplikacji.
+                {t('emailHint')}
               </p>
             </div>
             <div className="flex items-center gap-3 pt-1">
@@ -208,37 +210,37 @@ export default function ProfilPage() {
                 disabled={zapisywanie}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
               >
-                Anuluj
+                {tWspolne('cancel')}
               </button>
             </div>
           </div>
         ) : (
           <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <dt className="text-sm text-gray-500">Nazwa wyświetlana</dt>
+              <dt className="text-sm text-gray-500">{t('displayName')}</dt>
               <dd className="text-gray-800 font-medium break-words">{user.username}</dd>
             </div>
             <div>
-              <dt className="text-sm text-gray-500">Imię i nazwisko</dt>
+              <dt className="text-sm text-gray-500">{t('fullName')}</dt>
               <dd className="text-gray-800 font-medium break-words">{user.full_name || '—'}</dd>
             </div>
             <div>
-              <dt className="text-sm text-gray-500">Adres e-mail</dt>
+              <dt className="text-sm text-gray-500">{t('email')}</dt>
               <dd className="text-gray-800 font-medium break-words">{user.email}</dd>
             </div>
             <div>
-              <dt className="text-sm text-gray-500">Rola</dt>
+              <dt className="text-sm text-gray-500">{t('role')}</dt>
               <dd className="text-gray-800 font-medium">
                 {roleLabel(roles, user.role)}
-                <span className="ml-2 text-xs text-gray-500">(zmienia administrator)</span>
+                <span className="ml-2 text-xs text-gray-500">{t('roleHint')}</span>
               </dd>
             </div>
             <div>
-              <dt className="text-sm text-gray-500">Status konta</dt>
+              <dt className="text-sm text-gray-500">{t('accountStatus')}</dt>
               <dd className="text-gray-800 font-medium">{user.is_active ? 'Aktywne' : 'Nieaktywne'}</dd>
             </div>
             <div>
-              <dt className="text-sm text-gray-500">Ostatnie logowanie</dt>
+              <dt className="text-sm text-gray-500">{t('lastLogin')}</dt>
               <dd className="text-gray-800 font-medium">{dataPl(user.last_login)}</dd>
             </div>
           </dl>
@@ -249,9 +251,9 @@ export default function ProfilPage() {
       <div className="mt-6 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-800">Hasło</h2>
+            <h2 className="text-lg font-semibold text-gray-800">{t('password')}</h2>
             <p className="text-sm text-gray-500 mt-1">
-              Do zmiany hasła potrzebne jest hasło obecnie używane.
+              {t('passwordHint')}
             </p>
           </div>
           {!zmianaHasla && !hasloZmienione && (
@@ -259,14 +261,14 @@ export default function ProfilPage() {
               onClick={() => { setZmianaHasla(true); setBladHasla(''); setHasla({ current: '', nowe: '', powtorz: '' }); }}
               className="shrink-0 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
             >
-              Zmień hasło
+              {t('changePassword')}
             </button>
           )}
         </div>
 
         {hasloZmienione ? (
           <div className="mt-4 px-3 py-2 rounded-md bg-green-50 border border-green-200 text-sm text-green-800">
-            Hasło zostało zmienione. Za chwilę nastąpi wylogowanie — zaloguj się nowym hasłem.
+            {t('passwordChanged')}
           </div>
         ) : zmianaHasla ? (
           <div className="mt-5 space-y-4">
@@ -276,7 +278,7 @@ export default function ProfilPage() {
               </div>
             )}
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Aktualne hasło</label>
+              <label className="block text-sm text-gray-600 mb-1">{t('currentPassword')}</label>
               <input
                 type="password"
                 autoComplete="current-password"
@@ -287,7 +289,7 @@ export default function ProfilPage() {
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Nowe hasło</label>
+              <label className="block text-sm text-gray-600 mb-1">{t('newPassword')}</label>
               <input
                 type="password"
                 autoComplete="new-password"
@@ -298,7 +300,7 @@ export default function ProfilPage() {
               <p className="mt-1 text-xs text-gray-500">Co najmniej {MIN_HASLO} znaków.</p>
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Powtórz nowe hasło</label>
+              <label className="block text-sm text-gray-600 mb-1">{t('repeatPassword')}</label>
               <input
                 type="password"
                 autoComplete="new-password"
@@ -313,14 +315,14 @@ export default function ProfilPage() {
                 disabled={zapisywanie || !hasla.current || !hasla.nowe || !hasla.powtorz}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60 transition-colors"
               >
-                {zapisywanie ? 'Zmienianie…' : 'Zmień hasło'}
+                {zapisywanie ? t('changingPassword') : t('changePassword')}
               </button>
               <button
                 onClick={() => { setZmianaHasla(false); setBladHasla(''); }}
                 disabled={zapisywanie}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
               >
-                Anuluj
+                {tWspolne('cancel')}
               </button>
             </div>
           </div>

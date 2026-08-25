@@ -32,7 +32,34 @@ export function czyOdmowa(tekst?: string | null): boolean {
   return ODMOWY.includes((tekst || '').replace(/\s+/g, ' ').trim().toLowerCase());
 }
 
+/**
+ * Znacznik komunikatu „nie ma czego pokazać", stawiany na POCZĄTKU treści.
+ *
+ * Takich komunikatów nie tworzy model, tylko sama aplikacja: „nie znalazłem
+ * dokumentów spełniających kryteria", „nie wiem, o które dokumenty chodzi".
+ * Nie wolno ich wpuścić do historii wysyłanej modelowi — odmowa w jego pamięci
+ * powoduje kolejne odmowy (zmierzone, 0.5.4). Backend odsiewał je po POCZĄTKU
+ * polskiego zdania, więc po przetłumaczeniu interfejsu przestałby je rozpoznawać
+ * i wpuściłby do historii. Znacznik jest identyczny w każdym języku.
+ *
+ * Do bazy idzie razem z treścią — dzięki temu rozmowa wczytana później nadal
+ * niesie tę informację. Przed oczy użytkownika NIE trafia.
+ */
+export const ZNACZNIK_BEZ_TRAFIEN = '[[NOMATCH]]';
+
+/** Czy komunikat pochodzi od aplikacji i nie niesie odpowiedzi. */
+export function bezTrafien(tekst?: string | null): boolean {
+  return (tekst || '').trimStart().startsWith(ZNACZNIK_BEZ_TRAFIEN);
+}
+
+/** Zdejmuje znacznik — do pokazania i do porównań na samej treści. */
+export function bezZnacznikaTrafien(tekst?: string | null): string {
+  const s = tekst || '';
+  return bezTrafien(s) ? s.trimStart().slice(ZNACZNIK_BEZ_TRAFIEN.length).trimStart() : s;
+}
+
 /** Treść do pokazania: znacznik zamieniamy na zdanie, resztę zostawiamy bez zmian. */
 export function trescDoPokazania(tekst?: string | null): string {
-  return czyOdmowa(tekst) ? ODMOWA_TEKST : (tekst || '');
+  if (czyOdmowa(tekst)) return ODMOWA_TEKST;
+  return bezZnacznikaTrafien(tekst);
 }

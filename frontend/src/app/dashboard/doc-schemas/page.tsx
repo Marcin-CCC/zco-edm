@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { IconClose, IconEdit, IconPlus, IconTrash } from '@/components/icons';
 import { SortableFields } from '@/components/sortable-fields';
@@ -13,12 +14,13 @@ import { docSchemasApi, DocTypeSchema } from '@/lib/api';
 // Typy pól akceptowane przez backend: string | number | money | date | enum:v1,v2,...
 // „Kwota" różni się od „Liczby" tym, co dzieje się dalej: w eksporcie do Excela
 // trafia jako liczba z groszami i separatorem tysięcy, więc kolumna się sumuje.
+// KLUCZE, nie gotowe napisy: to stała modułu, a napis idzie za językiem interfejsu.
 const FIELD_TYPES = [
-  { value: 'string', label: 'Tekst (string)' },
-  { value: 'date', label: 'Data (date)' },
-  { value: 'number', label: 'Liczba (number)' },
-  { value: 'money', label: 'Kwota (money)' },
-  { value: 'enum', label: 'Lista wartości (enum)' },
+  { value: 'string', labelKey: 'typeText' },
+  { value: 'date', labelKey: 'typeDate' },
+  { value: 'number', labelKey: 'typeNumber' },
+  { value: 'money', labelKey: 'typeMoney' },
+  { value: 'enum', labelKey: 'typeEnum' },
 ];
 
 // Wewnętrzny model pola w formularzu (typ rozbity na bazę + wartości enuma)
@@ -45,6 +47,8 @@ function parseType(t: string): { baseType: string; enumValues: string } {
 }
 
 export default function DocSchemasPage() {
+  const t = useTranslations('schemas');
+  const tWspolne = useTranslations('common');
   const [schemas, setSchemas] = useState<DocTypeSchema[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -59,7 +63,7 @@ export default function DocSchemasPage() {
       const data = await docSchemasApi.list(includeInactive);
       setSchemas(data);
     } catch (err: any) {
-      setError(err.message || 'Błąd pobierania schematów');
+      setError(err.message || t('errFetch'));
     } finally {
       setLoading(false);
     }
@@ -141,7 +145,7 @@ export default function DocSchemasPage() {
       resetForm();
       fetchSchemas();
     } catch (err: any) {
-      setError(err.message || 'Błąd zapisu schematu');
+      setError(err.message || t('errSave'));
     }
   };
 
@@ -152,20 +156,20 @@ export default function DocSchemasPage() {
       await docSchemasApi.delete(slug);
       fetchSchemas();
     } catch (err: any) {
-      setError(err.message || 'Błąd usuwania');
+      setError(err.message || t('errDelete'));
     }
   };
 
   return (
     <div>
       <PageHeader
-        title="Schematy dokumentów"
-        description="Typy dokumentów i pola nagłówkowe, po których klasyfikujemy i filtrujemy pliki. Propozycje pochodzą z indukcji na próbkach — tutaj je korygujesz i zatwierdzasz."
+        title={t('title')}
+        description={t('description')}
         actions={
           !showForm && (
             <Button variant="primary" onClick={handleNew}>
               <IconPlus size={18} />
-              Dodaj schemat
+              {t('addSchema')}
             </Button>
           )
         }
@@ -195,19 +199,19 @@ export default function DocSchemasPage() {
                     value={form.slug}
                     onChange={(e) => setForm({ ...form, slug: e.target.value })}
                     disabled={!!editingSlug}
-                    placeholder="np. zarzadzenie"
+                    placeholder={t('slugPlaceholder')}
                     className={`${inputClass} disabled:bg-app-bg disabled:text-app-muted`}
                     required
                   />
                 </Field>
               </div>
               <div>
-                <Field label="Nazwa">
+                <Field label={t('nameLabel')}>
                   <input
                     type="text"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="np. Zarządzenie"
+                    placeholder={t('namePlaceholder')}
                     className={inputClass}
                     required
                   />
@@ -216,19 +220,19 @@ export default function DocSchemasPage() {
             </div>
 
             <div>
-              <Field label="Kryteria klasyfikacji (opcjonalnie)">
+              <Field label={t('criteriaLabel')}>
                 <textarea
                   value={form.criteria}
                   onChange={(e) => setForm({ ...form, criteria: e.target.value })}
                   rows={2}
-                  placeholder="Jak rozpoznać ten typ dokumentu (wskazówki dla klasyfikatora)."
+                  placeholder={t('criteriaPlaceholder')}
                   className={`${inputClass} h-auto py-2`}
                 />
               </Field>
             </div>
 
             <div>
-              <Field label="Wzorzec nazwy pliku (opcjonalnie)">
+              <Field label={t('patternLabel')}>
                 <input
                   value={form.name_pattern}
                   onChange={(e) => setForm({ ...form, name_pattern: e.target.value })}
@@ -237,9 +241,7 @@ export default function DocSchemasPage() {
                 />
               </Field>
               <p className="mt-1 text-xs text-app-muted">
-                W nawiasach klamrowych nazwy pól nagłówkowych tego typu oraz <code>{'{typ}'}</code>.
-                Polskie znaki, spacje i znaki zakazane w nazwach plików zamieniamy na myślnik,
-                rozszerzenie dokładamy z oryginału. Puste = dla tej kategorii nie proponujemy nazw.
+                {t('patternHintBefore')}<code>{'{typ}'}</code>{t('patternHintAfter')}
               </p>
             </div>
 
@@ -247,19 +249,19 @@ export default function DocSchemasPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="block text-[13px] font-medium text-app-text">
-                  Pola nagłówkowe
+                  {t('fieldsHeading')}
                   <span className="ml-2 text-xs font-normal text-app-muted">
-                    kolejność (przeciąganie za uchwyt) wyznacza układ kolumn w arkuszu
+                    {t('fieldsOrderHint')}
                   </span>
                 </span>
                 <Button type="button" variant="ghost" small onClick={addField}>
                   <IconPlus size={16} />
-                  pole
+                  {t('addField')}
                 </Button>
               </div>
 
               {form.fields.length === 0 ? (
-                <p className="py-2 text-sm text-app-muted">Brak pól — dodaj pierwsze przyciskiem „+ pole".</p>
+                <p className="py-2 text-sm text-app-muted">{t('noFields')}</p>
               ) : (
                 <SortableFields
                   items={form.fields}
@@ -271,7 +273,7 @@ export default function DocSchemasPage() {
                         type="text"
                         value={row.name}
                         onChange={(e) => updateField(i, { name: e.target.value })}
-                        placeholder="nazwa pola (np. data)"
+                        placeholder={t('fieldNamePlaceholder')}
                         className={`${inputClass} min-w-[140px] flex-1`}
                       />
                       <select
@@ -279,8 +281,9 @@ export default function DocSchemasPage() {
                         onChange={(e) => updateField(i, { baseType: e.target.value })}
                         className={`${inputClass} w-auto`}
                       >
-                        {FIELD_TYPES.map((t) => (
-                          <option key={t.value} value={t.value}>{t.label}</option>
+                        {/* `ft`, nie `t` — `t` to już tłumaczenia w tym zasięgu. */}
+                        {FIELD_TYPES.map((ft) => (
+                          <option key={ft.value} value={ft.value}>{t(ft.labelKey)}</option>
                         ))}
                       </select>
                       {row.baseType === 'enum' && (
@@ -288,7 +291,7 @@ export default function DocSchemasPage() {
                           type="text"
                           value={row.enumValues}
                           onChange={(e) => updateField(i, { enumValues: e.target.value })}
-                          placeholder="wartości: PLN,EUR,USD"
+                          placeholder={t('enumPlaceholder')}
                           className={`${inputClass} min-w-[140px] flex-1`}
                         />
                       )}
@@ -296,10 +299,10 @@ export default function DocSchemasPage() {
                         type="text"
                         value={row.hint}
                         onChange={(e) => updateField(i, { hint: e.target.value })}
-                        placeholder="podpowiedź (opcjonalnie)"
+                        placeholder={t('fieldHintPlaceholder')}
                         className={`${inputClass} min-w-[140px] flex-1`}
                       />
-                      <IconButton tone="danger" title="Usuń pole" onClick={() => removeField(i)} className="mt-0.5">
+                      <IconButton tone="danger" title={t('deleteField')} onClick={() => removeField(i)} className="mt-0.5">
                         <IconClose size={15} />
                       </IconButton>
                     </>
@@ -315,7 +318,7 @@ export default function DocSchemasPage() {
                 onChange={(e) => setForm({ ...form, active: e.target.checked })}
                 className="rounded border-app-line text-app-blue"
               />
-              Aktywny
+              {t('active')}
             </label>
 
             {/* Znacznik przy TYPIE, nie przy pliku: jeden dostawca = jeden typ, więc
@@ -330,18 +333,15 @@ export default function DocSchemasPage() {
                 className="mt-0.5 rounded border-app-line text-app-blue"
               />
               <span>
-                Materiał od dostawcy zewnętrznego
-                <span className="block text-[12px] text-app-muted">
-                  Opisy produktów i inne treści spoza organizacji. Dokumenty tego typu
-                  dostają na liście oznaczenie „zewnętrzny”.
-                </span>
+                {t('externalLabel')}
+                <span className="block text-[12px] text-app-muted">{t('externalHint')}</span>
               </span>
             </label>
 
             <div className="flex justify-end gap-2">
-              <Button type="button" onClick={resetForm}>Anuluj</Button>
+              <Button type="button" onClick={resetForm}>{tWspolne('cancel')}</Button>
               <Button type="submit" variant="primary">
-                {editingSlug ? 'Zapisz zmiany' : 'Dodaj schemat'}
+                {editingSlug ? t('saveChanges') : t('addSchema')}
               </Button>
             </div>
           </form>
@@ -357,28 +357,28 @@ export default function DocSchemasPage() {
             onChange={(e) => setIncludeInactive(e.target.checked)}
             className="rounded border-app-line text-app-blue"
           />
-          Pokaż nieaktywne
+          {t('showInactive')}
         </label>
       </div>
 
       {/* Lista */}
       <Card className="overflow-hidden">
         {loading ? (
-          <EmptyState title="Ładowanie…" />
+          <EmptyState title={t('loading')} />
         ) : schemas.length === 0 ? (
           <EmptyState
-            title="Brak schematów"
+            title={t('empty')}
             hint={'Dodaj pierwszy schemat przyciskiem u góry strony.'}
           />
         ) : (
           <Table>
             <thead>
               <tr>
-                <Th>Typ</Th>
-                <Th>Pola</Th>
-                <Th>Wzorzec nazwy</Th>
-                <Th>Status</Th>
-                <Th className="text-right">Akcje</Th>
+                <Th>{t('colType')}</Th>
+                <Th>{t('colFields')}</Th>
+                <Th>{t('colPattern')}</Th>
+                <Th>{t('colStatus')}</Th>
+                <Th className="text-right">{t('colActions')}</Th>
               </tr>
             </thead>
             <tbody>
@@ -414,15 +414,15 @@ export default function DocSchemasPage() {
                   </Td>
                   <Td>
                     <Badge tone={s2.active ? 'green' : 'gray'}>
-                      {s2.active ? 'Aktywny' : 'Nieaktywny'}
+                      {s2.active ? t('active') : t('inactive')}
                     </Badge>
                   </Td>
                   <Td>
                     <RowActions>
-                      <IconButton tone="edit" title="Edytuj" onClick={() => handleEdit(s2)}>
+                      <IconButton tone="edit" title={t('edit')} onClick={() => handleEdit(s2)}>
                         <IconEdit size={16} />
                       </IconButton>
-                      <IconButton tone="danger" title="Usuń" onClick={() => handleDelete(s2.slug)}>
+                      <IconButton tone="danger" title={tWspolne('delete')} onClick={() => handleDelete(s2.slug)}>
                         <IconTrash size={16} />
                       </IconButton>
                     </RowActions>

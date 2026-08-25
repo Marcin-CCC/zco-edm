@@ -12,6 +12,7 @@
  * z szerokością okna — przy wąskim ekranie linia robi się wyraźnie grubsza.
  */
 import { useEffect, useRef, useState } from 'react';
+import { aktywnyJezyk } from '@/i18n/locales';
 
 export interface AreaChartPoint {
   day: string; // ISO, np. „2026-07-28"
@@ -38,7 +39,7 @@ const fmtDzien = (iso: string) => {
 };
 
 const fmtDzienDlugi = (iso: string) =>
-  new Date(`${iso}T00:00:00`).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long' });
+  new Date(`${iso}T00:00:00`).toLocaleDateString(aktywnyJezyk(), { day: 'numeric', month: 'long' });
 
 /** Górna granica osi zaokrąglona „do ludzkiej liczby" (1, 2, 5 × 10ⁿ).
  *  Oś kończąca się na 137 wygląda na pomyłkę, nawet gdy to prawdziwe maksimum. */
@@ -113,7 +114,7 @@ export function AreaChart({ data, color, unitLabel, emptyText = 'Brak danych z t
         >
           {[4, 3, 2, 1, 0].map((i) => (
             <span key={i} className="-translate-y-1/2 first:translate-y-0 last:-translate-y-full">
-              {Math.round((skala * i) / 4).toLocaleString('pl-PL')}
+              {Math.round((skala * i) / 4).toLocaleString(aktywnyJezyk())}
             </span>
           ))}
         </div>
@@ -170,7 +171,7 @@ export function AreaChart({ data, color, unitLabel, emptyText = 'Brak danych z t
               top: Math.max(y(data[hover].value) - 34, -6),
             }}
           >
-            <span className="font-semibold">{data[hover].value.toLocaleString('pl-PL')}</span>{' '}
+            <span className="font-semibold">{data[hover].value.toLocaleString(aktywnyJezyk())}</span>{' '}
             <span className="text-[#c9d6ea]">{unitLabel}</span>
             <span className="text-[#9fb3d1]"> · {fmtDzienDlugi(data[hover].day)}</span>
           </div>

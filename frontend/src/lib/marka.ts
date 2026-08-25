@@ -15,7 +15,10 @@
 export interface Marka {
   /** Nazwa wyświetlana w nagłówku, na logowaniu i w tytule okna */
   nazwa: string;
-  /** Zdanie pod nazwą na ekranie logowania */
+  /** Zdanie pod nazwą na ekranie logowania. PUSTE = weź je z katalogu tłumaczeń
+   *  (`brand.tagline`), czyli podpis pójdzie za językiem interfejsu. Zmienną
+   *  ustawia się tylko tam, gdzie podpis jest nazwą własną i tłumaczyć go NIE
+   *  wolno — jak „Hospital Information Retrieval System", rozwinięcie skrótu HiRS. */
   opis: string;
   /** Kolor tła paska bocznego */
   tlo: string;
@@ -39,7 +42,7 @@ export interface Marka {
 /** Domyślnie demo uniwersalne. Wdrożenia klienckie nadpisują to zmiennymi środowiskowymi. */
 export const MARKA_DOMYSLNA: Marka = {
   nazwa: 'HiRS',
-  opis: 'Hospital Information Retrieval System',
+  opis: '',                       // pusty = podpis z katalogu, za językiem
   tlo: '#1d2a4d',
   akcent: '#1fc8ba',
   przykladEmail: 'admin@firma.pl',

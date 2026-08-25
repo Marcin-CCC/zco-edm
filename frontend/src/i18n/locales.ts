@@ -52,6 +52,26 @@ export function enabledLocales(): Locale[] {
   return LOCALES.filter((k) => k === BASE_LOCALE || lista.includes(k));
 }
 
+/**
+ * Język, w którym trzeba sformatować liczbę albo datę — dla kodu BEZ dostępu do
+ * hooków (`lib/czas.ts`, `file-type-icon.tsx`).
+ *
+ * Czytamy go z atrybutu `lang` na `<html>`, który ustawia układ główny. To jedyne
+ * miejsce prawdy widoczne z każdego modułu i zawsze zgodne z tym, co widzi
+ * `next-intl`. Wcześniej te miejsca miały wpisane `'pl-PL'` na sztywno, więc po
+ * angielsku data wychodziła „25 sierpnia 2026", a liczba „1 234,5".
+ *
+ * Na serwerze `document` nie istnieje — wraca język bazowy. Nie powoduje to
+ * rozjazdu po hydratacji, bo daty i liczby pojawiają się dopiero po wczytaniu
+ * danych, czyli już w przeglądarce.
+ */
+export function aktywnyJezyk(): string {
+  if (typeof document !== 'undefined' && document.documentElement.lang) {
+    return document.documentElement.lang;
+  }
+  return BASE_LOCALE;
+}
+
 export function isLocale(value: unknown): value is Locale {
   return typeof value === 'string' && (LOCALES as readonly string[]).includes(value);
 }

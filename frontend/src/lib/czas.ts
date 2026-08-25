@@ -14,6 +14,8 @@
  * wszystkich ekranów.
  */
 
+import { aktywnyJezyk } from '@/i18n/locales';
+
 /** Data z napisu ISO; napis bez strefy rozumiemy jako UTC. */
 export function parsujUtc(iso: string): Date {
   const maStrefe = /[zZ]|[+-]\d{2}:?\d{2}$/.test(iso);
@@ -27,7 +29,7 @@ export function czasLokalny(
 ): string {
   if (!iso) return '—';
   const d = parsujUtc(iso);
-  return isNaN(d.getTime()) ? '—' : d.toLocaleString('pl-PL', opcje);
+  return isNaN(d.getTime()) ? '—' : d.toLocaleString(aktywnyJezyk(), opcje);
 }
 
 /** Sama data w strefie użytkownika. */
@@ -37,7 +39,7 @@ export function dataLokalna(
 ): string {
   if (!iso) return '—';
   const d = parsujUtc(iso);
-  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pl-PL', opcje);
+  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString(aktywnyJezyk(), opcje);
 }
 
 /** Sama data kalendarzowa („2026-08-21" → „21.08.2026"), BEZ przeliczania stref.
@@ -59,7 +61,7 @@ export function godzinaLokalna(
 ): string {
   if (!iso) return '—';
   const d = parsujUtc(iso);
-  return isNaN(d.getTime()) ? '—' : d.toLocaleTimeString('pl-PL', opcje);
+  return isNaN(d.getTime()) ? '—' : d.toLocaleTimeString(aktywnyJezyk(), opcje);
 }
 
 /** Znacznik czasu w formie z makiety 1.5: „Dzisiaj, 11:32", „Wczoraj, 16:07",
@@ -68,20 +70,26 @@ export function godzinaLokalna(
  * Rok pomijamy przy datach z bieżącego roku: na liście „ostatnio dodanych"
  * czterocyfrowy rok przy każdej pozycji to szum, a nie informacja.
  */
-export function kiedy(iso?: string | null): string {
+export function kiedy(
+  iso?: string | null,
+  /** „Dzisiaj"/„Wczoraj" w języku interfejsu. Ten moduł nie jest komponentem, więc
+   *  nie sięgnie po tłumaczenia sam — wołający podaje je z `useTranslations`.
+   *  Wartości domyślne są polskie, żeby wywołanie bez etykiet nadal działało. */
+  etykiety: { dzis: string; wczoraj: string } = { dzis: 'Dzisiaj', wczoraj: 'Wczoraj' },
+): string {
   if (!iso) return '—';
   const d = parsujUtc(iso);
   if (isNaN(d.getTime())) return '—';
 
-  const godzina = d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+  const godzina = d.toLocaleTimeString(aktywnyJezyk(), { hour: '2-digit', minute: '2-digit' });
   const dzien = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const dzis = new Date();
   const dzisDzien = new Date(dzis.getFullYear(), dzis.getMonth(), dzis.getDate());
   const roznica = Math.round((dzisDzien.getTime() - dzien.getTime()) / 86_400_000);
 
-  if (roznica === 0) return `Dzisiaj, ${godzina}`;
-  if (roznica === 1) return `Wczoraj, ${godzina}`;
-  const data = d.toLocaleDateString('pl-PL',
+  if (roznica === 0) return `${etykiety.dzis}, ${godzina}`;
+  if (roznica === 1) return `${etykiety.wczoraj}, ${godzina}`;
+  const data = d.toLocaleDateString(aktywnyJezyk(),
     d.getFullYear() === dzis.getFullYear()
       ? { day: '2-digit', month: '2-digit' }
       : { day: '2-digit', month: '2-digit', year: 'numeric' });

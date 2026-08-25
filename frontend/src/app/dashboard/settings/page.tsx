@@ -10,6 +10,7 @@
  * pokazało ikonę HiRS. Teraz wartości siedzą w bazie i zmienia je administrator.
  */
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { IconClose } from '@/components/icons';
 import { useMarka } from '@/components/marka-provider';
@@ -50,6 +51,7 @@ function kontrast(a: string, b: string): number | null {
 const PROBKI = ['#ffffff', '#1fc8ba', '#7cc4ff', '#ffd166', '#b9c6da'];
 
 export default function SettingsPage() {
+  const t = useTranslations('settings');
   const marka = useMarka();
   const [dane, setDane] = useState<any>(null);
   const [form, setForm] = useState({
@@ -116,7 +118,7 @@ export default function SettingsPage() {
       setKomunikat('Ustawienia zapisane.');
       await wczytaj();
     } catch (e: unknown) {
-      setBlad(e instanceof Error ? e.message : 'Nie udało się zapisać ustawień.');
+      setBlad(e instanceof Error ? e.message : t('errSave'));
     } finally {
       setSaving(false);
     }
@@ -131,18 +133,18 @@ export default function SettingsPage() {
       setIkona(wynik.app_icon);
       setKomunikat('Ikona zapisana. Pojawi się w menu po odświeżeniu strony.');
     } catch (e: unknown) {
-      setBlad(e instanceof Error ? e.message : 'Nie udało się wgrać ikony.');
+      setBlad(e instanceof Error ? e.message : t('errIcon'));
     }
   };
 
-  if (loading) return <div className="text-app-muted">Ładowanie…</div>;
+  if (loading) return <div className="text-app-muted">{t('loading')}</div>;
 
   const wsp = kontrast(form.app_name_color, TLO_MENU);
   const slabyKontrast = wsp !== null && wsp < 4.5;
 
   return (
     <div className="max-w-3xl">
-      <PageHeader title="Ustawienia aplikacji" description="Identyfikacja instancji, parametry integracji i poczta wychodząca." />
+      <PageHeader title={t('title')} description={t('description')} />
 
       {komunikat && (
         <div className="mb-4 rounded-ctl border border-[#bfe6d2] bg-app-greenbg px-4 py-3 text-sm text-[#148a57]">
@@ -157,10 +159,10 @@ export default function SettingsPage() {
 
       {/* ---------------------------------------------- identyfikacja */}
       <Card className="mb-5">
-        <CardHeader><h2 className="text-[15px] font-bold text-app-text">Identyfikacja aplikacji</h2></CardHeader>
+        <CardHeader><h2 className="text-[15px] font-bold text-app-text">{t('identity')}</h2></CardHeader>
         <div className="space-y-5 p-[18px]">
           <div>
-            <span className="mb-1 block text-[13px] font-medium text-app-text">Ikona aplikacji</span>
+            <span className="mb-1 block text-[13px] font-medium text-app-text">{t('appIcon')}</span>
             <div className="flex flex-wrap items-center gap-3">
               {/* Ciemne tło nie jest ozdobą: ikona bywa biała i na białej karcie
                   byłaby niewidoczna, a i tak trafia na ciemne menu. Pokazujemy
@@ -177,21 +179,20 @@ export default function SettingsPage() {
                 className="hidden"
                 onChange={(e) => wgrajIkone(e.target.files?.[0])}
               />
-              <Button onClick={() => wybor.current?.click()}>Wybierz plik</Button>
+              <Button onClick={() => wybor.current?.click()}>{t('pickFile')}</Button>
               <Button
                 onClick={async () => { await settingsApi.resetAppIcon(); setIkona(''); setKomunikat('Przywrócono ikonę domyślną.'); }}
                 disabled={!ikona}
               >
-                Przywróć domyślną
+                {t('restoreDefault')}
               </Button>
             </div>
             <p className="mt-1 text-[11px] text-app-muted">
-              Plik PNG lub SVG, kwadratowy (proporcje 1:1), zalecane minimum 128×128 px.
-              Ikona pojawia się w lewym górnym rogu, także w zwiniętym menu.
+              {t('iconHint')}
             </p>
           </div>
 
-          <Field label="Nazwa aplikacji" hint="Wyświetlana obok ikony i w tytule okna przeglądarki.">
+          <Field label={t('appName')} hint={t('appNameHint')}>
             <input
               value={form.app_name}
               onChange={(e) => setForm({ ...form, app_name: e.target.value })}
@@ -201,7 +202,7 @@ export default function SettingsPage() {
           </Field>
 
           <div>
-            <span className="mb-1 block text-[13px] font-medium text-app-text">Kolor nazwy</span>
+            <span className="mb-1 block text-[13px] font-medium text-app-text">{t('nameColor')}</span>
             <div className="flex flex-wrap items-center gap-2">
               {PROBKI.map((p) => (
                 <button
@@ -228,12 +229,12 @@ export default function SettingsPage() {
               </p>
             )}
             <p className="mt-1 text-[11px] text-app-muted">
-              Kolor napisu na ciemnym tle menu — dobierz tak, aby zachować czytelność.
+              {t('nameColorHint')}
             </p>
           </div>
 
           <div>
-            <span className="mb-1 block text-[13px] font-medium text-app-text">Podgląd</span>
+            <span className="mb-1 block text-[13px] font-medium text-app-text">{t('preview')}</span>
             {/* Podglad rysuje ten sam komponent co pasek boczny — podglad pokazujacy
                 cos innego niz aplikacja jest gorszy niz brak podgladu. Gdy wlasnej
                 ikony nie wgrano, pokazujemy te, ktora instancja realnie uzywa. */}
@@ -251,9 +252,9 @@ export default function SettingsPage() {
 
       {/* ---------------------------------------- integracje i sesja */}
       <Card className="mb-5">
-        <CardHeader><h2 className="text-[15px] font-bold text-app-text">Integracje i sesja</h2></CardHeader>
+        <CardHeader><h2 className="text-[15px] font-bold text-app-text">{t('integrations')}</h2></CardHeader>
         <div className="space-y-4 p-[18px]">
-          <Field label="Adres webhooka do przetwarzania plików">
+          <Field label={t('parseWebhook')}>
             <input
               value={form.n8n_webhook_url}
               onChange={(e) => setForm({ ...form, n8n_webhook_url: e.target.value })}
@@ -261,7 +262,7 @@ export default function SettingsPage() {
             />
           </Field>
           <Field
-            label="Adres webhooka czatu"
+            label={t('chatWebhook')}
             hint={'URL triggera „When chat message received” z workflow czatu n8n (tryb streaming).'}
           >
             <input
@@ -271,7 +272,7 @@ export default function SettingsPage() {
             />
           </Field>
           <Field
-            label="Dozwolone rozszerzenia plików"
+            label={t('allowedExtensions')}
             hint={'Lista rozdzielona przecinkami, np. pdf,docx,xlsx,odt. Musi odpowiadać typom '
               + 'obsługiwanym przez workflow n8n — inaczej plik zostanie przyjęty, ale nie przetworzony.'}
           >
@@ -282,7 +283,7 @@ export default function SettingsPage() {
             />
           </Field>
           <Field
-            label="Automatyczne wylogowanie po bezczynności (minuty)"
+            label={t('idleLogout')}
             hint={'Po tylu minutach bez aktywności użytkownik wróci na ekran logowania (od 1 do 1440 min). '
               + 'Niezależnie od tego sesja ma twardy limit 12 godzin.'}
           >
@@ -300,24 +301,24 @@ export default function SettingsPage() {
       {/* ------------------------------------------ poczta wychodząca */}
       <Card className="mb-5">
         <CardHeader>
-          <h2 className="text-[15px] font-bold text-app-text">Poczta wychodząca</h2>
+          <h2 className="text-[15px] font-bold text-app-text">{t('mail')}</h2>
           <span className="text-[11px] text-app-muted">
-            Używana przez ekran „Skontaktuj się”
+            {t('mailHint')}
           </span>
         </CardHeader>
         <div className="grid grid-cols-1 gap-4 p-[18px] md:grid-cols-2">
-          <Field label="Serwer SMTP">
+          <Field label={t('smtpHost')}>
             <input value={form.smtp_host} onChange={(e) => setForm({ ...form, smtp_host: e.target.value })} placeholder="smtp.firma.pl" className={inputClass} />
           </Field>
-          <Field label="Port" hint="465 = SMTPS, pozostałe porty używają STARTTLS.">
+          <Field label={t('smtpPort')} hint={t('smtpPortHint')}>
             <input value={form.smtp_port} onChange={(e) => setForm({ ...form, smtp_port: e.target.value })} className={inputClass} />
           </Field>
-          <Field label="Użytkownik">
+          <Field label={t('smtpUser')}>
             <input value={form.smtp_user} onChange={(e) => setForm({ ...form, smtp_user: e.target.value })} autoComplete="off" className={inputClass} />
           </Field>
           <Field
-            label="Hasło"
-            hint={dane?.smtp_password_set ? 'Hasło jest zapisane. Puste pole = bez zmiany.' : 'Hasło nie zostało jeszcze ustawione.'}
+            label={t('smtpPassword')}
+            hint={dane?.smtp_password_set ? t('smtpPasswordSet') : t('smtpPasswordUnset')}
           >
             <input
               type="password"
@@ -327,10 +328,10 @@ export default function SettingsPage() {
               className={inputClass}
             />
           </Field>
-          <Field label="Adres nadawcy">
+          <Field label={t('mailFrom')}>
             <input value={form.smtp_from} onChange={(e) => setForm({ ...form, smtp_from: e.target.value })} placeholder="system@firma.pl" className={inputClass} />
           </Field>
-          <Field label="Adres wsparcia (odbiorca zgłoszeń)">
+          <Field label={t('mailSupport')}>
             <input value={form.support_email} onChange={(e) => setForm({ ...form, support_email: e.target.value })} placeholder="wsparcie@firma.pl" className={inputClass} />
           </Field>
         </div>
@@ -339,7 +340,7 @@ export default function SettingsPage() {
       <div className="flex justify-end gap-2">
         <Button onClick={() => { setKomunikat(''); setBlad(''); wczytaj(); }}>
           <IconClose size={16} />
-          Odrzuć zmiany
+          {t('discard')}
         </Button>
         <Button variant="primary" onClick={zapisz} disabled={saving}>
           {saving ? 'Zapisywanie…' : 'Zapisz ustawienia'}

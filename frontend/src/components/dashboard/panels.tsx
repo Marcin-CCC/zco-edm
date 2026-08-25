@@ -8,6 +8,8 @@
  * po prostu się nie pojawiają, a Szybkie akcje zajmują całą szerokość.
  */
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
+import { aktywnyJezyk } from '@/i18n/locales';
 
 import { Card } from '@/components/ui/primitives';
 import { rozmiarPliku } from '@/components/file-type-icon';
@@ -31,18 +33,19 @@ interface Akcja {
 /** Szybkie akcje. „Dodaj użytkownika" tylko dla administratora — pozostali
  *  dostaliby odnośnik prowadzący do ekranu, który odmówi im dostępu. */
 export function QuickActions({ isAdmin }: { isAdmin: boolean }) {
+  const t = useTranslations('dashboard');
   const akcje: Akcja[] = [
     ...(isAdmin
-      ? [{ label: 'Dodaj użytkownika', hint: 'Nowe konto', href: '/dashboard/users', Icon: IconUserPlus }]
+      ? [{ label: t('quickAddUserLabel'), hint: t('quickAddUserHint'), href: '/dashboard/users', Icon: IconUserPlus }]
       : []),
-    { label: 'Dodaj pliki', hint: 'Prześlij dokumenty', href: '/dashboard/files', Icon: IconFilePlus },
-    { label: 'Chat z AI', hint: 'Zadaj pytanie', href: '/dashboard/chat', Icon: IconChat },
-    { label: 'Wyszukaj dokument', hint: 'Zbuduj zapytanie', href: '/dashboard/wyszukiwanie', Icon: IconSearch },
+    { label: t('quickAddFilesLabel'), hint: t('quickAddFilesHint'), href: '/dashboard/files', Icon: IconFilePlus },
+    { label: t('quickChatLabel'), hint: t('quickChatHint'), href: '/dashboard/chat', Icon: IconChat },
+    { label: t('quickSearchLabel'), hint: t('quickSearchHint'), href: '/dashboard/wyszukiwanie', Icon: IconSearch },
   ];
 
   return (
     <Card className="p-4">
-      <h3 className="mb-3.5 text-[15px] font-bold text-app-text">Szybkie akcje</h3>
+      <h3 className="mb-3.5 text-[15px] font-bold text-app-text">{t('quickActions')}</h3>
       <div className={`grid gap-3 ${akcje.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
         {akcje.map(({ label, hint, href, Icon }) => (
           <Link
@@ -70,6 +73,7 @@ export function QuickActions({ isAdmin }: { isAdmin: boolean }) {
  * gdy naprawdę urosły modele.
  */
 export function StoragePanel({ stan }: { stan: SystemStatus | null }) {
+  const t = useTranslations('dashboard');
   const m = stan?.magazyn;
   const procent = m?.dostepny ? (m.percent ?? 0) : null;
   // Powyżej 85% zajętości kolor przestaje być ozdobą i zaczyna być ostrzeżeniem.
@@ -77,7 +81,7 @@ export function StoragePanel({ stan }: { stan: SystemStatus | null }) {
 
   return (
     <Card className="p-4">
-      <h3 className="mb-3 text-[15px] font-bold text-app-text">Miejsce w systemie</h3>
+      <h3 className="mb-3 text-[15px] font-bold text-app-text">{t('diskTitle')}</h3>
       <div className="flex items-center gap-[18px]">
         <div
           className="relative grid h-[100px] w-[100px] shrink-0 place-items-center rounded-full"
@@ -90,29 +94,32 @@ export function StoragePanel({ stan }: { stan: SystemStatus | null }) {
         >
           <div className="absolute h-[70px] w-[70px] rounded-full bg-white" />
           <strong className="z-[1] text-[21px] text-app-text">
-            {procent !== null ? `${procent.toLocaleString('pl-PL', { maximumFractionDigits: 0 })}%` : '—'}
+            {procent !== null ? `${procent.toLocaleString(aktywnyJezyk(), { maximumFractionDigits: 0 })}%` : '—'}
           </strong>
         </div>
         <div className="min-w-0">
           {m?.dostepny ? (
             <>
               <div className="text-[12px] text-app-muted">
-                Wolne <b className="text-app-text">{rozmiarPliku(m.free)}</b> z {rozmiarPliku(m.total)}
+                {t.rich('diskFreeOf', {
+                  free: () => <b className="text-app-text">{rozmiarPliku(m.free)}</b>,
+                  total: () => <>{rozmiarPliku(m.total)}</>,
+                })}
               </div>
               <div className="mt-2 text-[11px] leading-relaxed text-app-muted">
-                Dysk serwera dzielony z pozostałymi usługami.
+                {t('diskShared')}
                 <br />
-                Same dokumenty: <b className="text-app-text">{rozmiarPliku(m.documents_bytes)}</b>
+                {t('diskDocumentsValue')}<b className="text-app-text">{rozmiarPliku(m.documents_bytes)}</b>
               </div>
             </>
           ) : (
-            <div className="text-[12px] text-app-muted">Nie udało się odczytać zajętości dysku.</div>
+            <div className="text-[12px] text-app-muted">{t('errDisk')}</div>
           )}
           <Link
             href="/dashboard/files"
             className="mt-3 inline-block text-[11px] font-bold text-app-blue hover:underline"
           >
-            Zarządzaj miejscem ›
+            {t('diskManage')}
           </Link>
         </div>
       </div>
@@ -142,46 +149,51 @@ function Wiersz({ nazwa, online, opis }: { nazwa: string; online: boolean; opis?
  * a 100 w ciągu sekundy i nie odpowiada na pytanie „czy serwer jest zajęty".
  */
 export function SystemStatusPanel({ stan, blad }: { stan: SystemStatus | null; blad: boolean }) {
+  const t = useTranslations('dashboard');
   const opisParsera = () => {
     if (!stan) return null;
     const p = stan.parser;
-    if (!p.docling && !p.model) return 'Docling i model nie odpowiadają';
-    if (!p.docling) return 'Docling nie odpowiada';
-    if (!p.model) return 'Model językowy nie odpowiada';
-    if (p.running === null) return 'model odpowiada';
-    if (p.running === 0 && !p.waiting) return 'model bezczynny';
-    return `model liczy ${p.running}${p.waiting ? `, czeka ${p.waiting}` : ''}`;
+    if (!p.docling && !p.model) return t('parserBothDown');
+    if (!p.docling) return t('parserDoclingDown');
+    if (!p.model) return t('parserModelDown');
+    if (p.running === null) return t('parserAnswering');
+    if (p.running === 0 && !p.waiting) return t('parserIdle');
+    return t('parserWorking', { running: p.running }) + (p.waiting ? t('parserWaiting', { waiting: p.waiting }) : '');
   };
 
   const opisAplikacji = () => {
     const a = stan?.aplikacja;
     if (!a || a.load_percent === null) return null;
-    return `obciążenie ${a.load_percent.toLocaleString('pl-PL', { maximumFractionDigits: 0 })}% z ${a.cores} rdzeni`;
+    return t('cpuLoad', {
+      percent: a.load_percent.toLocaleString(aktywnyJezyk(), { maximumFractionDigits: 0 }),
+      // Liczba rdzeni bywa nieznana; „?" jest uczciwsze niż podstawione zero.
+      cores: String(a.cores ?? '?'),
+    });
   };
 
   const opisMagazynu = () => {
     const m = stan?.magazyn;
     if (!m?.dostepny) return null;
-    return `${rozmiarPliku(m.free)} wolnego`;
+    return t('storageFree', { size: rozmiarPliku(m.free) });
   };
 
   return (
     <Card className="p-4">
-      <h3 className="mb-3 text-[15px] font-bold text-app-text">Status systemu</h3>
+      <h3 className="mb-3 text-[15px] font-bold text-app-text">{t('systemStatus')}</h3>
       {blad || !stan ? (
         <p className="text-[12px] text-app-muted">
-          {blad ? 'Nie udało się odczytać stanu serwera.' : 'Odczyt stanu…'}
+          {blad ? t('errSystem') : t('statusReading')}
         </p>
       ) : (
         <div className="grid gap-2.5">
-          <Wiersz nazwa="Aplikacja" online={stan.aplikacja.online} opis={opisAplikacji()} />
-          <Wiersz nazwa="Parser" online={stan.parser.online} opis={opisParsera()} />
+          <Wiersz nazwa={t('rowApp')} online={stan.aplikacja.online} opis={opisAplikacji()} />
+          <Wiersz nazwa={t('rowParser')} online={stan.parser.online} opis={opisParsera()} />
           <Wiersz
-            nazwa="Baza danych"
+            nazwa={t('rowDatabase')}
             online={stan.baza.online}
-            opis={stan.baza.ms !== null ? `odpowiedź ${stan.baza.ms.toLocaleString('pl-PL')} ms` : null}
+            opis={stan.baza.ms !== null ? t('dbAnswer', { ms: stan.baza.ms.toLocaleString(aktywnyJezyk()) }) : null}
           />
-          <Wiersz nazwa="Magazyn plików" online={!!stan.magazyn.dostepny} opis={opisMagazynu()} />
+          <Wiersz nazwa={t('rowStorage')} online={!!stan.magazyn.dostepny} opis={opisMagazynu()} />
         </div>
       )}
     </Card>

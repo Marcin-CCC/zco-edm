@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { versionApi } from '@/lib/api';
 
 interface ChangelogEntry {
@@ -11,6 +12,7 @@ interface ChangelogEntry {
 }
 
 export default function ChangelogPage() {
+  const t = useTranslations('changelog');
   const [entries, setEntries] = useState<ChangelogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -19,16 +21,16 @@ export default function ChangelogPage() {
     versionApi
       .changelog()
       .then((d) => setEntries(d?.entries || []))
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Błąd pobierania historii zmian'))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : t('errFetch')))
       .finally(() => setLoading(false));
   }, []);
 
   return (
     <div className="max-w-3xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Historia zmian</h1>
+        <h1 className="text-2xl font-bold text-gray-800">{t('title')}</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Co nowego w kolejnych wydaniach aplikacji.
+          {t('description')}
         </p>
       </div>
 
@@ -39,9 +41,9 @@ export default function ChangelogPage() {
       )}
 
       {loading ? (
-        <div className="text-center py-8 text-gray-500">Ładowanie...</div>
+        <div className="text-center py-8 text-gray-500">{t('loading')}</div>
       ) : entries.length === 0 ? (
-        <div className="text-sm text-gray-500">Brak wpisów.</div>
+        <div className="text-sm text-gray-500">{t('empty')}</div>
       ) : (
         <ol className="space-y-6">
           {entries.map((e, idx) => (
@@ -53,7 +55,7 @@ export default function ChangelogPage() {
                 <span className="text-lg font-bold text-gray-800">v{e.version}</span>
                 {idx === 0 && (
                   <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    aktualna
+                    {t('current')}
                   </span>
                 )}
                 <span className="text-sm text-gray-400 ml-auto">{e.date}</span>

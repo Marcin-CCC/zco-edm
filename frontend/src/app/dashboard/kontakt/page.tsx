@@ -9,6 +9,7 @@
  * potwierdzenie wysyłki, której nie było.
  */
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
 import { Button, Card, Field, PageHeader, inputClass } from '@/components/ui/primitives';
@@ -18,6 +19,8 @@ import { useAuth } from '@/lib/store';
 const MIN_ZNAKOW = 10;
 
 export default function KontaktPage() {
+  const t = useTranslations('contact');
+  const tWspolne = useTranslations('common');
   const { user } = useAuth();
   const router = useRouter();
   const [tresc, setTresc] = useState('');
@@ -35,7 +38,7 @@ export default function KontaktPage() {
       setWyslano(`Zgłoszenie wysłane na ${wynik.do}. Odpowiedź trafi na Twój adres e-mail.`);
       setTresc('');
     } catch (e: unknown) {
-      setBlad(e instanceof Error ? e.message : 'Nie udało się wysłać zgłoszenia.');
+      setBlad(e instanceof Error ? e.message : t('errSend'));
     } finally {
       setWysylanie(false);
     }
@@ -44,8 +47,8 @@ export default function KontaktPage() {
   return (
     <div className="max-w-3xl">
       <PageHeader
-        title="Skontaktuj się"
-        description="Napisz do działu wsparcia technicznego. Odpowiemy na adres e-mail przypisany do Twojego konta."
+        title={t('title')}
+        description={t('description')}
       />
 
       {wyslano && (
@@ -61,7 +64,7 @@ export default function KontaktPage() {
 
       <Card className="p-[18px]">
         <div className="mb-4">
-          <Field label="Zgłaszający">
+          <Field label={t('reporter')}>
             <input
               value={`${user?.full_name || user?.username || ''}${user?.email ? ` · ${user.email}` : ''}`}
               readOnly
@@ -70,13 +73,13 @@ export default function KontaktPage() {
           </Field>
         </div>
 
-        <Field label="Treść zgłoszenia">
+        <Field label={t('body')}>
           <textarea
             value={tresc}
             onChange={(e) => setTresc(e.target.value)}
             rows={8}
             maxLength={5000}
-            placeholder="Opisz, czego dotyczy zgłoszenie."
+            placeholder={t('bodyPlaceholder')}
             className={`${inputClass} h-auto py-2.5`}
           />
         </Field>
@@ -85,9 +88,9 @@ export default function KontaktPage() {
         </p>
 
         <div className="mt-4 flex justify-end gap-2">
-          <Button onClick={() => router.back()}>Anuluj</Button>
+          <Button onClick={() => router.back()}>{tWspolne('cancel')}</Button>
           <Button variant="primary" onClick={wyslij} disabled={wysylanie || zaKrotkie}>
-            {wysylanie ? 'Wysyłanie…' : 'Wyślij'}
+            {wysylanie ? t('sending') : t('send')}
           </Button>
         </div>
       </Card>

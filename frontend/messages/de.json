@@ -1,4 +1,7 @@
 {
+  "brand": {
+    "tagline": "Dokumentenmanagementsystem"
+  },
   "common": {
     "loading": "Wird geladen…"
   },

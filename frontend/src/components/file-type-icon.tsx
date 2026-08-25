@@ -10,6 +10,8 @@
  * więc mają ten sam kolor, a rozróżnia je napis.
  */
 
+import { aktywnyJezyk } from '@/i18n/locales';
+
 const KOLORY: Record<string, string> = {
   pdf: '#d62828',
   doc: '#2f66dc', docx: '#2f66dc', odt: '#2f66dc', rtf: '#2f66dc',
@@ -75,5 +77,5 @@ export function rozmiarPliku(bajty: number | null | undefined): string {
     wartosc /= 1024;
     i += 1;
   }
-  return `${wartosc.toLocaleString('pl-PL', { maximumFractionDigits: wartosc < 10 ? 1 : 0 })} ${jednostki[i]}`;
+  return `${wartosc.toLocaleString(aktywnyJezyk(), { maximumFractionDigits: wartosc < 10 ? 1 : 0 })} ${jednostki[i]}`;
 }

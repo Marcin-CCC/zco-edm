@@ -13,13 +13,17 @@
  * - usunięcie roli z użytkownikami wymaga wskazania, dokąd ich przenieść.
  */
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { rolesApi } from '@/lib/api';
 import { codeFromName, type Role } from '@/lib/roles';
 
 export type RoleDialogMode = 'create' | 'rename' | 'delete';
 
-/** Polska odmiana rzeczownika po liczbie: 1 osoby / 3 osób / 5 osób.
+/** UWAGA: funkcja zna WYŁĄCZNIE polskie reguły. Liczebniki widoczne w oknach
+ *  przeszły na komunikaty ICU; ta zostaje bez wołających i czeka na usunięcie.
+ *
+ *  Polska odmiana rzeczownika po liczbie: 1 osoby / 3 osób / 5 osób.
  *
  * Bez tego okno pokazuje „1 uprawnień", co w oknie potwierdzającym operację
  * nieodwracalną wygląda po prostu na niedokończone.
@@ -62,6 +66,8 @@ function Okno({ tytul, children, stopka }: {
 }
 
 export function RoleDialog({ mode, role, roles, onClose, onDone }: Props) {
+  const t = useTranslations('roles');
+  const tWspolne = useTranslations('common');
   const [nazwa, setNazwa] = useState(mode === 'rename' ? role?.name || '' : '');
   const [kopiujZ, setKopiujZ] = useState('');
   const [przeniesDo, setPrzeniesDo] = useState('');
@@ -95,20 +101,18 @@ export function RoleDialog({ mode, role, roles, onClose, onDone }: Props) {
           name: nazwa.trim(),
           copy_permissions_from: kopiujZ || null,
         });
-        onDone(`Rola „${utworzona.name}” została utworzona (kod ${utworzona.code}).`);
+        onDone(t('created', { name: utworzona.name, code: utworzona.code }));
       } else if (mode === 'rename') {
         const zmieniona = await rolesApi.rename(role!.code, nazwa.trim());
-        onDone(`Nazwa roli zmieniona na „${zmieniona.name}”.`);
+        onDone(t('renamed', { name: zmieniona.name }));
       } else {
         const trzebaPrzeniesc = (role?.users_count || 0) > 0;
         const wynik = await rolesApi.remove(role!.code, trzebaPrzeniesc ? przeniesDo : null);
-        const przeniesieni = wynik.users_moved
-          ? ` Przeniesiono użytkowników: ${wynik.users_moved}.`
-          : '';
-        onDone(`Rola „${role!.name}” została usunięta.${przeniesieni}`);
+        const przeniesieni = wynik.users_moved ? t('moved', { count: wynik.users_moved }) : '';
+        onDone(t('removed', { name: role!.name }) + przeniesieni);
       }
     } catch (e: unknown) {
-      setBlad(e instanceof Error ? e.message : 'Operacja nie powiodła się.');
+      setBlad(e instanceof Error ? e.message : t('errGeneric'));
       setZapisywanie(false);
     }
   }
@@ -118,7 +122,7 @@ export function RoleDialog({ mode, role, roles, onClose, onDone }: Props) {
       onClick={onClose}
       className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
     >
-      Anuluj
+      {tWspolne('cancel')}
     </button>
   );
 
@@ -133,7 +137,7 @@ export function RoleDialog({ mode, role, roles, onClose, onDone }: Props) {
     const uprawnienia = role?.permissions_count || 0;
     return (
       <Okno
-        tytul={`Usuń rolę „${role?.name}”`}
+        tytul={t('deleteTitle', { name: role?.name ?? '' })}
         stopka={
           <>
             {przyciskAnuluj}
@@ -142,7 +146,7 @@ export function RoleDialog({ mode, role, roles, onClose, onDone }: Props) {
               disabled={zapisywanie || (uzytkownicy > 0 && !przeniesDo)}
               className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
             >
-              {uzytkownicy > 0 ? 'Przenieś i usuń' : 'Usuń rolę'}
+              {uzytkownicy > 0 ? t('moveAndDelete') : t('deleteRole')}
             </button>
           </>
         }
@@ -151,15 +155,11 @@ export function RoleDialog({ mode, role, roles, onClose, onDone }: Props) {
         {uzytkownicy > 0 ? (
           <>
             <div className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              Ta rola jest przypisana do <strong>{uzytkownicy}</strong>{' '}
-              {odmiana(uzytkownicy, ['osoby', 'osób', 'osób'])}
-              {uprawnienia > 0 && (
-                <> i ma <strong>{uprawnienia}</strong>{' '}
-                  {odmiana(uprawnienia, ['uprawnienie', 'uprawnienia', 'uprawnień'])} do folderów</>
-              )}.
+              {t.rich('assignedTo', { count: uzytkownicy, b: (c) => <strong>{c}</strong> })}
+              {uprawnienia > 0 && t.rich('andHasPerms', { count: uprawnienia, b: (c) => <strong>{c}</strong> })}.
             </div>
             <label className="block text-sm text-gray-600">
-              Przenieś tych użytkowników do roli
+              {t('moveUsersTo')}
               <select
                 value={przeniesDo}
                 onChange={(e) => setPrzeniesDo(e.target.value)}
@@ -173,23 +173,19 @@ export function RoleDialog({ mode, role, roles, onClose, onDone }: Props) {
           </>
         ) : (
           <p className="text-sm text-gray-600">
-            Tej roli nie ma przypisanej żadna osoba
-            {uprawnienia > 0 && (
-              <>, ale ma <strong>{uprawnienia}</strong>{' '}
-                {odmiana(uprawnienia, ['uprawnienie', 'uprawnienia', 'uprawnień'])} do folderów</>
-            )}.
+            {t('nobodyAssigned')}
+            {uprawnienia > 0 && t.rich('butHasPerms', { count: uprawnienia, b: (c) => <strong>{c}</strong> })}.
           </p>
         )}
         <p className="text-xs text-gray-500">
-          Uprawnienia usuwanej roli do folderów zostaną skasowane. Gdyby zostały, rola
-          założona później pod tym samym kodem odziedziczyłaby je po cichu.
+          {t('permsWarning')}
         </p>
       </Okno>
     );
   }
 
   const kod = codeFromName(nazwa);
-  const tytul = mode === 'create' ? 'Nowa rola' : `Zmień nazwę roli „${role?.name}”`;
+  const tytul = mode === 'create' ? t('newRole') : t('renameTitle', { name: role?.name ?? '' });
 
   return (
     <Okno
@@ -202,14 +198,14 @@ export function RoleDialog({ mode, role, roles, onClose, onDone }: Props) {
             disabled={zapisywanie || nazwa.trim().length < 2 || (mode === 'create' && !kod)}
             className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            {mode === 'create' ? 'Utwórz rolę' : 'Zapisz nazwę'}
+            {mode === 'create' ? t('createRole') : t('saveName')}
           </button>
         </>
       }
     >
       {komunikatBledu}
       <label className="block text-sm text-gray-600">
-        Nazwa roli
+        {t('roleName')}
         <input
           ref={poleNazwy}
           value={nazwa}
@@ -218,7 +214,7 @@ export function RoleDialog({ mode, role, roles, onClose, onDone }: Props) {
             if (e.key === 'Enter' && nazwa.trim().length >= 2 && !zapisywanie) wykonaj();
           }}
           maxLength={100}
-          placeholder="np. Pielęgniarka"
+          placeholder={t('namePlaceholder')}
           className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm text-gray-800"
         />
       </label>
@@ -227,34 +223,31 @@ export function RoleDialog({ mode, role, roles, onClose, onDone }: Props) {
         <>
           <p className="text-xs text-gray-500">
             {kod ? (
-              <>Kod w systemie: <span className="font-mono">{kod}</span> — nadawany raz, później niezmienny.</>
+              t.rich('codeInfo', { code: () => <span className="font-mono">{kod}</span> })
             ) : (
-              'Nazwa musi zawierać litery lub cyfry.'
+              t('nameNeedsChars')
             )}
           </p>
           <label className="block text-sm text-gray-600">
-            Skopiuj dostęp do folderów z roli
+            {t('copyFrom')}
             <select
               value={kopiujZ}
               onChange={(e) => setKopiujZ(e.target.value)}
               className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm text-gray-800"
             >
-              <option value="">— zacznij bez dostępu —</option>
+              <option value="">{t('startEmpty')}</option>
               {roles.map((r) => (
                 <option key={r.code} value={r.code}>{r.name}</option>
               ))}
             </select>
           </label>
           <p className="text-xs text-gray-500">
-            Nowa rola bez skopiowanych uprawnień nie widzi żadnego folderu — dostęp
-            nadasz w module Pliki.
+            {t('noPermsHint')}
           </p>
         </>
       ) : (
         <p className="text-xs text-gray-500">
-          Zmienia się wyłącznie etykieta widoczna w interfejsie. Kod roli
-          (<span className="font-mono">{role?.code}</span>) zostaje bez zmian, bo to on
-          wiąże rolę z użytkownikami i uprawnieniami.
+          {t.rich('renameHint', { code: () => <span className="font-mono">{role?.code}</span> })}
         </p>
       )}
     </Okno>

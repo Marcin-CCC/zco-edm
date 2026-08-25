@@ -89,7 +89,7 @@ w języku wdrożenia, przełączenie po zalogowaniu zostaje na stałe.
 
 ---
 
-## 3. Wyciągnięcie napisów — ekran po ekranie (W TOKU)
+## 3. Wyciągnięcie napisów — ekran po ekranie — ZROBIONE (1.5.28, 25.08.2026)
 
 **Języki (1.5.24):** `pl` (bazowy), `en`, `cs`, `de`, `es`, `uk`. Kompletności
 katalogu w obrazie wymagamy WYŁĄCZNIE od angielskiego — nim system się pokazuje.
@@ -97,7 +97,12 @@ Pozostałe dochodzą stopniowo: napis bez tłumaczenia wypada po polsku, a uzupe
 się go w zakładce „Języki". Inaczej każdy nowy przycisk trzeba by przetłumaczyć na
 pięć języków, zanim w ogóle dałoby się go wdrożyć.
 
-**Stan 25.08.2026 (1.5.26):** zrobione — ekran logowania, menu boczne, górna
+**Stan końcowy (1.5.28):** WSZYSTKIE ekrany. Katalog bazowy liczy 600 napisów.
+Krok 4 (liczebniki i formaty) zamknięty przy okazji: liczebniki poszły na ICU wszędzie,
+gdzie występowały, a szesnaście miejsc z wpisanym na sztywno formatem `pl-PL` czyta
+teraz język z atrybutu `lang` na `<html>` (`aktywnyJezyk()` w `src/i18n/locales.ts`).
+
+**Stan pośredni 25.08.2026 (1.5.26):** zrobione — ekran logowania, menu boczne, górna
 belka, zakładki administratora oraz **cały ekran Pliki** wraz z oknem nadawania
 nazw (156 napisów w katalogu bazowym). Liczebniki poszły na ICU (`{count, plural, …}`),
 więc krok 4 planu dla tego ekranu jest już zamknięty — dawna funkcja `odmianaPlikow`

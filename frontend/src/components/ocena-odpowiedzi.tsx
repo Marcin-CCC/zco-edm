@@ -15,6 +15,7 @@
  * w połowie formularza.
  */
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 interface Powod {
   kod: string;
@@ -32,15 +33,17 @@ interface Props {
   authHeaders: () => Record<string, string>;
 }
 
+// KLUCZE, nie napisy: to stała modułu, a napis idzie za językiem interfejsu.
 const OCENY = [
-  { kod: 'dobra', ikona: '👍', opis: 'Odpowiedź pomogła' },
-  { kod: 'neutralna', ikona: '😐', opis: 'Częściowo pomogła' },
-  { kod: 'zla', ikona: '👎', opis: 'Odpowiedź nie pomogła' },
+  { kod: 'dobra', ikona: '👍', opisKlucz: 'good' },
+  { kod: 'neutralna', ikona: '😐', opisKlucz: 'partial' },
+  { kod: 'zla', ikona: '👎', opisKlucz: 'bad' },
 ] as const;
 
 export function OcenaOdpowiedzi({
   requestId, messageId, pytanie, odpowiedz, powody, authHeaders,
 }: Props) {
+  const t = useTranslations('rating');
   const [wybrana, setWybrana] = useState<string | null>(null);
   const [powod, setPowod] = useState<string | null>(null);
   const wierszPowodow = useRef<HTMLDivElement>(null);
@@ -94,8 +97,8 @@ export function OcenaOdpowiedzi({
       // wychodzą właśnie przyciski powodu i dymek tylko by je przekrzykiwał.
       if (kodPowodu || ocena !== 'zla') {
         pokazKomunikat(pierwsza
-          ? 'Dziękujemy — ocenę możesz jeszcze zmienić'
-          : 'Zapisano — liczy się ostatni wybór');
+          ? t('thanks')
+          : t('saved'));
       }
     } catch {
       /* ocena to sygnał, nie transakcja — nie zawracamy użytkownikowi głowy błędem */
@@ -121,13 +124,13 @@ export function OcenaOdpowiedzi({
             {komunikat.tekst}
           </span>
         )}
-        <span>{wybrana ? 'Twoja ocena:' : 'Jak oceniasz tę odpowiedź?'}</span>
+        <span>{wybrana ? t('yourRating') : t('howRate')}</span>
         {OCENY.map((o) => (
           <button
             key={o.kod}
             type="button"
-            title={o.opis}
-            aria-label={o.opis}
+            title={t(o.opisKlucz)}
+            aria-label={t(o.opisKlucz)}
             aria-pressed={wybrana === o.kod}
             onClick={() => wyslij(o.kod)}
             className={`rounded-md border px-2 py-1 text-sm transition ${
@@ -144,7 +147,7 @@ export function OcenaOdpowiedzi({
       {/* Powód pytamy tylko przy ocenie negatywnej i tylko raz */}
       {wybrana === 'zla' && !powod && powody.length > 0 && (
         <div ref={wierszPowodow} className="mt-1.5 rounded-md bg-gray-50 p-2">
-          <span className="mr-1">Co było nie tak?</span>
+          <span className="mr-1">{t('whatWrong')}</span>
           <span className="inline-flex flex-wrap gap-1 align-middle">
             {powody.map((p) => (
               <button

@@ -32,12 +32,27 @@ function splaszcz(obiekt, przedrostek = '') {
   return wynik;
 }
 
-/** Nazwy pól podstawianych w komunikacie — bez zaglądania w gałęzie liczebnika. */
-function pola(komunikat) {
+/**
+ * Nazwy pól podstawianych w komunikacie — czytane z DRZEWA, nie wyrażeniem
+ * regularnym. Wyrażenie brało za pole także nazwę gałęzi liczebnika: w zapisie
+ * `{count, plural, one {zapytanie} other {zapytań}}` widziało `{zapytanie}`
+ * i zgłaszało nieistniejący rozjazd między językami.
+ */
+function pola(komunikat, kod) {
   const znalezione = new Set();
-  for (const m of komunikat.matchAll(/\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*(?:,|\})/g)) {
-    znalezione.add(m[1]);
-  }
+  const obejdz = (elementy) => {
+    for (const el of elementy || []) {
+      // 1 = argument, 2 = liczba, 3 = data, 4 = godzina, 5 = select, 6 = plural
+      if ([1, 2, 3, 4, 5, 6].includes(el.type) && typeof el.value === 'string') {
+        znalezione.add(el.value);
+      }
+      if (el.options) {
+        for (const opcja of Object.values(el.options)) obejdz(opcja.value);
+      }
+      if (el.children) obejdz(el.children);   // znaczniki `<b>…</b>`
+    }
+  };
+  obejdz(new IntlMessageFormat(komunikat, kod).ast);
   return znalezione;
 }
 
@@ -63,8 +78,8 @@ for (const plik of pliki) {
     const wzorzec = bazowe[klucz];
     if (wzorzec === undefined) continue;      // klucza spoza bazy pilnują testy backendu
 
-    const oczekiwane = pola(wzorzec);
-    const mam = pola(komunikat);
+    const oczekiwane = pola(wzorzec, BAZOWY);
+    const mam = pola(komunikat, kod);
     for (const p of mam) {
       if (!oczekiwane.has(p)) bledy.push(`${kod}:${klucz} — pole {${p}} nie istnieje w polskim oryginale`);
     }

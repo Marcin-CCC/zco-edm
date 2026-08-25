@@ -19,6 +19,16 @@ import { LOCALE_COOKIE, normalizeLocale, type Locale } from '@/i18n/locales';
 /** Rok — wybór języka ma przeżyć zamknięcie przeglądarki, nie tylko sesję. */
 const ROK_W_SEKUNDACH = 60 * 60 * 24 * 365;
 
+/** Ślad po ŚWIADOMYM przełączeniu na ekranie logowania — żyje tyle, co karta.
+ *
+ *  Po co osobny ślad, skoro język siedzi już w ciasteczku: ciasteczko nie mówi,
+ *  KTO je ustawił. Na komputerze na oddziale zostaje po poprzedniej zmianie, więc
+ *  gdyby samo ciasteczko wygrywało z językiem konta, kolega zalogowany po
+ *  Ukraińcu dostawałby ukraiński interfejs. A gdyby zawsze wygrywało konto,
+ *  przełącznik na ekranie logowania byłby pozorny — wybór ginąłby po zalogowaniu.
+ *  Ślad rozróżnia te dwa przypadki: liczy się wybór zrobiony w TEJ karcie. */
+const KLUCZ_WYBORU = 'locale-wybrany-recznie';
+
 export function zapiszCiasteczkoJezyka(locale: Locale): void {
   if (typeof document === 'undefined') return;
   // `SameSite=Lax` wystarcza: ciasteczko czyta wyłącznie własny serwer przy nawigacji.
@@ -29,6 +39,26 @@ export function odczytajCiasteczkoJezyka(): Locale | null {
   if (typeof document === 'undefined') return null;
   const wpis = document.cookie.split('; ').find((c) => c.startsWith(`${LOCALE_COOKIE}=`));
   return normalizeLocale(wpis?.split('=')[1]);
+}
+
+export function zapamietajRecznyWybor(locale: Locale): void {
+  try {
+    sessionStorage.setItem(KLUCZ_WYBORU, locale);
+  } catch {
+    // Tryb prywatny bywa blokuje zapis. Wtedy wygra język konta — gorzej, ale nie źle.
+  }
+}
+
+/** Zwraca język wybrany ręcznie w tej karcie i OD RAZU o nim zapomina.
+ *  Odczyt jest jednorazowy: ślad ma dotyczyć jednego logowania, nie całej sesji. */
+export function odbierzRecznyWybor(): Locale | null {
+  try {
+    const zapisany = normalizeLocale(sessionStorage.getItem(KLUCZ_WYBORU));
+    sessionStorage.removeItem(KLUCZ_WYBORU);
+    return zapisany;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -61,6 +91,7 @@ export function ustawJezykZKonta(locale: string | null | undefined): boolean {
  */
 export async function przelaczJezyk(locale: Locale, zalogowany: boolean): Promise<void> {
   zapiszCiasteczkoJezyka(locale);
+  if (!zalogowany) zapamietajRecznyWybor(locale);
   if (zalogowany) {
     try {
       await authApi.updateProfile({ locale });

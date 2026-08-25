@@ -1,4 +1,7 @@
 {
+  "brand": {
+    "tagline": "Sistema de gestión documental"
+  },
   "common": {
     "loading": "Cargando…"
   },

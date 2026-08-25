@@ -1,6 +1,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
+import { aktywnyJezyk } from '@/i18n/locales';
 import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import { useTranslations } from 'next-intl';
 
@@ -113,6 +114,7 @@ const KLUCZ_WGRYWANIA: Record<string, string> = {
 function FilesPageInner() {
   const t = useTranslations('files');
   const tWspolne = useTranslations('common');
+  const etykietyDat = { dzis: tWspolne('today'), wczoraj: tWspolne('yesterday') };
   const { user } = useAuth();
   const isAdmin = czyAdmin(user);
   // Role przypisywalne do folderów. Administrator ma pełny dostęp z definicji,
@@ -695,7 +697,7 @@ function FilesPageInner() {
   // Ta sama reguła obowiązuje pliki (kolacja ICU po stronie bazy) — obie listy
   // na tym ekranie mają układać się tak samo.
   const PORZADEK: Intl.CollatorOptions = { numeric: true };
-  const alfabetycznie = (a: Folder, b: Folder) => a.name.localeCompare(b.name, 'pl', PORZADEK);
+  const alfabetycznie = (a: Folder, b: Folder) => a.name.localeCompare(b.name, aktywnyJezyk(), PORZADEK);
   const rootFolders = folders.filter(f => f.parent_id === null).sort(alfabetycznie);
   const currentFolderChildren = folders
     .filter(f => f.parent_id === currentFolderId)
@@ -1075,10 +1077,10 @@ function FilesPageInner() {
                           )}
                         </span>
                       ) : (
-                        <span className="text-[11px] text-app-muted">nierozpoznana</span>
+                        <span className="text-[11px] text-app-muted">{t('categoryUnknown')}</span>
                       )}
                     </Td>
-                    <Td className="whitespace-nowrap text-app-muted">{kiedy(file.created_at)}</Td>
+                    <Td className="whitespace-nowrap text-app-muted">{kiedy(file.created_at, etykietyDat)}</Td>
                     <Td onClick={(e) => e.stopPropagation()}>
                       <RowActions>
                         <IconButton tone="action" title={t('download')} onClick={() => handleDownload(file)}>
@@ -1120,7 +1122,7 @@ function FilesPageInner() {
                 <FileTypeIcon filename={file.filename} size={44} className="mb-3" />
                 <span className="block break-words text-[13px] font-bold text-app-text">{file.filename}</span>
                 <span className="mt-1 block text-[11px] text-app-muted">{rozmiarPliku(file.size)}</span>
-                <span className="mt-0.5 block text-[11px] text-app-muted">{kiedy(file.created_at)}</span>
+                <span className="mt-0.5 block text-[11px] text-app-muted">{kiedy(file.created_at, etykietyDat)}</span>
               </button>
             ))}
           </div>
@@ -1494,7 +1496,7 @@ function FilesPageInner() {
                 // rodzicami. Bez tego lista szla w kolejnosci drzewa, ktora dla
                 // szukajacego wyglada jak przypadkowa. `localeCompare` z 'pl',
                 // bo zwykle porownanie kodow znakow wypycha slowa z ogonkami na koniec.
-                .sort((a, b) => a.path.localeCompare(b.path, 'pl', { numeric: true }))
+                .sort((a, b) => a.path.localeCompare(b.path, aktywnyJezyk(), { numeric: true }))
                 .map((f) => (
                   <option key={f.id} value={String(f.id)}>{f.path}</option>
                 ))}

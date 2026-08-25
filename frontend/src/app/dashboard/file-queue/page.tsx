@@ -1,6 +1,7 @@
 'use client';
 
 import { IconRefresh } from '@/components/icons';
+import { useTranslations } from 'next-intl';
 import { Badge, Button, Card, EmptyState, PageHeader, Table, Td, Th, inputClass } from '@/components/ui/primitives';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -42,6 +43,8 @@ function fmtDuration(sec: number | null | undefined): string {
 }
 
 export default function FileQueuePage() {
+  const t = useTranslations('queue');
+  const tWspolne = useTranslations('common');
   const { user } = useAuth();
   const isAdmin = czyAdmin(user);
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
@@ -92,7 +95,7 @@ export default function FileQueuePage() {
         alert(`Błąd: ${data?.detail || data?.message || res.statusText}`);
       }
     } catch {
-      alert('Błąd zapisu kategorii.');
+      alert(t('errSaveCategory'));
     } finally {
       setSavingOverride(false);
     }
@@ -153,7 +156,7 @@ export default function FileQueuePage() {
   }, [autoRefresh, loadQueue, loadStatusSummary]);
 
   const retryItem = async (itemId: number) => {
-    if (!confirm('Czy na pewno ponowić przetwarzanie?')) return;
+    if (!confirm(t('confirmRetry'))) return;
     try {
       const token = localStorage.getItem('auth_token');
       const res = await fetch(`/api/processing-queue/${itemId}/retry`, {
@@ -164,12 +167,12 @@ export default function FileQueuePage() {
       if (res.ok && !data.error) {
         loadQueue();
       } else {
-        const errorMsg = data?.message || data?.detail || 'Ponowne przetwarzanie nie powiodło się.';
+        const errorMsg = data?.message || data?.detail || t('errRetry');
         alert(`Błąd: ${errorMsg}`);
         loadQueue(); // Refresh to show updated status
       }
     } catch (err) {
-      alert('Błąd podczas ponownego przetwarzania.');
+      alert(t('errRetryGeneric'));
       loadQueue(); // Refresh to show updated status
     }
   };
@@ -198,7 +201,7 @@ export default function FileQueuePage() {
         alert(`Błąd: ${data?.message || data?.detail || res.statusText}`);
       }
     } catch {
-      alert('Nie udało się zwolnić pliku.');
+      alert(t('errRelease'));
     } finally {
       loadQueue();
       loadStatusSummary();
@@ -208,7 +211,7 @@ export default function FileQueuePage() {
   // NARZĘDZIE TESTOWE (strojenie klasyfikacji) — przetwórz od nowa z kasowaniem
   // wektorów. Docelowo do usunięcia razem z przyciskiem w kolumnie Akcje.
   const reparseItem = async (fileId: number) => {
-    if (!confirm('Przetworzyć plik od nowa? Wektory zostaną skasowane i utworzone ponownie przy parsowaniu.')) return;
+    if (!confirm(t('confirmReprocess'))) return;
     try {
       const token = localStorage.getItem('auth_token');
       const res = await fetch(`/api/processing-queue/${fileId}/reparse`, {
@@ -224,13 +227,13 @@ export default function FileQueuePage() {
         loadQueue();
       }
     } catch {
-      alert('Błąd podczas ponownego przetwarzania.');
+      alert(t('errRetryGeneric'));
       loadQueue();
     }
   };
 
   const deleteItem = async (fileId: number) => {
-    if (!confirm('Czy na pewno usunąć ten plik?')) return;
+    if (!confirm(t('confirmDelete'))) return;
     try {
       const token = localStorage.getItem('auth_token');
       const res = await fetch(`/api/files/${fileId}`, {
@@ -245,7 +248,7 @@ export default function FileQueuePage() {
         alert(`Usunięcie nie powiodło się: ${errorData?.detail || res.statusText}`);
       }
     } catch (err) {
-      alert('Usunięcie nie powiodło się.');
+      alert(t('errDelete'));
     }
   };
 
@@ -280,8 +283,8 @@ export default function FileQueuePage() {
   return (
     <div>
       <PageHeader
-        title="Kolejka plików"
-        description="Stan przetwarzania plików przesłanych do systemu."
+        title={t('title')}
+        description={t('description')}
         actions={
           <>
             <select
@@ -289,14 +292,14 @@ export default function FileQueuePage() {
               onChange={(e) => setFilterStatus(e.target.value)}
               className={`${inputClass} w-auto`}
             >
-              <option value="">Wszystkie statusy</option>
+              <option value="">{t('allStatuses')}</option>
               {statuses.map((status) => (
                 <option key={status} value={status}>{status}</option>
               ))}
             </select>
             <Button onClick={() => { loadQueue(); loadStatusSummary(); }} disabled={loading}>
               <IconRefresh size={16} />
-              {loading ? 'Ładowanie…' : 'Odśwież'}
+              {loading ? t('loading') : t('refresh')}
             </Button>
             <label className="flex items-center gap-2 self-center text-[13px] text-app-muted">
               <input
@@ -305,7 +308,7 @@ export default function FileQueuePage() {
                 onChange={(e) => setAutoRefresh(e.target.checked)}
                 className="rounded border-app-line text-app-blue"
               />
-              Auto-odświeżanie (5 s)
+              {t('autoRefresh')}
             </label>
           </>
         }
@@ -328,13 +331,13 @@ export default function FileQueuePage() {
           <Table>
             <thead>
               <tr>
-                <Th>ID</Th>
-                <Th>Plik</Th>
-                <Th>Kategoria</Th>
-                <Th>Status</Th>
-                <Th>Data dodania</Th>
-                <Th>Czas parsowania</Th>
-                {isAdmin && <Th>Akcje</Th>}
+                <Th>{t('colId')}</Th>
+                <Th>{t('colFile')}</Th>
+                <Th>{t('colCategory')}</Th>
+                <Th>{t('colStatus')}</Th>
+                <Th>{t('colAdded')}</Th>
+                <Th>{t('colDuration')}</Th>
+                {isAdmin && <Th>{t('colActions')}</Th>}
               </tr>
             </thead>
             <tbody>
@@ -368,7 +371,7 @@ export default function FileQueuePage() {
                             onClick={(e) => { e.stopPropagation(); retryItem(item.id); }}
                             className="rounded-lg px-2 py-1 text-xs font-semibold text-app-blue hover:bg-[#eef4ff]"
                           >
-                            Ponów
+                            {t('retry')}
                           </button>
                         )}
                         {/* Plik wiszący w „Przetwarzanie" (przebieg w n8n umarł bez odpowiedzi)
@@ -377,9 +380,9 @@ export default function FileQueuePage() {
                           <button
                             onClick={(e) => { e.stopPropagation(); unstickItem(item.id); }}
                             className="whitespace-nowrap rounded-lg px-2 py-1 text-xs font-semibold text-[#b7791f] hover:bg-[#fdf6e7]"
-                            title="Zwolnij zablokowaną kolejkę i przetwórz plik od nowa"
+                            title={t('forceRetryTitle')}
                           >
-                            Przerwij i ponów
+                            {t('forceRetry')}
                           </button>
                         )}
                         {/* NARZĘDZIE TESTOWE — reparse z kasowaniem wektorów (do usunięcia po testach) */}
@@ -387,23 +390,23 @@ export default function FileQueuePage() {
                           <button
                             onClick={(e) => { e.stopPropagation(); reparseItem(item.id); }}
                             className="whitespace-nowrap rounded-lg px-2 py-1 text-xs font-semibold text-app-purple hover:bg-app-purplebg"
-                            title="Przetwórz od nowa z wyczyszczeniem wektorów (narzędzie testowe)"
+                            title={t('reprocessTitle')}
                           >
-                            Przetwórz ponownie
+                            {t('reprocess')}
                           </button>
                         )}
                         <button
                           onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
                           className="rounded-lg px-2 py-1 text-xs font-semibold text-app-danger hover:bg-app-dangerbg"
                         >
-                          Usuń
+                          {tWspolne('delete')}
                         </button>
                         {item.status === 'Błąd przetwarzania' && item.error_message && (
                           <button
                             onClick={(e) => { e.stopPropagation(); setSelectedItem(item); }}
                             className="rounded-lg px-2 py-1 text-xs font-semibold text-app-danger hover:bg-app-dangerbg"
                           >
-                            Szczegóły błędu
+                            {t('errorDetails')}
                           </button>
                         )}
                       </div>
@@ -414,13 +417,13 @@ export default function FileQueuePage() {
               {filteredItems.length === 0 && !loading && (
                 <tr>
                   <Td colSpan={isAdmin ? 7 : 6} className="py-10 text-center text-app-muted">
-                    Brak pozycji w kolejce
+                    {t('empty')}
                   </Td>
                 </tr>
               )}
             </tbody>
           </Table>
-          {loading && <EmptyState title="Ładowanie…" />}
+          {loading && <EmptyState title={t('loading')} />}
         </Card>
       </div>
 
@@ -440,11 +443,11 @@ export default function FileQueuePage() {
 
             <dl className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <dt className="text-sm text-gray-500">Plik</dt>
+                <dt className="text-sm text-gray-500">{t('colFile')}</dt>
                 <dd className="text-gray-800 font-medium">{selectedItem.file_name}</dd>
               </div>
               <div>
-                <dt className="text-sm text-gray-500">Status</dt>
+                <dt className="text-sm text-gray-500">{t('colStatus')}</dt>
                 <dd className="text-gray-800">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(selectedItem.status)}`}>
                     {selectedItem.status}
@@ -452,7 +455,7 @@ export default function FileQueuePage() {
                 </dd>
               </div>
               <div>
-                <dt className="text-sm text-gray-500">Kategoria</dt>
+                <dt className="text-sm text-gray-500">{t('colCategory')}</dt>
                 <dd className="text-gray-800 flex items-center gap-2 flex-wrap">
                   {selectedItem.doc_type ? (
                     <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
@@ -460,27 +463,27 @@ export default function FileQueuePage() {
                     </span>
                   ) : '—'}
                   {selectedItem.doc_type_verified && (
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800" title="Kategoria zatwierdzona ręcznie — auto-klasyfikacja jej nie zmieni">
-                      ✓ ręcznie
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800" title={t('manualTitle')}>
+                      {t('manualBadge')}
                     </span>
                   )}
                 </dd>
               </div>
               <div>
-                <dt className="text-sm text-gray-500">Data dodania</dt>
+                <dt className="text-sm text-gray-500">{t('colAdded')}</dt>
                 <dd className="text-gray-800">
                   {fmtDateTime(selectedItem.created_at)}
                 </dd>
               </div>
               <div>
-                <dt className="text-sm text-gray-500">Czas parsowania</dt>
+                <dt className="text-sm text-gray-500">{t('colDuration')}</dt>
                 <dd className="text-gray-800">
                   {fmtDuration(selectedItem.processing_seconds)}
                 </dd>
               </div>
               {selectedItem.started_at && (
                 <div>
-                  <dt className="text-sm text-gray-500">Rozpoczęto</dt>
+                  <dt className="text-sm text-gray-500">{t('startedAt')}</dt>
                   <dd className="text-gray-800">
                     {czasLokalny(selectedItem.started_at, { dateStyle: 'short', timeStyle: 'medium' })}
                   </dd>
@@ -488,7 +491,7 @@ export default function FileQueuePage() {
               )}
               {selectedItem.completed_at && (
                 <div>
-                  <dt className="text-sm text-gray-500">Zakończono</dt>
+                  <dt className="text-sm text-gray-500">{t('finishedAt')}</dt>
                   <dd className="text-gray-800">
                     {czasLokalny(selectedItem.completed_at, { dateStyle: 'short', timeStyle: 'medium' })}
                   </dd>
@@ -499,7 +502,7 @@ export default function FileQueuePage() {
             {/* Ręczna korekta kategorii (admin) — ustawia typ i dolicza pola dla niego */}
             {isAdmin && (
               <div className="border border-gray-200 rounded-lg p-4 mb-4">
-                <dt className="text-sm font-medium text-gray-700 mb-2">Zmień kategorię (korekta ręczna)</dt>
+                <dt className="text-sm font-medium text-gray-700 mb-2">{t('changeCategory')}</dt>
                 <div className="flex items-center gap-2">
                   <select
                     value={overrideType}
@@ -507,29 +510,29 @@ export default function FileQueuePage() {
                     disabled={savingOverride}
                     className="flex-1 min-w-0 px-2 py-1.5 border border-gray-300 rounded-md text-sm bg-white"
                   >
-                    <option value="">— wybierz typ —</option>
+                    <option value="">{t('pickType')}</option>
                     {Object.entries(typeNames).map(([slug, name]) => (
                       <option key={slug} value={slug}>{name}</option>
                     ))}
-                    <option value="inny">Inny / nieokreślony</option>
+                    <option value="inny">{t('otherType')}</option>
                   </select>
                   <button
                     onClick={saveOverride}
                     disabled={savingOverride || !overrideType || overrideType === selectedItem.doc_type}
                     className="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 whitespace-nowrap"
                   >
-                    {savingOverride ? 'Zapisywanie…' : 'Zapisz kategorię'}
+                    {savingOverride ? 'Zapisywanie…' : t('saveCategory')}
                   </button>
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
-                  Zapis dolicza pola dla nowego typu (~kilkanaście s) i oznacza kategorię jako zatwierdzoną ręcznie.
+                  {t('saveCategoryHint')}
                 </p>
               </div>
             )}
 
             {selectedItem.doc_fields && Object.keys(selectedItem.doc_fields).length > 0 && (
               <div className="border border-gray-200 rounded-lg p-4 mb-4">
-                <dt className="text-sm font-medium text-gray-700 mb-2">Rozpoznane pola</dt>
+                <dt className="text-sm font-medium text-gray-700 mb-2">{t('recognisedFields')}</dt>
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
                   {Object.entries(selectedItem.doc_fields).map(([k, v]) => (
                     <div key={k} className="text-sm">
@@ -543,7 +546,7 @@ export default function FileQueuePage() {
 
             {selectedItem.error_message && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                <dt className="text-sm font-medium text-red-800 mb-1">Błąd</dt>
+                <dt className="text-sm font-medium text-red-800 mb-1">{t('error')}</dt>
                 <dd className="text-sm text-red-700 whitespace-pre-wrap">{selectedItem.error_message}</dd>
               </div>
             )}
@@ -553,7 +556,7 @@ export default function FileQueuePage() {
                 onClick={() => setSelectedItem(null)}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
               >
-                Zamknij
+                {tWspolne('close')}
               </button>
             </div>
           </div>

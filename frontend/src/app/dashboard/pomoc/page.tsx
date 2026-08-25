@@ -11,6 +11,7 @@
  */
 
 import { useRef } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { useMarka } from '@/components/marka-provider';
 import { useAuth } from '@/lib/store';
@@ -22,18 +23,20 @@ import { isAdmin as czyAdmin } from '@/lib/roles';
  *  instancji — nie nazwa z bazy, którą administrator może dziś zmienić. */
 const WYDANIA = {
   admin: {
-    nazwa: 'Instrukcja administratora',
+    // KLUCZE, nie napisy: to stała modułu, a napis idzie za językiem interfejsu.
+    nazwaKlucz: 'adminName',
     plik: 'instrukcja-administratora',
-    opis: 'Pełny zakres: dokumenty, uprawnienia, konta i część administracyjna.',
+    opisKlucz: 'adminDesc',
   },
   user: {
-    nazwa: 'Instrukcja użytkownika',
+    nazwaKlucz: 'userName',
     plik: 'instrukcja-uzytkownika',
-    opis: 'To, co potrzebne na co dzień: dokumenty, chat i wyszukiwarka.',
+    opisKlucz: 'userDesc',
   },
 } as const;
 
 export default function PomocPage() {
+  const t = useTranslations('help');
   const { user } = useAuth();
   const marka = useMarka();
   const w = czyAdmin(user) ? WYDANIA.admin : WYDANIA.user;
@@ -68,9 +71,9 @@ export default function PomocPage() {
     <div className="flex flex-col" style={{ height: 'calc(100vh - 8rem)' }}>
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-gray-800">Pomoc</h1>
+          <h1 className="text-2xl font-bold text-gray-800">{t('title')}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {wydanie.nazwa} — {wydanie.opis}
+            {t(wydanie.nazwaKlucz)} — {t(wydanie.opisKlucz)}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -80,14 +83,14 @@ export default function PomocPage() {
             rel="noopener noreferrer"
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
           >
-            Otwórz w nowej karcie
+            {t('openInNewTab')}
           </a>
           <a
             href={wydanie.pdf}
             download
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
           >
-            Pobierz PDF
+            {t('downloadPdf')}
           </a>
         </div>
       </div>
@@ -97,7 +100,7 @@ export default function PomocPage() {
       <iframe
         ref={ramka}
         src={wydanie.html}
-        title={wydanie.nazwa}
+        title={t(wydanie.nazwaKlucz)}
         className="flex-1 w-full bg-white rounded-lg border border-gray-200 shadow-sm"
       />
 
@@ -105,8 +108,8 @@ export default function PomocPage() {
           więc jest pod ręką niezależnie od tego, jak daleko przewinięta jest instrukcja. */}
       <button
         onClick={doSpisuTresci}
-        title="Przewiń do spisu treści"
-        aria-label="Przewiń do spisu treści"
+        title={t('scrollToToc')}
+        aria-label={t('scrollToToc')}
         className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-blue-600 text-white
                    shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500
                    focus:ring-offset-2 transition-colors flex items-center justify-center"

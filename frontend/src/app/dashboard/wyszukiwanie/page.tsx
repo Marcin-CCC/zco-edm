@@ -12,14 +12,16 @@
  * razem z „Zapytaj po polsku" i pobieraniem wyników do arkusza.
  */
 import { DocSearchPanel } from '@/components/doc-search-panel';
+import { useTranslations } from 'next-intl';
 
 export default function WyszukiwaniePage() {
+  const t = useTranslations('search');
   return (
     <div>
       <div className="mb-5">
-        <h1 className="text-2xl font-bold text-app-text">Wyszukiwanie</h1>
+        <h1 className="text-2xl font-bold text-app-text">{t('pageTitle')}</h1>
         <p className="mt-1 text-sm text-app-muted">
-          Zbuduj zapytanie po polach metadanych i przeszukaj dokumenty.
+          {t('pageDescription')}
         </p>
       </div>
       <DocSearchPanel />

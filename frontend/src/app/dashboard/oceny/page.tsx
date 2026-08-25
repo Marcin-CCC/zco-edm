@@ -9,6 +9,7 @@
  * „streszczenia") mówi, gdzie zaczynać dochodzenie.
  */
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { IconDoc } from '@/components/icons';
 import { czasLokalny } from '@/lib/czas';
 import { Card, EmptyState, PageHeader, inputClass } from '@/components/ui/primitives';
@@ -41,8 +42,9 @@ interface Ocena {
 }
 
 const IKONA: Record<string, string> = { dobra: '👍', neutralna: '😐', zla: '👎' };
-const NAZWA: Record<string, string> = {
-  dobra: 'pomogła', neutralna: 'częściowo', zla: 'nie pomogła',
+// KLUCZE, nie napisy: to stała modułu, a napis idzie za językiem interfejsu.
+const NAZWA_KLUCZ: Record<string, string> = {
+  dobra: 'rateGood', neutralna: 'ratePartial', zla: 'rateBad',
 };
 
 function authHeaders(): Record<string, string> {
@@ -79,13 +81,13 @@ interface Pytajacy {
 }
 
 /** Otwarcie dokumentu w nowej karcie — tak samo jak lista źródeł w Bazie wiedzy. */
-async function otworzDokument(fileId: number) {
+async function otworzDokument(fileId: number, komunikatBledu: string) {
   try {
     const res = await fetch(`/api/files/${fileId}/download`, { headers: authHeaders() });
     if (!res.ok) throw new Error(`Błąd pobierania (${res.status})`);
     window.open(URL.createObjectURL(await res.blob()), '_blank');
   } catch (e: unknown) {
-    alert(e instanceof Error ? e.message : 'Nie udało się otworzyć dokumentu.');
+    alert(e instanceof Error ? e.message : komunikatBledu);
   }
 }
 
@@ -106,6 +108,7 @@ function ListaZrodel({ zrodla, dobrane = [], uklad = 'pion' }: {
   dobrane?: { filename?: string; page?: number }[];
   uklad?: 'pion' | 'poziom';
 }) {
+  const t = useTranslations('answers');
   if (!zrodla?.length) return null;
 
   // Fragment dobrany NIE MA trafności — nie przeszedł progu, tylko został wskazany
@@ -128,8 +131,8 @@ function ListaZrodel({ zrodla, dobrane = [], uklad = 'pion' }: {
           <li key={i}>
             {z.file_id ? (
               <button
-                onClick={() => otworzDokument(z.file_id!)}
-                title="Otwórz dokument"
+                onClick={() => otworzDokument(z.file_id!, t('errOpenDocument'))}
+                title={t('openDocument')}
                 className={`inline-flex items-center gap-1 text-left hover:underline ${nieuzyte ? 'text-app-muted' : 'text-app-blue'}`}
               >
                 <IconDoc size={13} /> {nazwa}
@@ -140,9 +143,9 @@ function ListaZrodel({ zrodla, dobrane = [], uklad = 'pion' }: {
             {dobrany ? (
               <span
                 className="ml-1 rounded bg-amber-50 text-amber-700 px-1 py-0.5 text-[10px]"
-                title="Fragment doklejony celowo z rozpoznanego dokumentu — próg trafności go nie dotyczy"
+                title={t('pickedTitle')}
               >
-                dobrany
+                {t('pickedBadge')}
               </span>
             ) : (
               typeof z.score === 'number' && z.score > 0 && (
@@ -158,11 +161,12 @@ function ListaZrodel({ zrodla, dobrane = [], uklad = 'pion' }: {
 
 /** Objaśnienie kolorów i etykiet — raz na ekran, nie przy każdym wierszu. */
 function Legenda() {
+  const t = useTranslations('answers');
   return (
     <p className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-app-muted">
-      <span><span className="text-app-blue">niebieski</span> — model powołał się na ten fragment znacznikiem [Źródło N]</span>
-      <span><span className="text-app-muted">szary</span> — fragment był w kontekście, ale model go nie oznaczył (mógł z niego skorzystać bez znacznika)</span>
-      <span><span className="rounded bg-amber-50 text-amber-700 px-1">dobrany</span> — doklejony celowo z rozpoznanego dokumentu, poza progiem trafności</span>
+      <span><span className="text-app-blue">{t('legendBlue')}</span>{t('legendBlueText')}</span>
+      <span><span className="text-app-muted">{t('legendGrey')}</span>{t('legendGreyText')}</span>
+      <span><span className="rounded bg-amber-50 text-amber-700 px-1">{t('pickedBadge')}</span>{t('legendPickedText')}</span>
     </p>
   );
 }
@@ -176,13 +180,14 @@ function Stronicowanie({ strona, naStronie, razem, ustawStrone, ustawNaStronie }
   ustawStrone: (n: number) => void;
   ustawNaStronie: (n: number) => void;
 }) {
+  const t = useTranslations('answers');
   if (!razem) return null;
   const stron = Math.max(1, Math.ceil(razem / naStronie));
   const od = (strona - 1) * naStronie + 1;
   const doPozycji = Math.min(strona * naStronie, razem);
   return (
     <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-card border border-app-line bg-white px-[18px] py-3 text-[12px] text-app-muted">
-      <span>{razem <= naStronie ? `${razem} z ${razem}` : `${od}–${doPozycji} z ${razem}`}</span>
+      <span>{razem <= naStronie ? t('rangeAll', { total: razem, total2: razem }) : t('rangeOf', { from: od, to: doPozycji, total: razem })}</span>
       {stron > 1 && (
         <span className="flex items-center gap-1.5">
           <button
@@ -190,7 +195,7 @@ function Stronicowanie({ strona, naStronie, razem, ustawStrone, ustawNaStronie }
             onClick={() => ustawStrone(strona - 1)}
             className="rounded-ctl border border-app-line px-2 py-1 disabled:opacity-40"
           >‹</button>
-          <span className="px-1">strona {strona} z {stron}</span>
+          <span className="px-1">{t('pageOf', { page: strona, total: stron })}</span>
           <button
             disabled={strona >= stron}
             onClick={() => ustawStrone(strona + 1)}
@@ -199,7 +204,7 @@ function Stronicowanie({ strona, naStronie, razem, ustawStrone, ustawNaStronie }
         </span>
       )}
       <label className="flex items-center gap-2">
-        Pokaż:
+        {t('perPage')}
         <select
           value={naStronie}
           onChange={(e) => { ustawNaStronie(Number(e.target.value)); ustawStrone(1); }}
@@ -214,6 +219,7 @@ function Stronicowanie({ strona, naStronie, razem, ustawStrone, ustawNaStronie }
 
 
 export default function OcenyPage() {
+  const t = useTranslations('answers');
   const { roles } = useRoles();
   const [widok, setWidok] = useState<'oceny' | 'rejestr'>('oceny');
   const [oceny, setOceny] = useState<Ocena[]>([]);
@@ -265,7 +271,7 @@ export default function OcenyPage() {
       setRazemPozycji(d.razem ?? 0);
       setBlad('');
     } catch (e: unknown) {
-      setBlad(e instanceof Error ? e.message : 'Nie udało się wczytać danych.');
+      setBlad(e instanceof Error ? e.message : t('errLoad'));
     } finally {
       setLadowanie(false);
     }
@@ -278,11 +284,11 @@ export default function OcenyPage() {
   return (
     <div>
       <PageHeader
-        title="Lista odpowiedzi"
+        title={t('title')}
         description={
           widok === 'oceny'
-            ? 'Materiał do poprawiania wyszukiwania. Przy ocenie negatywnej warto zacząć od pola „ścieżka” — mówi, którym trybem aplikacja szukała dokumentów.'
-            : 'Wszystkie zadane pytania, także te bez oceny. W fazie testów pokazuje, o co ludzie faktycznie pytają i kto z systemu korzysta.'
+            ? t('descRatings')
+            : t('descAll')
         }
       />
 
@@ -306,13 +312,13 @@ export default function OcenyPage() {
       {/* Filtr osoby dotyczy OBU zakładek — administrator śledzi jedną osobę
           niezależnie od tego, czy patrzy na oceny, czy na cały ruch. */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <label className="text-[13px] text-app-muted">Użytkownik:</label>
+        <label className="text-[13px] text-app-muted">{t('user')}</label>
         <select
           value={ktoryUzytkownik}
           onChange={(e) => zmienFiltr(() => setKtoryUzytkownik(e.target.value))}
           className={`${inputClass} h-9 w-auto`}
         >
-          <option value="">wszyscy</option>
+          <option value="">{t('everyone')}</option>
           {pytajacy.map((u) => (
             <option key={u.id} value={u.id}>
               {u.nazwa}{u.rola ? ` — ${roleLabel(roles, u.rola).toLowerCase()}` : ''}
@@ -324,7 +330,7 @@ export default function OcenyPage() {
             onClick={() => zmienFiltr(() => setKtoryUzytkownik(''))}
             className="text-[13px] font-semibold text-app-blue hover:underline"
           >
-            wyczyść
+            {t('clear')}
           </button>
         )}
       </div>
@@ -335,7 +341,7 @@ export default function OcenyPage() {
             {(['dobra', 'neutralna', 'zla'] as const).map((k) => (
               <span key={k} className="text-sm">
                 {IKONA[k]} <strong>{podsumowanie[k] ?? 0}</strong>{' '}
-                <span className="text-app-muted">{NAZWA[k]}</span>
+                <span className="text-app-muted">{t(NAZWA_KLUCZ[k])}</span>
               </span>
             ))}
             <span className="text-[13px] text-app-muted">razem: {razem}</span>
@@ -345,7 +351,7 @@ export default function OcenyPage() {
                 checked={tylkoNegatywne}
                 onChange={(e) => zmienFiltr(() => setTylkoNegatywne(e.target.checked))}
               />
-              tylko negatywne
+              {t('onlyNegative')}
             </label>
           </>
         ) : (
@@ -361,7 +367,7 @@ export default function OcenyPage() {
                 checked={tylkoOcenione}
                 onChange={(e) => zmienFiltr(() => setTylkoOcenione(e.target.checked))}
               />
-              pokaż tylko ocenione
+              {t('onlyRated')}
             </label>
           </>
         )}
@@ -370,14 +376,14 @@ export default function OcenyPage() {
       <Legenda />
 
       {blad && <p className="mb-3 text-sm text-app-danger">{blad}</p>}
-      {ladowanie && <Card><EmptyState title="Wczytywanie…" /></Card>}
+      {ladowanie && <Card><EmptyState title={t('loading')} /></Card>}
       {!ladowanie && !blad && widok === 'oceny' && oceny.length === 0 && (
-        <Card><EmptyState title="Nie ma jeszcze żadnych ocen." hint="Oceny pojawią się, gdy użytkownicy zaczną oceniać odpowiedzi w Chacie z AI." /></Card>
+        <Card><EmptyState title={t('emptyRatings')} hint={t('emptyRatingsHint')} /></Card>
       )}
       {!ladowanie && !blad && widok === 'rejestr' && pytania.length === 0 && (
         <Card>
           <EmptyState
-            title={tylkoOcenione ? 'Żadne z pytań nie zostało jeszcze ocenione.' : 'Nie zadano jeszcze żadnych pytań.'}
+            title={tylkoOcenione ? t('emptyNoneRated') : t('emptyNoQuestions')}
           />
         </Card>
       )}
@@ -390,8 +396,8 @@ export default function OcenyPage() {
             return (
               <div key={p.message_id} className="rounded-card border border-app-line bg-white p-3.5 shadow-card">
                 <div className="flex flex-wrap items-baseline gap-2 text-sm">
-                  {p.ocena ? <span title={NAZWA[p.ocena]}>{IKONA[p.ocena]}</span>
-                           : <span className="text-app-line" title="bez oceny">·</span>}
+                  {p.ocena ? <span title={t(NAZWA_KLUCZ[p.ocena])}>{IKONA[p.ocena]}</span>
+                           : <span className="text-app-line" title={t('noRating')}>·</span>}
                   {p.powod && (
                     <span className="rounded-full bg-app-dangerbg px-2 py-0.5 text-[11px] font-bold text-app-danger">
                       {p.powod}
@@ -406,12 +412,12 @@ export default function OcenyPage() {
                   </span>
                 </div>
                 <div className="mt-1.5 flex flex-wrap gap-3 text-[11px] text-app-muted">
-                  {d.sciezka && <span>ścieżka: <strong>{d.sciezka}</strong></span>}
+                  {d.sciezka && <span>{t('path')} <strong>{d.sciezka}</strong></span>}
                   <button
                     onClick={() => setRozwiniete((s) => ({ ...s, [p.message_id]: !otwarte }))}
                     className="ml-auto font-semibold text-app-blue hover:underline"
                   >
-                    {otwarte ? 'Zwiń' : 'Pokaż odpowiedź'}
+                    {otwarte ? 'Zwiń' : t('showAnswer')}
                   </button>
                 </div>
 
@@ -435,30 +441,30 @@ export default function OcenyPage() {
           return (
             <div key={o.id} className="rounded-card border border-app-line bg-white p-3.5 shadow-card">
               <div className="flex flex-wrap items-baseline gap-2 text-sm">
-                <span title={NAZWA[o.ocena]}>{IKONA[o.ocena] || '?'}</span>
+                <span title={t(NAZWA_KLUCZ[o.ocena])}>{IKONA[o.ocena] || '?'}</span>
                 {o.powod && (
                   <span className="rounded-full bg-app-dangerbg px-2 py-0.5 text-[11px] font-bold text-app-danger">
                     {o.powod}
                   </span>
                 )}
-                <strong className="flex-1">{o.pytanie || '(brak zapisanego pytania)'}</strong>
+                <strong className="flex-1">{o.pytanie || t('noQuestionSaved')}</strong>
                 {o.uzytkownik && <span className="text-[11px] text-app-muted">{o.uzytkownik}</span>}
                 <span className="text-[11px] text-app-muted">{czasLokalny(o.created_at)}</span>
               </div>
 
               <div className="mt-1.5 flex flex-wrap gap-3 text-[11px] text-app-muted">
-                <span>ścieżka: <strong>{d.sciezka || '?'}</strong></span>
+                <span>{t('path')} <strong>{d.sciezka || '?'}</strong></span>
                 <span>nad progiem: {d.nad_progiem ?? '?'}</span>
                 <span>w kontekście: {d.w_kontekscie ?? '?'}</span>
                 {!!d.dobrane?.length && <span>dobrane: {d.dobrane.length}</span>}
                 {!!d.terminy?.length && <span>zawężenie: {d.terminy.join(', ')}</span>}
-                {d.historia && <span>z historią wątku</span>}
+                {d.historia && <span>{t('withThread')}</span>}
                 {d.wersja && <span className="text-app-muted">v{d.wersja}</span>}
                 <button
                   onClick={() => setRozwiniete((p) => ({ ...p, [o.id]: !otwarte }))}
                   className="text-blue-600 hover:underline ml-auto"
                 >
-                  {otwarte ? 'Zwiń' : 'Pokaż odpowiedź i źródła'}
+                  {otwarte ? 'Zwiń' : t('showAnswerAndSources')}
                 </button>
               </div>
 
@@ -466,7 +472,7 @@ export default function OcenyPage() {
                 <div className="mt-2 border-t border-app-line pt-2 text-xs">
                   {d.search_query && (
                     <p className="mb-1 text-app-muted">
-                      pytanie przepisane do wyszukiwania: <em>{d.search_query}</em>
+                      {t('rewritten')} <em>{d.search_query}</em>
                     </p>
                   )}
                   <p className="whitespace-pre-wrap text-app-text">{trescDoPokazania(o.odpowiedz)}</p>

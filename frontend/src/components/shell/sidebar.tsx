@@ -148,7 +148,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
               ) : (
                 <div className="my-[10px] flex items-center gap-2.5 px-[14px]">
                   <span className="text-[10px] font-semibold uppercase tracking-[.12em] text-white/40">
-                    Administracja
+                    {t('admin')}
                   </span>
                   <span className="h-px flex-1 bg-white/[.12]" />
                 </div>
@@ -208,7 +208,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
             <>
               {marka.nazwa} v{wersja || '—'} ·{' '}
               <Link href="/dashboard/changelog" className="hover:text-white">
-                Historia zmian
+                {t('changelog')}
               </Link>
               <br />
               <a

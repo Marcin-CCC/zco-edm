@@ -1,6 +1,20 @@
 {
   "entries": [
     {
+      "version": "1.5.28",
+      "date": "2026-08-25",
+      "title": "Caly interfejs mowi wybranym jezykiem",
+      "changes": [
+        "Przetlumaczone sa juz wszystkie ekrany: Dashboard, Czat, Wyszukiwanie, Kolejka plikow, Lista odpowiedzi, Uzytkownicy, Lista dostepow, Schematy dokumentow, Ustawienia, Profil, Pomoc, Kontakt i Historia zmian — razem z oknami, komunikatami bledow i pytaniami o potwierdzenie. Katalog liczy 600 napisow.",
+        "Jezyk wybrany na ekranie logowania jest teraz pamietany po zalogowaniu i zapisuje sie przy koncie. Wczesniej ustawienie zapisane przy koncie nadpisywalo swiezy wybor, wiec przelacznik na logowaniu wygladal na pozorny.",
+        "Podpis pod nazwa aplikacji i tytul karty przegladarki ida za jezykiem interfejsu. Tytul karty mial wpisany polski tekst na sztywno — mowil „System zarzadzania dokumentami” niezaleznie od wybranego jezyka, takze na wdrozeniu anglojezycznym.",
+        "Liczby, daty i godziny formatuja sie wedlug wybranego jezyka. Szesnascie miejsc w aplikacji mialo wpisany format polski na sztywno, wiec po angielsku data wychodzila „25 sierpnia 2026”.",
+        "Liczebniki („1 plik / 2 pliki / 5 plikow”) odmieniaja sie regulami wybranego jezyka wszedzie, gdzie wystepuja.",
+        "Z ekranu przejsciowego znikla plakietka „GitHub Actions CI/CD Active” i podpis „Wdrozenie przez GitHub Actions - TEST” — rusztowanie z czasu stawiania wdrozenia, pokazywane uzytkownikom.",
+        "Czeski, niemiecki, hiszpanski i ukrainski maja przetlumaczona powloke; pozostale napisy uzupelnia sie w zakladce Jezyki jednym przyciskiem."
+      ]
+    },
+    {
       "version": "1.5.27",
       "date": "2026-08-25",
       "title": "Przelacznik jezyka w naglowku okna logowania",

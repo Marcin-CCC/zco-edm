@@ -1,4 +1,7 @@
 {
+  "brand": {
+    "tagline": "Systém správy dokumentů"
+  },
   "common": {
     "loading": "Načítání…"
   },

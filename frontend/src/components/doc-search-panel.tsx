@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { IconDownload } from '@/components/icons';
 import { PozycjaDokumentu, zHitow } from '@/components/pozycja-dokumentu';
 import { Button } from '@/components/ui/primitives';
@@ -17,12 +18,9 @@ const OPS = [
 ];
 
 /** 1 dokument, 2 dokumenty, 5 dokumentów. */
-function odmianaDokumentow(n: number): string {
-  if (n === 1) return 'dokument';
-  const ost = n % 10;
-  const dwie = n % 100;
-  return ost >= 2 && ost <= 4 && (dwie < 10 || dwie >= 20) ? 'dokumenty' : 'dokumentów';
-}
+// Odmiana „1 dokument / 2 dokumenty / 5 dokumentów" NIE jest już liczona w kodzie:
+// zastąpił ją komunikat ICU (`search.found`). Poprzednia wersja znała wyłącznie
+// reguły polskie i po angielsku odmieniałaby po polsku.
 
 interface FilterRow {
   field: string;
@@ -36,6 +34,7 @@ function authHeaders(): Record<string, string> {
 }
 
 export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
+  const t = useTranslations('search');
   const [schemas, setSchemas] = useState<DocTypeSchema[]>([]);
   const [docType, setDocType] = useState('');
   const [filters, setFilters] = useState<FilterRow[]>([]);
@@ -62,7 +61,7 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
     try {
       await pobierzListeXlsx(hits.map((h) => h.id), nlQuery);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Nie udało się pobrać arkusza.');
+      setError(e instanceof Error ? e.message : t('errXlsx'));
     } finally {
       setEksportTrwa(false);
     }
@@ -93,7 +92,7 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
       };
       setHits(await docSearchApi.search(body));
     } catch (e: any) {
-      setError(e.message || 'Błąd wyszukiwania');
+      setError(e.message || t('errSearch'));
     } finally {
       setLoading(false);
     }
@@ -116,7 +115,7 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
         );
       }
     } catch (e: any) {
-      setError(e.message || 'Nie udało się zrozumieć zapytania');
+      setError(e.message || t('errNlp'));
     } finally {
       setNlLoading(false);
     }
@@ -144,12 +143,12 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
     // nagłówek nad pustym miejscem.
     <div className="flex min-w-0 flex-1 flex-col rounded-lg border border-gray-200 bg-white shadow">
       <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-800">Wyszukiwarka po polach</h2>
+        <h2 className="text-lg font-semibold text-gray-800">{t('title')}</h2>
         {onClose && (
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-700 text-lg leading-none px-1"
-            title="Zwiń wyszukiwarkę"
+            title={t('collapse')}
           >
             ✕
           </button>
@@ -160,13 +159,13 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
       <div className="p-4 border-b border-gray-200 space-y-3">
         {schemas.length === 0 && (
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
-            Brak zdefiniowanych typów. Dodaj je w Administracja → Schematy dokumentów.
+            {t('noTypes')}
           </p>
         )}
 
         {/* Pytanie po polsku → filtr (NL→filtr) */}
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Zapytaj po polsku</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">{t('askInWords')}</label>
           <div className="flex gap-1.5">
             <input
               ref={poleNl}
@@ -174,7 +173,7 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
               value={nlQuery}
               onChange={(e) => setNlQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') nlSearch(); }}
-              placeholder="np. wszystkie zarządzenia z 2023"
+              placeholder={t('askPlaceholder')}
               // Ta sama ramka co pole wiadomosci w czacie: na obu ekranach jest to
               // JEDYNE miejsce, w ktorym uzytkownik pisze wlasnymi slowami.
               className="min-w-0 flex-1 rounded-md border-2 border-app-field px-2 py-1.5 text-sm outline-none"
@@ -187,17 +186,17 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
               {nlLoading ? '…' : 'Zapytaj'}
             </button>
           </div>
-          <p className="text-xs text-gray-400 mt-1">Rozpoznane zapytanie wypełni filtr poniżej — możesz go poprawić i wyszukać ponownie.</p>
+          <p className="text-xs text-gray-400 mt-1">{t('recognisedHint')}</p>
         </div>
 
         <div className="border-t border-gray-100 pt-3">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Typ dokumentu</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">{t('docType')}</label>
           <select
             value={docType}
             onChange={(e) => { setDocType(e.target.value); setFilters([]); }}
             className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value="">— dowolny typ —</option>
+            <option value="">{t('anyType')}</option>
             {schemas.map((s) => (
               <option key={s.slug} value={s.slug}>{s.name}</option>
             ))}
@@ -213,7 +212,7 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
                   onChange={(e) => updateFilter(i, { field: e.target.value })}
                   className="flex-1 min-w-0 px-2 py-1.5 border border-gray-300 rounded-md text-sm bg-white"
                 >
-                  <option value="">— pole —</option>
+                  <option value="">{t('anyField')}</option>
                   {fieldNames.map((n) => <option key={n} value={n}>{n}</option>)}
                 </select>
               ) : (
@@ -221,7 +220,7 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
                   type="text"
                   value={row.field}
                   onChange={(e) => updateFilter(i, { field: e.target.value })}
-                  placeholder="pole"
+                  placeholder={t('fieldPlaceholder')}
                   // Ta sama ramka co pole wiadomosci w czacie: na obu ekranach jest to
               // JEDYNE miejsce, w ktorym uzytkownik pisze wlasnymi slowami.
               className="min-w-0 flex-1 rounded-md border-2 border-app-field px-2 py-1.5 text-sm outline-none"
@@ -238,7 +237,7 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
                 type="text"
                 value={row.value}
                 onChange={(e) => updateFilter(i, { value: e.target.value })}
-                placeholder="wartość"
+                placeholder={t('valuePlaceholder')}
                 // Ta sama ramka co pole wiadomosci w czacie: na obu ekranach jest to
               // JEDYNE miejsce, w ktorym uzytkownik pisze wlasnymi slowami.
               className="min-w-0 flex-1 rounded-md border-2 border-app-field px-2 py-1.5 text-sm outline-none"
@@ -246,14 +245,14 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
               <button
                 onClick={() => removeFilter(i)}
                 className="px-1.5 text-red-500 hover:text-red-700 text-sm shrink-0"
-                title="Usuń warunek"
+                title={t('removeCondition')}
               >
                 ✕
               </button>
             </div>
           ))}
           <button onClick={addFilter} className="text-blue-600 hover:text-blue-800 text-xs font-medium">
-            + warunek
+            {t('addCondition')}
           </button>
         </div>
 
@@ -273,21 +272,21 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
       <div className="flex-1 overflow-y-auto p-4">
         {hits === null ? (
           <p className="text-xs text-gray-400 text-center mt-6">
-            Ustaw kryteria i kliknij „Szukaj".
+            {t('setCriteria')}
           </p>
         ) : hits.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center mt-6">Brak dokumentów spełniających kryteria.</p>
+          <p className="text-xs text-gray-400 text-center mt-6">{t('noResults')}</p>
         ) : (
           <>
             <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
               <p className="text-[12px] text-app-muted">
-                Znaleziono {hits.length} {odmianaDokumentow(hits.length)}.
+                {t('found', { count: hits.length })}
               </p>
               {/* Eksport tej samej listy, którą widać niżej — kolumny i kolejność ustala
                   rejestr schematów, nazwa pliku powstaje z pytania po polsku. */}
               <Button small onClick={pobierzXlsx} disabled={eksportTrwa}>
                 <IconDownload size={15} />
-                {eksportTrwa ? 'Przygotowuję arkusz…' : 'Pobierz tę listę w pliku XLSX'}
+                {eksportTrwa ? t('xlsxPreparing') : t('xlsxDownload')}
               </Button>
             </div>
             {/* Ten sam format co lista dokumentów pod odpowiedzią czatu — bo to ten

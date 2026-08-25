@@ -81,7 +81,15 @@ _NO_ANSWER = "Niestety, nie znaleziono w dokumentach informacji na ten temat."
 # (odmowa w pamięci powoduje kolejne odmowy, zob. 0.5.4). Porównujemy po zdjęciu
 # ewentualnego podkreślnika kursywy, bo te komunikaty występowały w obu postaciach.
 _NO_MATCH_PREFIX = "_Nie znalazłem dokumentów spełniających kryteria"
+# Znacznik NIEZALEŻNY OD JĘZYKA, stawiany przez interfejs na początku komunikatów,
+# które tworzy sama aplikacja („nie znalazłem dokumentów", „nie wiem, o które chodzi").
+# Wcześniej rozpoznawaliśmy je po POCZĄTKU polskiego zdania — po przetłumaczeniu
+# interfejsu przestałyby pasować i trafiłyby do historii dla modelu, a odmowa
+# w jego pamięci powoduje kolejne odmowy (zmierzone, 0.5.4).
+ZNACZNIK_BEZ_TRAFIEN = "[[NOMATCH]]"
+# Dawne postacie zostają na zawsze: tak zapisane są rozmowy sprzed wprowadzenia znacznika.
 _BEZ_ODPOWIEDZI_PREFIKSY = (
+    ZNACZNIK_BEZ_TRAFIEN,
     "Nie znalazłem dokumentów spełniających kryteria",
     "Nie wiem, o które dokumenty chodzi",
     "W systemie nie ma rodzaju dokumentów",

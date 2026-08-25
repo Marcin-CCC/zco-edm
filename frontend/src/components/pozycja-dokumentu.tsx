@@ -10,6 +10,7 @@
  * przy pierwszej korekcie.
  */
 import { FileTypeIcon } from '@/components/file-type-icon';
+import { useTranslations } from 'next-intl';
 import { IconChevronRight } from '@/components/icons';
 import type { DocSearchHit } from '@/lib/api';
 
@@ -64,6 +65,7 @@ interface Props {
 }
 
 export function PozycjaDokumentu({ d, numer, uzyty = true, otworz }: Props) {
+  const t = useTranslations('common');
   const etykieta = etykietaDokumentu(d, numer - 1);
   const tresc = (
     <>
@@ -95,7 +97,7 @@ export function PozycjaDokumentu({ d, numer, uzyty = true, otworz }: Props) {
 
   const klasy = 'flex w-full items-center gap-2.5 rounded-ctl border border-app-line bg-white px-2.5 py-2 text-left';
   return otworz ? (
-    <button onClick={otworz} className={`${klasy} transition-colors hover:bg-app-hover`} title="Otwórz dokument">
+    <button onClick={otworz} className={`${klasy} transition-colors hover:bg-app-hover`} title={t('openDocument')}>
       {tresc}
     </button>
   ) : (

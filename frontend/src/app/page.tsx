@@ -1,11 +1,13 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/store';
 import { useMarka } from '@/components/marka-provider';
 
 export default function RootPage() {
+  const t = useTranslations('common');
   const marka = useMarka();
   const { isAuthenticated } = useAuth();
   const router = useRouter();
@@ -18,18 +20,16 @@ export default function RootPage() {
     }
   }, [isAuthenticated, router]);
 
-   return (
-     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
-       <div className="text-center text-white">
-         {/* CI/CD Banner - TEST */}
-         <div className="mb-4 px-4 py-2 bg-green-600/30 border border-green-500/50 rounded-lg inline-block">
-           <p className="text-sm text-green-300 font-mono">
-             🔧 GitHub Actions CI/CD Active
-           </p>
-         </div>
-         <h1 className="text-4xl font-bold mb-2">{marka.nazwa}</h1>
-         <p className="text-slate-300">Wdrozenie przez GitHub Actions - TEST</p>
-       </div>
-     </div>
-   );
+  // Ekran przelotowy: widać go ułamek sekundy przed przekierowaniem. Stała tu
+  // plakietka „GitHub Actions CI/CD Active" i podpis „Wdrozenie przez GitHub
+  // Actions - TEST" — rusztowanie z czasu stawiania wdrożenia, pokazywane
+  // użytkownikom. Zostaje sama nazwa instancji.
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+      <div className="text-center text-white">
+        <h1 className="mb-2 text-4xl font-bold">{marka.nazwa}</h1>
+        <p className="text-slate-300">{t('loading')}</p>
+      </div>
+    </div>
+  );
 }

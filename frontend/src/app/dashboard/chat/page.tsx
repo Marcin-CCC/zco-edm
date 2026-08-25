@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 
@@ -16,38 +17,30 @@ import { OcenaOdpowiedzi } from '@/components/ocena-odpowiedzi';
 import { Button, Card, PageHeader } from '@/components/ui/primitives';
 import { docSchemasApi, docSearchApi } from '@/lib/api';
 import { pobierzListeXlsx } from '@/lib/eksport-xlsx';
-import { ODMOWA_TEKST, ODMOWY, ZNACZNIK_BRAKU } from '@/lib/odmowa';
+import { ODMOWA_TEKST, ODMOWY, ZNACZNIK_BEZ_TRAFIEN, ZNACZNIK_BRAKU, bezTrafien, bezZnacznikaTrafien } from '@/lib/odmowa';
 
-// Polska odmiana rzeczownika „dokument" po liczbie
-function pluralDocs(n: number): string {
-  if (n === 1) return 'dokument';
-  const last = n % 10;
-  const lastTwo = n % 100;
-  if (last >= 2 && last <= 4 && !(lastTwo >= 12 && lastTwo <= 14)) return 'dokumenty';
-  return 'dokumentów';
-}
+// Odmiana „1 dokument / 2 dokumenty / 5 dokumentów" NIE jest już liczona w kodzie:
+// zastąpił ją komunikat ICU (`chat.alsoChecked`). Poprzednia funkcja znała wyłącznie
+// reguły polskie i po przełączeniu języka odmieniałaby po polsku obce słowa.
 
-/** „Sprawdzono też N dokumentów, które nie zostały wykorzystane" z poprawną odmianą. */
-function sprawdzoneOpis(n: number): string {
-  if (n === 1) return 'Sprawdzono też 1 dokument, który nie został wykorzystany.';
-  return `Sprawdzono też ${n} ${pluralDocs(n)}, które nie zostały wykorzystane.`;
-}
-
-
-const OP_LABELS: Record<string, string> = {
-  eq: '=', contains: 'zawiera', gte: 'od', lte: 'do', gt: 'po', lt: 'przed',
+// Nazwy operatorów są KLUCZAMI, nie napisami — to stała modułu, a napis idzie za językiem.
+const OP_KEYS: Record<string, string> = {
+  eq: 'opEq', contains: 'opContains', gte: 'opGte', lte: 'opLte', gt: 'opGt', lt: 'opLt',
 };
 
 /** Opisz rozpoznany filtr po ludzku, np. „typ: Zarządzenie, data od 2023, data do 2023". */
 function describeFilter(
   filter: { doc_type?: string | null; filters?: { field: string; op: string; value: string }[] } | undefined,
-  typeNames: Record<string, string>
+  typeNames: Record<string, string>,
+  t: (klucz: string, wartosci?: Record<string, string>) => string
 ): string {
   if (!filter) return '';
   const parts: string[] = [];
-  if (filter.doc_type) parts.push(`typ: ${typeNames[filter.doc_type] || filter.doc_type}`);
+  if (filter.doc_type) {
+    parts.push(t('filterType', { name: typeNames[filter.doc_type] || filter.doc_type }));
+  }
   for (const f of filter.filters || []) {
-    parts.push(`${f.field} ${OP_LABELS[f.op] || f.op} ${f.value}`);
+    parts.push(`${f.field} ${OP_KEYS[f.op] ? t(OP_KEYS[f.op]) : f.op} ${f.value}`);
   }
   return parts.join(', ');
 }
@@ -175,7 +168,9 @@ function renderAnswer(text: string, sources?: ChatSource[]): string {
   // Znacznik braku odpowiedzi nie jest treścią — jest sygnałem. Użytkownik ma zobaczyć
   // zdanie, i to w swoim języku, a nie „[[BRAK]]".
   if (text.trim().toLowerCase() === ZNACZNIK_BRAKU) return ODMOWA_TEKST;
-  const base = stripEndMarker(text);
+  // Znacznik „bez trafień" jest sygnałem dla historii, nie treścią — zdejmujemy go
+  // przed pokazaniem, tak samo jak znacznik odmowy.
+  const base = stripEndMarker(bezZnacznikaTrafien(text));
   const linked = sources && sources.length ? linkifyMarkers(base, sources.length) : null;
   return (linked ?? stripInlineMarkers(base))
     .replace(/\.{6,}/g, '……………')
@@ -202,6 +197,7 @@ function authHeaders(): Record<string, string> {
 }
 
 export default function ChatPage() {
+  const t = useTranslations('chat');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -283,7 +279,7 @@ export default function ChatPage() {
       setPokazPozostale({});  // rozwinięcia dotyczą pozycji wiadomości — nowa rozmowa, nowy stan
       setCurrentConvId(id);
     } catch {
-      alert('Nie udało się wczytać rozmowy.');
+      alert(t('errLoadConversation'));
     }
   };
 
@@ -297,7 +293,7 @@ export default function ChatPage() {
 
   const deleteConversation = async (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm('Usunąć tę rozmowę?')) return;
+    if (!confirm(t('confirmDeleteConversation'))) return;
     try {
       await fetch(`/api/chat/conversations/${id}`, { method: 'DELETE', headers: authHeaders() });
       if (currentConvId === id) newConversation();
@@ -321,8 +317,8 @@ export default function ChatPage() {
       typeName,
       // Pytanie nie niosło żadnego kryterium — rejestr nie ma czego szukać
       noCriteria: !!listRes.no_criteria,
-      summary: `Znalazłem ${hits.length} ${pluralDocs(hits.length)}` +
-        (typeName ? ` (typ: ${typeName})` : '') + '.',
+      summary: t('foundCount', { count: hits.length }) +
+        (typeName ? t('foundWithType', { type: typeName }) : '') + '.',
     };
   };
 
@@ -341,10 +337,13 @@ export default function ChatPage() {
    */
   const bezOdpowiedzi = (tekst: string) => {
     if (czystaOdmowa(tekst)) return true;
-    const t = normalizuj(tekst).replace(/^_+/, '');
+    if (bezTrafien(tekst)) return true;
+    // Dawne postacie — rozmowy zapisane, zanim wprowadziliśmy znacznik. Zostają
+    // na zawsze: te wiersze są w bazie i mają się czytać tak samo.
+    const tresc = normalizuj(tekst).replace(/^_+/, '');
     return ['nie znalazłem dokumentów spełniających kryteria',
             'nie wiem, o które dokumenty chodzi',
-            'w systemie nie ma rodzaju dokumentów'].some((p) => t.startsWith(p));
+            'w systemie nie ma rodzaju dokumentów'].some((p) => tresc.startsWith(p));
   };
 
   /**
@@ -486,8 +485,8 @@ export default function ChatPage() {
           // warunku niż sam zakres, więc dawało się dostać „Znalazłem 35 dokumentów"
           // nad listą 10 pozycji z poprzedniej odpowiedzi.
           const summary = zakresZPoprzednich
-            ? `Dokumenty wskazane w poprzedniej odpowiedzi (${zakres.length}):`
-            : (rejestr?.summary ?? `Znalazłem ${zakres.length} ${pluralDocs(zakres.length)}.`);
+            ? t('fromPrevious', { count: zakres.length })
+            : (rejestr?.summary ?? t('foundCount', { count: zakres.length }) + '.');
           setMessages((prev) => {
             const next = [...prev];
             next[next.length - 1] = {
@@ -517,10 +516,7 @@ export default function ChatPage() {
         // wyjazdu służbowego"), przechodzimy do odpowiedzi z treści — tam odnośnik do
         // dokumentu i tak się znajdzie, a odesłanie z niczym byłoby najgorszym wyjściem.
         if (!rejestr || (rejestr.noCriteria && rejestr.listRes.generic_query !== false)) {
-          const prosba =
-            'Nie wiem, o które dokumenty chodzi. Doprecyzuj — możesz podać rodzaj ' +
-            '(np. zarządzenia, instrukcje), osobę (np. zatwierdzone przez Kowalską), ' +
-            'numer albo rok.';
+          const prosba = ZNACZNIK_BEZ_TRAFIEN + t('askNarrow');
           assistantText = prosba;
           setMessages((prev) => {
             const next = [...prev];
@@ -541,7 +537,7 @@ export default function ChatPage() {
         }
 
         // Kryteria były, ale nic im nie odpowiada.
-        const desc = describeFilter(rejestr.listRes.filter, typeNames);
+        const desc = describeFilter(rejestr.listRes.filter, typeNames, t);
         // Twarde zatrzymanie tylko wtedy, gdy WSZYSTKIE warunki są wiarygodne
         // (numer, data, osoba). Dopasowanie frazy opisowej potrafi nie trafić w
         // sformułowanie użyte w dokumencie, więc wtedy pytamy jeszcze o treść.
@@ -553,10 +549,7 @@ export default function ChatPage() {
         // NIE doklejamy odpowiedzi z treści — inaczej model dopasowuje się do fałszywego
         // założenia pytania (nazywa „instrukcjami” zarządzenie, bo tak brzmiało pytanie).
         if (poPolu) {
-          const odpowiedz =
-            `Nie znalazłem dokumentów spełniających kryteria${desc ? ` (${desc})` : ''}. ` +
-            'Jeśli chodziło Ci o treść dokumentów, a nie o ich zestawienie, zapytaj wprost ' +
-            'o zagadnienie — np. „co mówią przepisy o pracy zdalnej?".';
+          const odpowiedz = ZNACZNIK_BEZ_TRAFIEN + t('noneMatching', { opis: desc ? ` (${desc})` : '' });
           assistantText = odpowiedz;
           setMessages((prev) => {
             const next = [...prev];
@@ -783,7 +776,7 @@ export default function ChatPage() {
             ...last,
             // Bez glifu ostrzegawczego: dymek błędu niesie to samo czerwoną ramką
             // i tłem, a znaki unicode w roli ikony wyglądają inaczej na każdym systemie.
-            content: last.content || (e?.message || 'Błąd połączenia z czatem.'),
+            content: last.content || (e?.message || t('errConnection')),
             error: true,
           };
           return next;
@@ -825,7 +818,7 @@ export default function ChatPage() {
     try {
       await pobierzListeXlsx(ids, pytanie);
     } catch (e: any) {
-      alert(e?.message || 'Nie udało się pobrać arkusza.');
+      alert(e?.message || t('errXlsx'));
     } finally {
       setEksportTrwa(null);
     }
@@ -840,7 +833,7 @@ export default function ChatPage() {
       const blob = await res.blob();
       window.open(URL.createObjectURL(blob), '_blank');
     } catch (e: any) {
-      alert(e?.message || 'Nie udało się otworzyć dokumentu.');
+      alert(e?.message || t('errOpenDocument'));
     }
   };
 
@@ -857,19 +850,19 @@ export default function ChatPage() {
   return (
     <div className="flex h-[calc(100vh-118px)] min-h-[560px] flex-col">
       <PageHeader
-        title="Chat z AI"
-        description="Zadawaj pytania do dokumentów i uzyskuj odpowiedzi z cytowaniem źródeł."
+        title={t('title')}
+        description={t('description')}
       />
 
       <div className="grid min-h-0 flex-1 gap-[18px] lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)_220px]">
         {/* Historia rozmów */}
         <Card className="hidden min-h-0 flex-col overflow-hidden lg:flex">
           <div className="border-b border-app-line px-[18px] py-4">
-            <h2 className="text-[16px] font-bold text-app-text">Historia chatów</h2>
+            <h2 className="text-[16px] font-bold text-app-text">{t('history')}</h2>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             {conversations.length === 0 && (
-              <p className="px-[18px] py-6 text-center text-[12px] text-app-muted">Brak zapisanych rozmów.</p>
+              <p className="px-[18px] py-6 text-center text-[12px] text-app-muted">{t('historyEmpty')}</p>
             )}
             {conversations.map((c) => (
               <div
@@ -892,7 +885,7 @@ export default function ChatPage() {
                 <button
                   onClick={(e) => deleteConversation(c.id, e)}
                   className="shrink-0 text-app-muted opacity-0 transition-opacity hover:text-app-danger focus:opacity-100 group-hover:opacity-100"
-                  title="Usuń rozmowę"
+                  title={t('deleteConversation')}
                   aria-label={`Usuń rozmowę: ${c.title}`}
                 >
                   <IconClose size={14} />
@@ -905,10 +898,10 @@ export default function ChatPage() {
         {/* Rozmowa */}
         <Card className="flex min-h-0 flex-col overflow-hidden">
           <div className="flex items-center justify-between border-b border-app-line px-[18px] py-4">
-            <h2 className="text-[16px] font-bold text-app-text">Chat z bazy wiedzy</h2>
-            <Button small onClick={newConversation} disabled={streaming} title="Rozpocznij nowy chat">
+            <h2 className="text-[16px] font-bold text-app-text">{t('boxTitle')}</h2>
+            <Button small onClick={newConversation} disabled={streaming} title={t('newChatTitle')}>
               <IconPlus size={15} />
-              Nowy chat
+              {t('newChat')}
             </Button>
           </div>
 
@@ -918,14 +911,11 @@ export default function ChatPage() {
                 <span className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-[#edf4ff] text-app-blue">
                   <IconChat size={24} />
                 </span>
-                <p className="text-[14px] font-bold text-app-text">Zadaj pytanie o treść dokumentów</p>
-                <p className="mt-1 text-[12px] text-app-muted">
-                  Odpowiedź powstaje wyłącznie z dokumentów, do których masz dostęp, i zawiera odsyłacze
-                  do miejsc, z których pochodzi.
-                </p>
+                <p className="text-[14px] font-bold text-app-text">{t('emptyTitle')}</p>
+                <p className="mt-1 text-[12px] text-app-muted">{t('emptyHint')}</p>
                 {przykladowePytania.length > 0 && (
                   <div className="mt-6 border-t border-app-line pt-4 text-left">
-                    <b className="text-[12px] text-[#6b7890]">Wypróbuj przykładowe pytania</b>
+                    <b className="text-[12px] text-[#6b7890]">{t('examplesHeading')}</b>
                     <div className="mt-2.5 flex flex-wrap gap-2">
                       {przykladowePytania.map((p) => (
                         <button
@@ -1001,11 +991,11 @@ export default function ChatPage() {
                       streaming && idx === messages.length - 1 ? (
                         <span className="italic text-app-muted">
                           {parseWait
-                            ? 'Trwa przetwarzanie dokumentów — odpowiedź pojawi się za chwilę.'
+                            ? t('waitParsing')
                             : bezKontekstu
-                            ? 'Nowy temat w tej rozmowie — sprawdzam samo pytanie…'
+                            ? t('waitNewTopic')
                             : routingHint
-                            ? 'Rozpoznaję rodzaj pytania…'
+                            ? t('waitRouting')
                             : '…'}
                         </span>
                       ) : ''
@@ -1020,7 +1010,7 @@ export default function ChatPage() {
                     <div className="mt-2.5">
                       <Button small onClick={() => pobierzXlsx(idx, m.sources!, m.pytanie)} disabled={eksportTrwa === idx}>
                         <IconDownload size={15} />
-                        {eksportTrwa === idx ? 'Przygotowuję arkusz…' : 'Pobierz tę listę w pliku XLSX'}
+                        {eksportTrwa === idx ? t('xlsxPreparing') : t('xlsxDownload')}
                       </Button>
                     </div>
                   )}
@@ -1045,7 +1035,7 @@ export default function ChatPage() {
                                 z treści nagłówek zostaje — tam źródła trzeba nazwać. */}
                             {!m.lista && (
                               <p className="mb-2 text-[12px] text-[#66758c]">
-                                {przywolane.length === 1 ? 'Dokument użyty w odpowiedzi' : 'Dokumenty użyte w odpowiedzi'}
+                                {przywolane.length === 1 ? t('usedOne') : t('usedMany')}
                               </p>
                             )}
                             <div className="grid gap-2">
@@ -1064,13 +1054,13 @@ export default function ChatPage() {
                         {pozostale.length > 0 && (
                           <div className={przywolane.length > 0 ? 'mt-3' : ''}>
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="text-[12px] text-app-muted">{sprawdzoneOpis(pozostale.length)}</span>
+                              <span className="text-[12px] text-app-muted">{t('alsoChecked', { count: pozostale.length })}</span>
                               <Button
                                 small
                                 onClick={() => setPokazPozostale((prev) => ({ ...prev, [idx]: !otwarte }))}
                                 aria-expanded={otwarte}
                               >
-                                {otwarte ? 'Ukryj dokumenty' : 'Pokaż dokumenty'}
+                                {otwarte ? t('hideDocuments') : t('showDocuments')}
                               </Button>
                             </div>
                             {otwarte && (
@@ -1124,23 +1114,23 @@ export default function ChatPage() {
                   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
                 }}
                 rows={2}
-                placeholder="Napisz wiadomość…"
+                placeholder={t('inputPlaceholder')}
                 className="w-full resize-none border-0 bg-transparent text-[13px] text-app-text outline-none placeholder:text-app-muted"
                 disabled={streaming}
               />
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[11px] text-[#8592a7]">
-                  Enter — wyślij wiadomość, Shift+Enter — nowa linia
+                  {t('inputHint')}
                 </span>
                 {streaming ? (
-                  <Button variant="danger" small onClick={stopGenerating} title="Przerwij generowanie odpowiedzi">
+                  <Button variant="danger" small onClick={stopGenerating} title={t('stopTitle')}>
                     <IconStop size={15} />
-                    Zatrzymaj
+                    {t('stop')}
                   </Button>
                 ) : (
                   <Button variant="primary" small onClick={sendMessage} disabled={!input.trim()}>
                     <IconSend size={15} />
-                    Wyślij
+                    {t('send')}
                   </Button>
                 )}
               </div>
@@ -1159,11 +1149,11 @@ export default function ChatPage() {
           <span className="mb-4 grid h-[46px] w-[46px] place-items-center rounded-full bg-[#edf4ff] text-app-blue">
             <IconSearch size={22} />
           </span>
-          <span className="block text-[15px] font-bold text-app-text">Wyszukiwanie</span>
+          <span className="block text-[15px] font-bold text-app-text">{t('searchCardTitle')}</span>
           <span className="mt-2 block text-[12px] leading-[1.5] text-app-muted">
-            Zbuduj zapytanie po polach metadanych i przeszukaj dokumenty.
+            {t('searchCardHint')}
           </span>
-          <span className="mt-3.5 block text-[12px] font-bold text-app-blue">Przejdź do wyszukiwania ›</span>
+          <span className="mt-3.5 block text-[12px] font-bold text-app-blue">{t('searchCardAction')}</span>
         </Link>
       </div>
     </div>

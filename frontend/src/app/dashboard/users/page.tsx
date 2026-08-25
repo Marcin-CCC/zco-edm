@@ -7,6 +7,7 @@
  * a własnego konta nie da się usunąć. Zmienia się wyłącznie warstwa wizualna.
  */
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { IconEdit, IconPlus, IconTrash } from '@/components/icons';
 import {
@@ -30,6 +31,8 @@ import { useAuth } from '@/lib/store';
 import { inicjaly } from '@/lib/user';
 
 export default function UsersPage() {
+  const t = useTranslations('users');
+  const tWspolne = useTranslations('common');
   const { token, user } = useAuth();
   const { roles } = useRoles();
   const [users, setUsers] = useState<any[]>([]);
@@ -50,7 +53,7 @@ export default function UsersPage() {
     try {
       setUsers(await usersApi.list(token!));
     } catch (err: any) {
-      setError(err.message || 'Błąd pobierania użytkowników');
+      setError(err.message || t('errFetch'));
     } finally {
       setLoading(false);
     }
@@ -92,30 +95,30 @@ export default function UsersPage() {
       resetForm();
       fetchUsers();
     } catch (err: any) {
-      setError(err.message || 'Błąd zapisu');
+      setError(err.message || t('errSave'));
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Czy na pewno usunąć tego użytkownika?')) return;
+    if (!confirm(t('confirmDelete'))) return;
     try {
       await usersApi.delete(token!, id);
       fetchUsers();
     } catch (err: any) {
-      setError(err.message || 'Błąd usuwania');
+      setError(err.message || t('errDelete'));
     }
   };
 
   return (
     <div>
       <PageHeader
-        title="Użytkownicy"
-        description="Konta w systemie, ich role i status dostępu."
+        title={t('title')}
+        description={t('description')}
         actions={
           !showForm && (
             <Button variant="primary" onClick={() => setShowForm(true)}>
               <IconPlus size={18} />
-              Dodaj użytkownika
+              {t('addUser')}
             </Button>
           )
         }
@@ -130,10 +133,10 @@ export default function UsersPage() {
       {showForm && (
         <Card className="mb-5 p-[18px]">
           <h2 className="mb-4 text-base font-bold text-app-text">
-            {editingId ? 'Edytuj użytkownika' : 'Dodaj nowego użytkownika'}
+            {editingId ? t('editUser') : t('addNewUser')}
           </h2>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Email">
+            <Field label={t('colEmail')}>
               <input
                 type="email"
                 value={form.email}
@@ -142,7 +145,7 @@ export default function UsersPage() {
                 required
               />
             </Field>
-            <Field label="Nazwa wyświetlana">
+            <Field label={t('displayName')}>
               <input
                 type="text"
                 value={form.username}
@@ -151,7 +154,7 @@ export default function UsersPage() {
                 required
               />
             </Field>
-            <Field label="Hasło" hint={editingId ? 'Zostaw puste, by nie zmieniać.' : undefined}>
+            <Field label={t('password')} hint={editingId ? t('passwordHint') : undefined}>
               <input
                 type="password"
                 value={form.password}
@@ -161,7 +164,7 @@ export default function UsersPage() {
                 autoComplete="new-password"
               />
             </Field>
-            <Field label="Pełne imię i nazwisko">
+            <Field label={t('fullName')}>
               <input
                 type="text"
                 value={form.full_name}
@@ -169,7 +172,7 @@ export default function UsersPage() {
                 className={inputClass}
               />
             </Field>
-            <Field label="Rola">
+            <Field label={t('colRole')}>
               <select
                 value={form.role}
                 onChange={(e) => setForm({ ...form, role: e.target.value })}
@@ -187,10 +190,10 @@ export default function UsersPage() {
                 onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
                 className="rounded border-app-line text-app-blue"
               />
-              Aktywny
+              {t('active')}
             </label>
             <div className="flex justify-end gap-2 md:col-span-2">
-              <Button type="button" onClick={resetForm}>Anuluj</Button>
+              <Button type="button" onClick={resetForm}>{tWspolne('cancel')}</Button>
               <Button type="submit" variant="primary">
                 {editingId ? 'Zapisz zmiany' : 'Dodaj'}
               </Button>
@@ -201,18 +204,18 @@ export default function UsersPage() {
 
       <Card className="overflow-hidden">
         {loading ? (
-          <EmptyState title="Ładowanie…" />
+          <EmptyState title={t('loading')} />
         ) : users.length === 0 ? (
-          <EmptyState title="Brak użytkowników" hint="Dodaj pierwsze konto przyciskiem powyżej." />
+          <EmptyState title={t('empty')} hint={t('emptyHint')} />
         ) : (
           <Table>
             <thead>
               <tr>
-                <Th className="w-[280px]">Użytkownik</Th>
-                <Th>Email</Th>
-                <Th>Rola</Th>
-                <Th>Status</Th>
-                <Th className="text-right">Akcje</Th>
+                <Th className="w-[280px]">{t('colUser')}</Th>
+                <Th>{t('colEmail')}</Th>
+                <Th>{t('colRole')}</Th>
+                <Th>{t('colStatus')}</Th>
+                <Th className="text-right">{t('colActions')}</Th>
               </tr>
             </thead>
             <tbody>
@@ -233,16 +236,16 @@ export default function UsersPage() {
                   <Td><Badge tone="blue">{roleLabel(roles, u.role)}</Badge></Td>
                   <Td>
                     <Badge tone={u.is_active ? 'green' : 'danger'}>
-                      {u.is_active ? 'Aktywny' : 'Nieaktywny'}
+                      {u.is_active ? t('active') : t('inactive')}
                     </Badge>
                   </Td>
                   <Td>
                     <RowActions>
-                      <IconButton tone="edit" title="Edytuj" onClick={() => handleEdit(u)}>
+                      <IconButton tone="edit" title={t('edit')} onClick={() => handleEdit(u)}>
                         <IconEdit size={16} />
                       </IconButton>
                       {u.id !== user?.id && (
-                        <IconButton tone="danger" title="Usuń" onClick={() => handleDelete(u.id)}>
+                        <IconButton tone="danger" title={tWspolne('delete')} onClick={() => handleDelete(u.id)}>
                           <IconTrash size={16} />
                         </IconButton>
                       )}

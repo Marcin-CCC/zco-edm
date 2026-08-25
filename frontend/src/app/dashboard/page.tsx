@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { aktywnyJezyk } from '@/i18n/locales';
+import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 
 import { AreaChart, AreaChartPoint } from '@/components/area-chart';
@@ -36,6 +38,8 @@ function inicjaly(nazwa: string): string {
 }
 
 /** Polska odmiana rzeczownika po liczbie: 1 plik, 2 pliki, 5 plików. */
+// UWAGA: ta funkcja znała wyłącznie polskie reguły. Zostaje wyłącznie dlatego,
+// że nie ma już wołających — liczebniki idą przez komunikaty ICU.
 function odmiana(n: number, jeden: string, dwa: string, piec: string): string {
   const ost = n % 10;
   const dwie = n % 100;
@@ -118,37 +122,42 @@ export default function DashboardPage() {
   useEffect(() => {
     dashboardApi.stats(dni)
       .then(setStats)
-      .catch((err: any) => setError(err.message || 'Nie udało się załadować statystyk'))
+      .catch((err: any) => setError(err.message || t('errStats')))
       .finally(() => setLoading(false));
   }, [dni]);
+
+  const t = useTranslations('dashboard');
+  const tWspolne = useTranslations('common');
+  const tPliki = useTranslations('files');
+  const etykietyDat = { dzis: tWspolne('today'), wczoraj: tWspolne('yesterday') };
 
   const suma = (p: AreaChartPoint[]) => p.reduce((a, b) => a + b.value, 0);
 
   // Wykresy mają różny zakres dla zwykłego użytkownika: pliki widzi te, do których
   // ma dostęp, a zapytania wyłącznie własne — stąd dwa osobne opisy.
-  const opisPlikow = scope === 'all' ? 'wszyscy użytkownicy' : 'dostępne dla Ciebie';
-  const opisZapytan = scope === 'all' ? 'wszyscy użytkownicy' : 'Twoje zapytania';
+  const opisPlikow = scope === 'all' ? t('scopeAll') : t('scopeMine');
+  const opisZapytan = scope === 'all' ? t('scopeAll') : t('scopeMyQueries');
 
   // Kafelek bez `href` jest tylko liczbą — nie udaje odnośnika. Kolejka plików
   // leży w Administracji, więc „Przetworzone" prowadzi tam wyłącznie administratora.
   const kafelki: Kafelek[] = [
     ...(stats.users !== null && stats.users !== undefined
       ? [{
-          label: 'Użytkownicy', value: String(stats.users), href: '/dashboard/users',
+          label: t('tileUsers'), value: String(stats.users), href: '/dashboard/users',
           trend: stats.trend_users, Icon: IconUsers, ton: 'blue' as const,
         }]
       : []),
     {
-      label: 'Foldery', value: String(stats.folders ?? 0), href: '/dashboard/files',
+      label: t('tileFolders'), value: String(stats.folders ?? 0), href: '/dashboard/files',
       trend: stats.trend_folders, Icon: IconFiles, ton: 'teal',
     },
     {
-      label: 'Dokumenty', value: String(stats.documents ?? 0), href: '/dashboard/files',
+      label: t('tileDocuments'), value: String(stats.documents ?? 0), href: '/dashboard/files',
       trend: stats.trend_documents, Icon: IconDoc, ton: 'purple',
     },
     {
-      label: 'Przetworzone',
-      value: `${(stats.processed_percent ?? 0).toLocaleString('pl-PL', { maximumFractionDigits: 1 })}%`,
+      label: t('tileProcessed'),
+      value: `${(stats.processed_percent ?? 0).toLocaleString(aktywnyJezyk(), { maximumFractionDigits: 1 })}%`,
       suffix: `${stats.processed ?? 0} z ${stats.documents ?? 0}`,
       href: isAdmin ? '/dashboard/file-queue' : undefined,
       trend: stats.trend_processed,
@@ -167,17 +176,17 @@ export default function DashboardPage() {
   return (
     <div>
       <PageHeader
-        title="Dashboard"
-        description="Przegląd kluczowych danych i aktywności w systemie."
+        title={t('title')}
+        description={t('description')}
         actions={
           <select
             value={dni}
             onChange={(e) => setDni(Number(e.target.value))}
             className={`${inputClass} w-auto`}
-            aria-label="Zakres danych"
+            aria-label={t('rangeLabel')}
           >
             {OKRESY.map((d) => (
-              <option key={d} value={d}>Ostatnie {d} dni</option>
+              <option key={d} value={d}>{t('rangeOption', { days: d })}</option>
             ))}
           </select>
         }
@@ -218,7 +227,7 @@ export default function DashboardPage() {
                 </span>
                 {!loading && typeof k.trend === 'number' && (
                   <span className={`mt-2 block text-[11px] font-semibold ${k.trend >= 0 ? 'text-app-green' : 'text-app-danger'}`}>
-                    {k.trend >= 0 ? '↑' : '↓'} {Math.abs(k.trend).toLocaleString('pl-PL', { maximumFractionDigits: 1 })}
+                    {k.trend >= 0 ? '↑' : '↓'} {Math.abs(k.trend).toLocaleString(aktywnyJezyk(), { maximumFractionDigits: 1 })}
                     {k.jednostka || '%'}{' '}
                     <span className="font-normal text-app-muted">wobec poprzednich {dni} dni</span>
                   </span>
@@ -245,18 +254,18 @@ export default function DashboardPage() {
         <Card className="p-4">
           <div className="mb-2 flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-[16px] font-bold text-app-text">Statystyki parsowania</h2>
+              <h2 className="text-[16px] font-bold text-app-text">{t('parsingStats')}</h2>
               <p className="mt-0.5 text-[22px] font-extrabold text-app-text">
-                {chartsLoading ? '…' : suma(parsed).toLocaleString('pl-PL')}{' '}
+                {chartsLoading ? '…' : suma(parsed).toLocaleString(aktywnyJezyk())}{' '}
                 <span className="text-[12px] font-normal text-app-muted">
-                  {odmiana(suma(parsed), 'dokument przetworzony', 'dokumenty przetworzone', 'dokumentów przetworzonych')}
+                  {t('parsedCount', { count: suma(parsed) })}
                 </span>
               </p>
             </div>
             <span className="whitespace-nowrap pt-1 text-[11px] text-app-muted">{dni} dni · {opisPlikow}</span>
           </div>
           {chartsLoading ? (
-            <div className="flex h-[179px] items-center justify-center text-sm text-app-muted">Ładowanie…</div>
+            <div className="flex h-[179px] items-center justify-center text-sm text-app-muted">{tWspolne('loading')}</div>
           ) : (
             <AreaChart
               data={parsed}
@@ -270,18 +279,18 @@ export default function DashboardPage() {
         <Card className="p-4">
           <div className="mb-2 flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-[16px] font-bold text-app-text">Statystyki zapytań w chacie</h2>
+              <h2 className="text-[16px] font-bold text-app-text">{t('queryStats')}</h2>
               <p className="mt-0.5 text-[22px] font-extrabold text-app-text">
-                {chartsLoading ? '…' : suma(queries).toLocaleString('pl-PL')}{' '}
+                {chartsLoading ? '…' : suma(queries).toLocaleString(aktywnyJezyk())}{' '}
                 <span className="text-[12px] font-normal text-app-muted">
-                  {odmiana(suma(queries), 'zapytanie', 'zapytania', 'zapytań')}
+                  {t('queriesCount', { count: suma(queries) })}
                 </span>
               </p>
             </div>
             <span className="whitespace-nowrap pt-1 text-[11px] text-app-muted">{dni} dni · {opisZapytan}</span>
           </div>
           {chartsLoading ? (
-            <div className="flex h-[179px] items-center justify-center text-sm text-app-muted">Ładowanie…</div>
+            <div className="flex h-[179px] items-center justify-center text-sm text-app-muted">{tWspolne('loading')}</div>
           ) : (
             <AreaChart
               data={queries}
@@ -298,13 +307,13 @@ export default function DashboardPage() {
             Widoczność wg uprawnień: backend zwraca tylko dostępne foldery. */}
         <Card className="p-4">
           <div className="mb-2 flex items-start justify-between">
-            <h2 className="text-[16px] font-bold text-app-text">Ostatnio dodane dokumenty</h2>
+            <h2 className="text-[16px] font-bold text-app-text">{t('recentDocuments')}</h2>
             <Link href="/dashboard/files" className="text-[11px] font-bold text-app-blue hover:underline">
-              Zobacz wszystkie ›
+              {t('seeAll')}
             </Link>
           </div>
           {ostatnie.length === 0 ? (
-            <EmptyState title="Brak dokumentów" hint="Wgrane pliki pojawią się tutaj." />
+            <EmptyState title={t('noDocuments')} hint={t('noDocumentsHint')} />
           ) : (
             <ul className="-mx-1">
               {ostatnie.map((f) => (
@@ -315,7 +324,7 @@ export default function DashboardPage() {
                   <FileTypeIcon filename={f.filename} />
                   <span className="min-w-0 flex-1">
                     <span className="block break-words text-[13px] font-bold text-app-text">{f.filename}</span>
-                    <Sub>{f.folder || 'katalog główny'}</Sub>
+                    <Sub>{f.folder || tPliki('rootFolderInline')}</Sub>
                   </span>
                   <span className="hidden whitespace-nowrap text-[12px] text-app-muted sm:block">
                     {rozmiarPliku(f.size)}
@@ -323,7 +332,7 @@ export default function DashboardPage() {
                   <Badge tone={f.status === 'Przetworzono' ? 'green' : f.status === 'Błąd przetwarzania' ? 'danger' : 'gray'}>
                     {f.status}
                   </Badge>
-                  <span className="w-[92px] shrink-0 text-right text-[11px] text-app-muted">{kiedy(f.created_at)}</span>
+                  <span className="w-[92px] shrink-0 text-right text-[11px] text-app-muted">{kiedy(f.created_at, etykietyDat)}</span>
                 </li>
               ))}
             </ul>
@@ -338,18 +347,18 @@ export default function DashboardPage() {
           <Card className="p-4">
             <div className="mb-2 flex items-start justify-between">
               <div>
-                <h2 className="text-[16px] font-bold text-app-text">Aktywność użytkowników</h2>
+                <h2 className="text-[16px] font-bold text-app-text">{t('userActivity')}</h2>
                 {/* Okres podajemy RAZ, w nagłówku. Powtórzony przy każdym wierszu
                     byłby tą samą informacją pięć razy pod rząd. */}
                 <p className="mt-0.5 text-[11px] text-app-muted">ostatnie {dni} dni</p>
               </div>
               <Link href="/dashboard/users" className="text-[11px] font-bold text-app-blue hover:underline">
-                Zobacz wszystkich ›
+                {t('seeAllUsers')}
               </Link>
             </div>
             {aktywni.length === 0 ? (
               <EmptyState
-                title="Brak aktywności"
+                title={t('noActivity')}
                 hint={`Nikt nie wysłał plików ani nie zadał pytania w ostatnich ${dni} dniach.`}
               />
             ) : (
@@ -366,9 +375,9 @@ export default function DashboardPage() {
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[13px] font-bold text-app-text">{u.name}</span>
                         <Sub>
-                          {u.parsed > 0 && `${u.parsed} ${odmiana(u.parsed, 'plik', 'pliki', 'plików')}`}
+                          {u.parsed > 0 && t('filesCount', { count: u.parsed })}
                           {u.parsed > 0 && u.queries > 0 && ' · '}
-                          {u.queries > 0 && `${u.queries} ${odmiana(u.queries, 'pytanie', 'pytania', 'pytań')}`}
+                          {u.queries > 0 && t('questionsCount', { count: u.queries })}
                         </Sub>
                       </span>
                     </li>
@@ -376,8 +385,8 @@ export default function DashboardPage() {
                 </ul>
                 {(aktywni.length > 6 || bezczynni > 0) && (
                   <p className="mt-2.5 text-[11px] text-app-muted">
-                    {aktywni.length > 6 && `Pokazano 6 z ${aktywni.length} aktywnych kont. `}
-                    {bezczynni > 0 && `${bezczynni} ${odmiana(bezczynni, 'konto', 'konta', 'kont')} bez aktywności w tym okresie.`}
+                    {aktywni.length > 6 && t('shownOf', { total: aktywni.length })}
+                    {bezczynni > 0 && t('idleAccounts', { count: bezczynni })}
                   </p>
                 )}
               </>
@@ -396,7 +405,7 @@ export default function DashboardPage() {
 
       <div className="rounded-card border border-[#cddffb] bg-[#eef4ff] p-5 text-center">
         <p className="text-sm text-[#2455cc]">
-          To jest bezpieczna baza wiedzy, która działa na lokalnym serwerze AI bez kontaktu z siecią Internet.
+          {t('safeNote')}
         </p>
       </div>
     </div>

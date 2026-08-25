@@ -12,6 +12,7 @@
  * fokusu. Przeciąganie dla myszy, strzałki dla klawiatury, jeden uchwyt.
  */
 import { useState, type ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { IconGrip } from '@/components/icons';
 
@@ -24,6 +25,7 @@ interface Props<T> {
 }
 
 export function SortableFields<T>({ items, onReorder, renderItem, klucz }: Props<T>) {
+  const t = useTranslations('common');
   const [zrodlo, setZrodlo] = useState<number | null>(null);
   const [nadKtorym, setNadKtorym] = useState<number | null>(null);
   const [przeciagalny, setPrzeciagalny] = useState<number | null>(null);
@@ -71,7 +73,7 @@ export function SortableFields<T>({ items, onReorder, renderItem, klucz }: Props
         >
           <button
             type="button"
-            title="Przeciągnij, aby zmienić kolejność (strzałki ↑ ↓ z klawiatury)"
+            title={t('reorderHint')}
             aria-label={`Zmień kolejność pozycji ${i + 1}`}
             onMouseDown={() => setPrzeciagalny(i)}
             onKeyDown={(e) => {

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
-import { getLocale, getMessages } from 'next-intl/server';
+import { getLocale, getMessages, getTranslations } from 'next-intl/server';
 import './globals.css';
 import { LocaleProvider } from '@/components/locale-provider';
 import { MarkaProvider } from '@/components/marka-provider';
@@ -20,9 +20,15 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
   const marka = await markaAktualna();
+  // Podpis szedł tu po polsku NA SZTYWNO — karta przeglądarki mówiła
+  // „System zarządzania dokumentami" niezależnie od wybranego języka, także
+  // na wdrożeniu anglojęzycznym. Bierzemy go z katalogu, tak jak na ekranie
+  // logowania; zmienna środowiskowa (nazwa własna) nadal ma pierwszeństwo.
+  const t = await getTranslations('brand');
+  const podpis = marka.opis || t('tagline');
   return {
-    title: `${marka.nazwa} - System zarządzania dokumentami`,
-    description: marka.opis,
+    title: `${marka.nazwa} — ${podpis}`,
+    description: podpis,
     // Ikona MUSI iść przez metadane, nie przez pliki `app/icon.png` i `app/favicon.ico`.
     // Te konwencje Next.js wstrzykują jeden, ten sam plik do KAŻDEGO wdrożenia — przez
     // co demo HiRS pokazywało w karcie przeglądarki ikonę „DM" należącą do ZCO.

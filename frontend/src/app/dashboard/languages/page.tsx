@@ -12,6 +12,7 @@
  * języka jest dokładany na polski. Dlatego lista musi wprost pokazywać, które
  * pozycje tak wypadają: inaczej nikt by ich nie znalazł.
  */
+import { useTranslations } from 'next-intl';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Badge, Button, Card, EmptyState, PageHeader, Table, Td, Th, inputClass } from '@/components/ui/primitives';
@@ -60,6 +61,7 @@ function splaszcz(obiekt: unknown, przedrostek = ''): Record<string, string> {
 }
 
 export default function LanguagesPage() {
+  const t = useTranslations('languages');
   const { user } = useAuth();
   const tlumaczone = LOCALES.filter((l) => l !== BASE_LOCALE);
   const [jezyk, setJezyk] = useState<Locale>(tlumaczone[0]);
@@ -82,7 +84,7 @@ export default function LanguagesPage() {
     translationsApi
       .meta(jezyk)
       .then((d) => { if (aktualne) { setPoprawki(d); setSzkice({}); } })
-      .catch((e) => { if (aktualne) setBlad(e.message || 'Nie udało się wczytać poprawek.'); })
+      .catch((e) => { if (aktualne) setBlad(e.message || t('errLoad')); })
       .finally(() => { if (aktualne) setLadowanie(false); });
     return () => { aktualne = false; };
   }, [jezyk]);
@@ -139,7 +141,7 @@ export default function LanguagesPage() {
       });
       setSzkice((s) => { const kopia = { ...s }; delete kopia[w.klucz]; return kopia; });
     } catch (e: any) {
-      setBlad(e.message || 'Nie udało się zapisać poprawki.');
+      setBlad(e.message || t('errSave'));
     }
   }
 
@@ -158,28 +160,28 @@ export default function LanguagesPage() {
       const ile = Object.keys(wynik.translated).length;
       setKomunikat(
         wynik.failed.length
-          ? `Przetłumaczono ${ile}, nie udało się ${wynik.failed.length} — zostały na liście jako brakujące.`
-          : `Przetłumaczono ${ile} napisów. Sprawdź je i zatwierdź — do czasu poprawki są oznaczone jako maszynowe.`,
+          ? t('doneSome', { done: ile, failed: wynik.failed.length })
+          : t('doneAll', { done: ile }),
       );
     } catch (e: any) {
-      setBlad(e.message || 'Tłumaczenie maszynowe nie powiodło się.');
+      setBlad(e.message || t('errAuto'));
     } finally {
       setTlumaczenie(false);
     }
   }
 
   if (!user?.is_admin) {
-    return <EmptyState title="Brak dostępu" hint="Tłumaczenia zmienia wyłącznie administrator." />;
+    return <EmptyState title={t('noAccess')} hint={t('noAccessHint')} />;
   }
 
   return (
     <div>
       <PageHeader
-        title="Języki"
-        description="Napisy interfejsu. Polski jest językiem bazowym — jego teksty zmienia się w kodzie. Brak tłumaczenia nie psuje ekranu: widać wtedy polskie zdanie."
+        title={t('title')}
+        description={t('description')}
         actions={
           <Button onClick={przetlumaczBrakujace} disabled={tlumaczenie || !liczbaBrakow}>
-            {tlumaczenie ? 'Tłumaczę…' : `Przetłumacz brakujące (${liczbaBrakow})`}
+            {tlumaczenie ? t('translating') : t('translateMissing', { count: liczbaBrakow })}
           </Button>
         }
       />
@@ -187,7 +189,7 @@ export default function LanguagesPage() {
       <Card className="mb-4 p-4">
         <div className="flex flex-wrap items-center gap-3">
           <label className="text-sm text-app-muted">
-            Język
+            {t('language')}
             <select
               value={jezyk}
               onChange={(e) => setJezyk(e.target.value as Locale)}
@@ -203,10 +205,10 @@ export default function LanguagesPage() {
 
           <div className="flex flex-wrap gap-1">
             {([
-              ['wszystkie', `Wszystkie (${wpisy.length})`],
-              ['brakujace', `Brakujące (${liczbaBrakow})`],
-              ['maszynowe', `Maszynowe (${liczbaMaszynowych})`],
-              ['poprawione', 'Poprawione'],
+              ['wszystkie', t('filterAll', { count: wpisy.length })],
+              ['brakujace', t('filterMissing', { count: liczbaBrakow })],
+              ['maszynowe', t('filterMachine', { count: liczbaMaszynowych })],
+              ['poprawione', t('filterHuman')],
             ] as [Filtr, string][]).map(([klucz, etykieta]) => (
               <Button
                 key={klucz}
@@ -222,7 +224,7 @@ export default function LanguagesPage() {
           <input
             value={szukaj}
             onChange={(e) => setSzukaj(e.target.value)}
-            placeholder="Szukaj w kluczach i napisach…"
+            placeholder={t('searchPlaceholder')}
             className={`${inputClass} max-w-xs`}
           />
         </div>
@@ -241,17 +243,17 @@ export default function LanguagesPage() {
 
       <Card>
         {ladowanie ? (
-          <div className="p-6 text-sm text-app-muted">Wczytuję…</div>
+          <div className="p-6 text-sm text-app-muted">{t('loading')}</div>
         ) : !widoczne.length ? (
-          <EmptyState title="Nic tu nie ma" hint="Zmień filtr albo wyczyść wyszukiwanie." />
+          <EmptyState title={t('nothingHere')} hint={t('nothingHereHint')} />
         ) : (
           <Table>
             <thead>
               <tr>
-                <Th>Klucz</Th>
-                <Th>Polski (źródło)</Th>
+                <Th>{t('colKey')}</Th>
+                <Th>{t('colSource')}</Th>
                 <Th>{LOCALE_NAMES[jezyk]}</Th>
-                <Th>Stan</Th>
+                <Th>{t('colState')}</Th>
               </tr>
             </thead>
             <tbody>
@@ -275,13 +277,13 @@ export default function LanguagesPage() {
                     </Td>
                     <Td>
                       {brakuje(w) ? (
-                        <Badge tone="danger">Brak — widać polski</Badge>
+                        <Badge tone="danger">{t('stateMissing')}</Badge>
                       ) : w.poprawka?.source === 'machine' ? (
-                        <Badge tone="purple">Maszynowe</Badge>
+                        <Badge tone="purple">{t('stateMachine')}</Badge>
                       ) : w.poprawka ? (
-                        <Badge tone="green">Poprawione</Badge>
+                        <Badge tone="green">{t('stateHuman')}</Badge>
                       ) : (
-                        <Badge tone="gray">Z aplikacji</Badge>
+                        <Badge tone="gray">{t('stateCatalog')}</Badge>
                       )}
                     </Td>
                   </tr>
@@ -293,8 +295,7 @@ export default function LanguagesPage() {
       </Card>
 
       <p className="mt-3 text-xs text-app-muted">
-        Wyczyszczenie pola przywraca napis dostarczony z aplikacją. Poprawki przeżywają
-        aktualizację — nowe wydanie nie kasuje tego, co tu wpisano.
+        {t('footer')}
       </p>
     </div>
   );
