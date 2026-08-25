@@ -10,6 +10,7 @@
  * Nazwy wpisane ręcznie są potrzebne, bo brak pola bierze się częściej ze słabego
  * OCR niż z braku danych w dokumencie — a system nazw ma zostać spójny.
  */
+import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
 import { filesApi, type RenameProposal } from '@/lib/api';
@@ -28,6 +29,8 @@ interface Props {
 }
 
 export function RenameDialog({ fileIds, etykietaKategorii, onClose, onDone }: Props) {
+  const t = useTranslations('files');
+  const tWspolne = useTranslations('common');
   const [wiersze, setWiersze] = useState<Wiersz[]>([]);
   const [ladowanie, setLadowanie] = useState(true);
   const [zapisywanie, setZapisywanie] = useState(false);
@@ -47,7 +50,7 @@ export function RenameDialog({ fileIds, etykietaKategorii, onClose, onDone }: Pr
           })),
         ),
       )
-      .catch((e: unknown) => setBlad(e instanceof Error ? e.message : 'Nie udało się przygotować podglądu'))
+      .catch((e: unknown) => setBlad(e instanceof Error ? e.message : t('errRenamePreview')))
       .finally(() => setLadowanie(false));
   }, [fileIds]);
 
@@ -73,11 +76,11 @@ export function RenameDialog({ fileIds, etykietaKategorii, onClose, onDone }: Pr
         doZmiany.map((w) => ({ file_id: w.file_id, filename: w.nazwa.trim() })),
       );
       const pominiete = wynik.pominiete.length
-        ? ` Pominięto: ${wynik.pominiete.length}.`
+        ? t('renameSkipped', { count: wynik.pominiete.length })
         : '';
-      onDone(`Zmieniono nazwę ${wynik.zmienione.length} plikom.${pominiete}`);
+      onDone(t('renameDone', { count: wynik.zmienione.length }) + pominiete);
     } catch (e: unknown) {
-      setBlad(e instanceof Error ? e.message : 'Zmiana nazw nie powiodła się.');
+      setBlad(e instanceof Error ? e.message : t('errRenameBulk'));
       setZapisywanie(false);
     }
   }
@@ -86,11 +89,8 @@ export function RenameDialog({ fileIds, etykietaKategorii, onClose, onDone }: Pr
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
       <div className="flex max-h-[85vh] w-full max-w-4xl flex-col rounded-xl bg-white shadow-lg">
         <div className="px-5 pt-5">
-          <h2 className="text-lg font-semibold text-gray-800">Nadaj nazwy zgodne z kategorią</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Nazwa powstaje ze wzorca przypisanego do kategorii dokumentu. Możesz poprawić
-            każdą pozycję albo ją odznaczyć. Dotychczasowa nazwa zostaje zapamiętana.
-          </p>
+          <h2 className="text-lg font-semibold text-gray-800">{t('renameTitle')}</h2>
+          <p className="mt-1 text-sm text-gray-500">{t('renameIntro')}</p>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
@@ -100,15 +100,15 @@ export function RenameDialog({ fileIds, etykietaKategorii, onClose, onDone }: Pr
             </div>
           )}
           {ladowanie ? (
-            <div className="py-8 text-center text-gray-500">Przygotowuję podgląd…</div>
+            <div className="py-8 text-center text-gray-500">{t('renamePreparing')}</div>
           ) : (
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase text-gray-500">
                   <th className="w-8 py-2"></th>
-                  <th className="py-2 pr-3">Obecna nazwa</th>
-                  <th className="py-2 pr-3">Kategoria</th>
-                  <th className="py-2">Nowa nazwa</th>
+                  <th className="py-2 pr-3">{t('renameColCurrent')}</th>
+                  <th className="py-2 pr-3">{t('colCategory')}</th>
+                  <th className="py-2">{t('renameColNew')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -132,7 +132,7 @@ export function RenameDialog({ fileIds, etykietaKategorii, onClose, onDone }: Pr
                         onChange={(e) =>
                           ustaw(w.file_id, { nazwa: e.target.value, zaznaczony: Boolean(e.target.value.trim()) })
                         }
-                        placeholder={w.problem || 'wpisz nazwę'}
+                        placeholder={w.problem || t('renamePlaceholder')}
                         className="w-full rounded-md border border-gray-300 p-1.5 font-mono text-xs text-gray-800"
                       />
                       {w.problem && (
@@ -148,21 +148,21 @@ export function RenameDialog({ fileIds, etykietaKategorii, onClose, onDone }: Pr
 
         <div className="flex items-center justify-between gap-2 border-t border-gray-100 px-5 py-3">
           <span className="text-sm text-gray-500">
-            do zmiany: <strong>{doZmiany.length}</strong> z {wiersze.length}
+            {t('renameToChange', { count: doZmiany.length, total: wiersze.length })}
           </span>
           <div className="flex gap-2">
             <button
               onClick={onClose}
               className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
             >
-              Anuluj
+              {tWspolne('cancel')}
             </button>
             <button
               onClick={wykonaj}
               disabled={zapisywanie || doZmiany.length === 0}
               className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              {zapisywanie ? 'Zmieniam…' : `Zmień nazwy (${doZmiany.length})`}
+              {zapisywanie ? t('renameRunning') : t('renameApply', { count: doZmiany.length })}
             </button>
           </div>
         </div>

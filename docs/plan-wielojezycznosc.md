@@ -97,8 +97,13 @@ Pozostałe dochodzą stopniowo: napis bez tłumaczenia wypada po polsku, a uzupe
 się go w zakładce „Języki". Inaczej każdy nowy przycisk trzeba by przetłumaczyć na
 pięć języków, zanim w ogóle dałoby się go wdrożyć.
 
-**Stan 25.08.2026 (1.5.23):** zrobione — ekran logowania, menu boczne,
-górna belka, zakładki administratora. Pomiar całości: 348 napisów w 30 plikach
+**Stan 25.08.2026 (1.5.26):** zrobione — ekran logowania, menu boczne, górna
+belka, zakładki administratora oraz **cały ekran Pliki** wraz z oknem nadawania
+nazw (156 napisów w katalogu bazowym). Liczebniki poszły na ICU (`{count, plural, …}`),
+więc krok 4 planu dla tego ekranu jest już zamknięty — dawna funkcja `odmianaPlikow`
+znała wyłącznie polskie reguły. Budowa frontu sprawdza katalogi
+(`scripts/check-messages.mjs`): błędny komunikat ICU nie psuł budowy, tylko wywalał
+się przy renderowaniu ekranu u użytkownika. Pomiar całości: 348 napisów w 30 plikach
 (więcej niż pierwotne 211 — tamten spis pomijał napisy bez znaków diakrytycznych).
 Największe pozostałe: Pliki (61), Czat (40), Kolejka plików (39), Lista odpowiedzi (27),
 Ustawienia (26), Schematy dokumentów (23), Dashboard (23).

@@ -2,6 +2,7 @@
 
 import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { FileTypeIcon, rozmiarPliku } from '@/components/file-type-icon';
 import {
@@ -97,22 +98,21 @@ const STAN_WGRYWANIA: Record<string, string> = {
   error: 'bg-app-danger',
 };
 
-const OPIS_WGRYWANIA: Record<string, string> = {
-  pending: 'oczekuje',
-  uploading: 'wgrywanie…',
-  done: 'wgrany',
-  error: 'błąd',
+// KLUCZE, nie gotowe napisy: to stała modułu, a napis musi iść za językiem.
+const KLUCZ_WGRYWANIA: Record<string, string> = {
+  pending: 'uploadStatePending',
+  uploading: 'uploadStateUploading',
+  done: 'uploadStateDone',
+  error: 'uploadStateError',
 };
 
-/** 1 plik, 2 pliki, 5 plików. */
-function odmianaPlikow(n: number): string {
-  if (n === 1) return 'plik';
-  const ost = n % 10;
-  const dwie = n % 100;
-  return ost >= 2 && ost <= 4 && (dwie < 10 || dwie >= 20) ? 'pliki' : 'plików';
-}
+// Odmiany „1 plik / 2 pliki / 5 plików" NIE liczymy już w kodzie. Zastąpił ją
+// komunikat ICU (`files.count`), bo funkcja znała wyłącznie reguły polskie:
+// po angielsku dawałaby „5 plików", a ukraiński ma cztery formy, nie trzy.
 
 function FilesPageInner() {
+  const t = useTranslations('files');
+  const tWspolne = useTranslations('common');
   const { user } = useAuth();
   const isAdmin = czyAdmin(user);
   // Role przypisywalne do folderów. Administrator ma pełny dostęp z definicji,
@@ -308,7 +308,7 @@ function FilesPageInner() {
         );
       } catch (err) {
         errorCount++;
-        const msg = err instanceof Error ? err.message : 'Błąd wgrywania';
+        const msg = err instanceof Error ? err.message : t('errUpload');
         console.error(`Upload failed (${file.name}):`, err);
         setUploadItems((prev) =>
           prev.map((it, idx) => (idx === i ? { ...it, status: 'error', error: msg } : it))
@@ -358,7 +358,7 @@ function FilesPageInner() {
       loadFiles(currentFolderId);
     } catch (err) {
       console.error('Create folder failed:', err);
-      alert('Tworzenie folderu nie powiodło się.');
+      alert(t('errCreateFolder'));
     } finally {
       setFolderCreating(false);
     }
@@ -366,7 +366,7 @@ function FilesPageInner() {
 
   // Delete folder
   const handleDeleteFolder = async (folderId: number) => {
-    if (!confirm('Czy na pewno usunąć ten folder? Pliki wewnątrz zostaną przeniesione do roota.')) return;
+    if (!confirm(t('confirmDeleteFolder'))) return;
 
     try {
       await foldersApi.delete(folderId);
@@ -377,7 +377,7 @@ function FilesPageInner() {
       }
     } catch (err) {
       console.error('Delete folder failed:', err);
-      alert('Usunięcie folderu nie powiodło się.');
+      alert(t('errDeleteFolder'));
     }
   };
 
@@ -399,7 +399,7 @@ function FilesPageInner() {
         prev.map((b) => (b.id === renameFolder.id ? { ...b, name: renameValue.trim() } : b))
       );
     } catch (err: any) {
-      alert(err?.message || 'Zmiana nazwy nie powiodła się.');
+      alert(err?.message || t('errRename'));
     } finally {
       setRenaming(false);
     }
@@ -417,7 +417,7 @@ function FilesPageInner() {
       const res = await filesApi.move(moveTarget, target);
       if (res.skipped?.length) {
         alert(
-          `Przeniesiono: ${res.moved.length}. Pominięto ${res.skipped.length}:\n` +
+          t('movedReport', { moved: res.moved.length, skipped: res.skipped.length }) + '\n' +
           res.skipped.map((s) => `• plik ${s.file_id}: ${s.powod}`).join('\n')
         );
       }
@@ -426,7 +426,7 @@ function FilesPageInner() {
       loadFolders();
       loadFiles(currentFolderId);
     } catch (err: any) {
-      alert(err?.message || 'Przeniesienie nie powiodło się.');
+      alert(err?.message || t('errMove'));
     } finally {
       setMoving(false);
     }
@@ -472,7 +472,7 @@ function FilesPageInner() {
       });
       await reloadPerms(permFolder);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Nie udało się dodać uprawnienia.');
+      alert(err instanceof Error ? err.message : t('errAddPermission'));
     }
   };
 
@@ -483,20 +483,20 @@ function FilesPageInner() {
       await reloadPerms(permFolder);
     } catch (err) {
       console.error('Delete permission failed:', err);
-      alert('Nie udało się usunąć uprawnienia.');
+      alert(t('errDeletePermission'));
     }
   };
 
   // Delete file
   const handleDelete = async (fileId: number) => {
-    if (!confirm('Czy na pewno usunąć ten plik?')) return;
+    if (!confirm(t('confirmDeleteFile'))) return;
 
     try {
       await filesApi.delete(fileId);
       loadFiles(currentFolderId);
     } catch (err) {
       console.error('Delete failed:', err);
-      alert('Usunięcie nie powiodło się.');
+      alert(t('errDelete'));
     }
   };
 
@@ -513,7 +513,7 @@ function FilesPageInner() {
       if (!response.ok) throw new Error('Preview failed');
       window.open(URL.createObjectURL(await response.blob()), '_blank');
     } catch {
-      alert('Podgląd nie powiódł się.');
+      alert(t('errPreview'));
     }
   };
 
@@ -521,7 +521,7 @@ function FilesPageInner() {
   const handleDownload = async (file: File) => {
     const token = localStorage.getItem('auth_token');
     if (!token) {
-      alert('Brak tokenu autoryzacji');
+      alert(t('errNoToken'));
       return;
     }
     try {
@@ -544,7 +544,7 @@ function FilesPageInner() {
       document.body.removeChild(a);
     } catch (err) {
       console.error('Download failed:', err);
-      alert('Pobieranie pliku nie powiodło się.');
+      alert(t('errDownload'));
     }
   };
 
@@ -642,13 +642,15 @@ function FilesPageInner() {
   const opisLiczbyPlikow = useCallback((f: Folder) => {
     const razem = f.file_count ?? 0;
     const wlasne = f.direct_file_count ?? razem;
-    const etykieta = `${razem} ${odmianaPlikow(razem)}`;
-    if (razem > 0 && wlasne === 0) return { tekst: `${etykieta} w podfolderach`, tytul: undefined };
+    if (razem > 0 && wlasne === 0) {
+      return { tekst: t('countInSubfolders', { count: razem }), tytul: undefined };
+    }
+    const etykieta = t('count', { count: razem });
     if (razem > wlasne) {
-      return { tekst: etykieta, tytul: `w tym ${wlasne} bezpośrednio w tym folderze` };
+      return { tekst: etykieta, tytul: t('directCount', { count: wlasne }) };
     }
     return { tekst: etykieta, tytul: undefined };
-  }, []);
+  }, [t]);
 
   const czyZewnetrzny = useCallback(
     (slug: string | null | undefined) => !!slug && zewnetrzne.has(slug),
@@ -736,13 +738,13 @@ function FilesPageInner() {
   return (
     <div>
       <PageHeader
-        title="Eksplorator plików"
-        description="Przegląd folderów i dokumentów w systemie."
+        title={t('title')}
+        description={t('description')}
       />
 
       {/* Ścieżka folderu + akcje */}
       <Card className="mb-[18px] flex flex-wrap items-center justify-between gap-3 px-[18px] py-3.5">
-        <nav className="flex min-w-0 flex-wrap items-center gap-1.5 text-[14px]" aria-label="Ścieżka folderu">
+        <nav className="flex min-w-0 flex-wrap items-center gap-1.5 text-[14px]" aria-label={t('breadcrumbAria')}>
           <button
             onClick={navigateToRoot}
             className={`inline-flex items-center gap-1.5 rounded-ctl px-2 py-1 hover:bg-app-hover ${
@@ -750,7 +752,7 @@ function FilesPageInner() {
             }`}
           >
             <IconHome size={16} />
-            Katalog główny
+            {t('rootFolder')}
           </button>
           {breadcrumbs.map((crumb, index) => (
             <span key={crumb.id} className="flex items-center gap-1.5">
@@ -772,7 +774,7 @@ function FilesPageInner() {
             {isAdmin && (
               <Button onClick={openCreateFolderModal}>
                 <IconPlus size={16} />
-                Nowy folder
+                {t('newFolder')}
               </Button>
             )}
             {canWriteHere && (
@@ -780,10 +782,10 @@ function FilesPageInner() {
                 variant="primary"
                 onClick={() => setShowUploadModal(true)}
                 disabled={uploading}
-                title={currentFolderId === null ? 'Wybierz folder, aby wgrać pliki' : undefined}
+                title={currentFolderId === null ? t('uploadPickFolder') : undefined}
               >
                 <IconUpload size={16} />
-                {uploading ? 'Wczytywanie…' : 'Prześlij pliki'}
+                {uploading ? t('loadingFiles') : t('uploadButton')}
               </Button>
             )}
           </div>
@@ -796,12 +798,12 @@ function FilesPageInner() {
           <div className="flex flex-wrap items-center gap-2.5 px-[18px] py-3.5">
             <h2 className="mr-auto flex items-center gap-2.5 text-[16px] font-bold text-app-text">
               <IconFolder size={18} />
-              Foldery
+              {t('foldersHeading')}
               <span className="text-[11px] font-normal text-app-muted">
-                {currentFolderId === null ? 'główne' : 'w tym folderze'}
+                {currentFolderId === null ? t('foldersRoot') : t('foldersHere')}
               </span>
             </h2>
-            <WidokToggle wartosc={folderView} zmien={setFolderView} etykieta="Widok folderów" />
+            <WidokToggle wartosc={folderView} zmien={setFolderView} etykieta={t('folderViewLabel')} />
           </div>
 
           {folderView === 'grid' ? (
@@ -854,13 +856,13 @@ function FilesPageInner() {
               <Table>
                 <thead>
                   <tr>
-                    <Th className="w-[62px]">Typ</Th>
-                    <Th>Nazwa</Th>
+                    <Th className="w-[62px]">{t('colType')}</Th>
+                    <Th>{t('colName')}</Th>
                     {/* W katalogu głównym ścieżka każdego folderu to jego własna
                         nazwa ze slashem — kolumna pełna „/Delegacje" obok „Delegacje"
                         nie niesie nic. Pokazujemy ją dopiero w głębi drzewa. */}
-                    {currentFolderId !== null && <Th>Ścieżka</Th>}
-                    <Th className="whitespace-nowrap">Liczba plików</Th>
+                    {currentFolderId !== null && <Th>{t('colPath')}</Th>}
+                    <Th className="whitespace-nowrap">{t('colCount')}</Th>
                     <Th className="w-[120px]" />
                   </tr>
                 </thead>
@@ -910,7 +912,7 @@ function FilesPageInner() {
       {komunikat && (
         <div className="mb-[18px] flex items-start justify-between gap-3 rounded-ctl border border-[#bfe6d2] bg-app-greenbg px-4 py-3 text-sm text-[#148a57]">
           <span>{komunikat}</span>
-          <button onClick={() => setKomunikat('')} aria-label="Zamknij komunikat">
+          <button onClick={() => setKomunikat('')} aria-label={t('closeMessage')}>
             <IconClose size={16} />
           </button>
         </div>
@@ -929,17 +931,17 @@ function FilesPageInner() {
         <div className="flex flex-wrap items-center gap-2.5 border-b border-app-line px-[18px] py-3.5">
           <h2 className="mr-auto flex items-center gap-2.5 text-[16px] font-bold text-app-text">
             <IconDoc size={18} />
-            Pliki
+            {t('filesHeading')}
           </h2>
 
           {selectedIds.length > 0 && (
             <div className="flex items-center gap-2.5">
-              <span className="text-[12px] text-app-muted">zaznaczono: {selectedIds.length}</span>
+              <span className="text-[12px] text-app-muted">{t('selectedCount', { count: selectedIds.length })}</span>
               {/* Jeden przycisk zamiast listy akcji: operacji zbiorczych będzie
                   przybywać, a pasek nad tabelą nie jest miejscem na ich katalog. */}
               <div className="relative">
                 <Button small onClick={() => setOknoAkcji((o) => !o)}>
-                  Wykonaj akcję na zaznaczonych
+                  {t('bulkAction')}
                   <IconChevronDown size={14} />
                 </Button>
                 {oknoAkcji && (
@@ -949,14 +951,14 @@ function FilesPageInner() {
                       className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-app-text hover:bg-app-hover"
                     >
                       <IconMove size={16} />
-                      Przenieś do folderu
+                      {t('bulkMove')}
                     </button>
                     <button
                       onClick={() => { setOknoAkcji(false); setRenameTarget(selectedIds); }}
                       className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-app-text hover:bg-app-hover"
                     >
                       <IconEdit size={16} />
-                      Nadaj nazwy zgodne z kategorią
+                      {t('bulkRename')}
                     </button>
                   </div>
                 )}
@@ -965,7 +967,7 @@ function FilesPageInner() {
                 onClick={() => setSelectedIds([])}
                 className="text-[12px] text-app-muted hover:text-app-text"
               >
-                wyczyść
+                {t('clearSelection')}
               </button>
             </div>
           )}
@@ -977,23 +979,23 @@ function FilesPageInner() {
           <span className="w-48 shrink-0">
             <input
               type="text"
-              placeholder="Szukaj pliku…"
+              placeholder={t('searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={`${inputClass} h-9`}
-              aria-label="Szukaj pliku"
+              aria-label={t('searchAria')}
             />
           </span>
 
-          <WidokToggle wartosc={viewMode} zmien={setViewMode} etykieta="Widok listy plików" />
+          <WidokToggle wartosc={viewMode} zmien={setViewMode} etykieta={t('listViewLabel')} />
         </div>
 
         {loading ? (
-          <div className="px-[18px] py-10 text-center text-sm text-app-muted">Ładowanie…</div>
+          <div className="px-[18px] py-10 text-center text-sm text-app-muted">{tWspolne('loading')}</div>
         ) : files.length === 0 ? (
           <EmptyState
-            title={searchQuery ? 'Brak plików pasujących do wyszukiwania' : 'Brak plików w tym folderze'}
-            hint={searchQuery ? 'Spróbuj innego fragmentu nazwy.' : canWriteHere ? 'Użyj przycisku „Prześlij pliki".' : undefined}
+            title={searchQuery ? t('emptySearch') : t('emptyFolder')}
+            hint={searchQuery ? t('emptySearchHint') : canWriteHere ? t('emptyFolderHint') : undefined}
           />
         ) : viewMode === 'list' ? (
           <div className="overflow-x-auto">
@@ -1014,15 +1016,15 @@ function FilesPageInner() {
                               : selectedIds.filter((id) => !widoczne.some((f) => f.id === id)),
                           )
                         }
-                        aria-label="Zaznacz pliki na tej stronie"
+                        aria-label={t('selectPage')}
                       />
                     </Th>
                   )}
-                  <Th className="w-[62px]" {...naglowek('type')}>Typ</Th>
-                  <Th {...naglowek('name')}>Nazwa</Th>
-                  <Th className="whitespace-nowrap" {...naglowek('size')}>Rozmiar</Th>
-                  <Th {...naglowek('category')}>Kategoria</Th>
-                  <Th className="whitespace-nowrap" {...naglowek('date')}>Data dodania</Th>
+                  <Th className="w-[62px]" {...naglowek('type')}>{t('colType')}</Th>
+                  <Th {...naglowek('name')}>{t('colName')}</Th>
+                  <Th className="whitespace-nowrap" {...naglowek('size')}>{t('colSize')}</Th>
+                  <Th {...naglowek('category')}>{t('colCategory')}</Th>
+                  <Th className="whitespace-nowrap" {...naglowek('date')}>{t('colDate')}</Th>
                   <Th className="w-[120px]" />
                 </tr>
               </thead>
@@ -1049,7 +1051,7 @@ function FilesPageInner() {
                       {/* Data ważności TREŚCI, nie data dodania pliku. Te dwie się różnią
                           i właśnie na tym polega pułapka: kolumna „Data dodania" pokaże
                           dzień importu także wtedy, gdy materiał jest sprzed roku. */}
-                      {file.stan_na && <Sub>stan na {dataKalendarzowa(file.stan_na)}</Sub>}
+                      {file.stan_na && <Sub>{t('stateOn', { date: dataKalendarzowa(file.stan_na) })}</Sub>}
                       {file.original_filename && file.original_filename !== file.filename && (
                         <Sub>pierwotnie: {file.original_filename}</Sub>
                       )}
@@ -1065,10 +1067,10 @@ function FilesPageInner() {
                               a stan odróżniamy kształtem — zasada z layoutu 1.5. */}
                           {czyZewnetrzny(file.doc_type) && (
                             <span
-                              title="Materiał od dostawcy zewnętrznego, nie dokument organizacji"
+                              title={t('externalTitle')}
                               className="rounded-ctl border border-app-line px-1.5 py-0.5 text-[11px] text-app-muted"
                             >
-                              zewnętrzny
+                              {t('externalBadge')}
                             </span>
                           )}
                         </span>
@@ -1079,19 +1081,19 @@ function FilesPageInner() {
                     <Td className="whitespace-nowrap text-app-muted">{kiedy(file.created_at)}</Td>
                     <Td onClick={(e) => e.stopPropagation()}>
                       <RowActions>
-                        <IconButton tone="action" title="Pobierz plik" onClick={() => handleDownload(file)}>
+                        <IconButton tone="action" title={t('download')} onClick={() => handleDownload(file)}>
                           <IconDownload size={16} />
                         </IconButton>
                         {zaznaczalne && (
                           <>
                             <IconButton
                               tone="action"
-                              title="Przenieś do innego folderu"
+                              title={t('moveToFolder')}
                               onClick={() => { setMoveTarget([file.id]); setMoveFolderId(''); }}
                             >
                               <IconMove size={16} />
                             </IconButton>
-                            <IconButton tone="danger" title="Usuń plik" onClick={() => handleDelete(file.id)}>
+                            <IconButton tone="danger" title={t('deleteFile')} onClick={() => handleDelete(file.id)}>
                               <IconTrash size={16} />
                             </IconButton>
                           </>
@@ -1128,13 +1130,17 @@ function FilesPageInner() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-app-line px-[18px] py-3.5 text-[12px] text-app-muted">
             <span>
               {widoczne.length === files.length
-                ? `${files.length} ${odmianaPlikow(files.length)}`
-                : `${(stronaBezpieczna - 1) * naStronie + 1}–${(stronaBezpieczna - 1) * naStronie + widoczne.length} z ${files.length}`}
+                ? t('count', { count: files.length })
+                : t('rangeOf', {
+                    from: (stronaBezpieczna - 1) * naStronie + 1,
+                    to: (stronaBezpieczna - 1) * naStronie + widoczne.length,
+                    total: files.length,
+                  })}
               {files.length >= LIMIT_LISTY && (
                 // Ucięcie musi być widoczne: bez tej informacji lista wygląda na
                 // kompletną, a część plików po prostu nie dojechała.
                 <span className="ml-1 text-app-danger">
-                  (pokazujemy pierwsze {LIMIT_LISTY} — zawęź wyszukiwanie)
+                  {t('listTruncated', { limit: LIMIT_LISTY })}
                 </span>
               )}
             </span>
@@ -1142,13 +1148,13 @@ function FilesPageInner() {
             {stron > 1 && (
               <span className="flex items-center gap-1.5">
                 <Button small disabled={stronaBezpieczna === 1} onClick={() => setStrona(stronaBezpieczna - 1)}>‹</Button>
-                <span className="px-1">strona {stronaBezpieczna} z {stron}</span>
+                <span className="px-1">{t('pageOf', { page: stronaBezpieczna, total: stron })}</span>
                 <Button small disabled={stronaBezpieczna === stron} onClick={() => setStrona(stronaBezpieczna + 1)}>›</Button>
               </span>
             )}
 
             <label className="flex items-center gap-2">
-              Pokaż:
+              {t('perPage')}
               <select
                 value={naStronie}
                 onChange={(e) => { setNaStronie(Number(e.target.value)); setStrona(1); }}
@@ -1166,7 +1172,7 @@ function FilesPageInner() {
 
       {showCreateFolderModal && isAdmin && (
         <Modal
-          title="Nowy folder"
+          title={t('newFolder')}
           onClose={() => { setShowCreateFolderModal(false); setNewFolderName(''); setInheritedPerms([]); }}
           footer={
             <>
@@ -1174,18 +1180,18 @@ function FilesPageInner() {
                 onClick={() => { setShowCreateFolderModal(false); setNewFolderName(''); setInheritedPerms([]); }}
                 disabled={folderCreating}
               >
-                Anuluj
+                {tWspolne('cancel')}
               </Button>
               <Button variant="primary" onClick={handleCreateFolder} disabled={folderCreating || !newFolderName.trim()}>
-                {folderCreating ? 'Tworzenie…' : 'Utwórz'}
+                {folderCreating ? t('creating') : t('create')}
               </Button>
             </>
           }
         >
           <p className="mb-3 text-[13px] text-app-muted">
-            Tworzony w: <strong className="text-app-text">{currentFolderName || 'katalog główny'}</strong>
+            {t('createdIn')} <strong className="text-app-text">{currentFolderName || t('rootFolderInline')}</strong>
           </p>
-          <Field label="Nazwa folderu">
+          <Field label={t('folderName')}>
             <input
               type="text"
               value={newFolderName}
@@ -1200,10 +1206,10 @@ function FilesPageInner() {
           {currentFolderId !== null && (
             <div className="mt-4">
               <p className="mb-1 text-[11px] text-app-muted">
-                Nowy podfolder odziedziczy dostęp folderu nadrzędnego:
+                {t('inheritIntro')}
               </p>
               {inheritedPerms.length === 0 ? (
-                <p className="text-[11px] text-app-muted">Brak ról z dostępem (poza administratorem).</p>
+                <p className="text-[11px] text-app-muted">{t('inheritNone')}</p>
               ) : (
                 <ul className="divide-y divide-app-line rounded-ctl border border-app-line text-[13px] text-app-text">
                   {inheritedPerms.map((p) => (
@@ -1215,7 +1221,7 @@ function FilesPageInner() {
                 </ul>
               )}
               <p className="mt-1 text-[11px] text-app-muted">
-                Dostęp dziedziczony jest tylko do wglądu. Zmienisz go później ikoną kłódki na folderze.
+                {t('inheritNote')}
               </p>
             </div>
           )}
@@ -1223,24 +1229,21 @@ function FilesPageInner() {
       )}
 
       {permFolder && isAdmin && (
-        <Modal title="Uprawnienia folderu" size="lg" onClose={() => setPermFolder(null)}>
+        <Modal title={t('permTitle')} size="lg" onClose={() => setPermFolder(null)}>
           <p className="mb-3 text-[13px] text-app-text">
-            Folder: <strong>{permFolder.name}</strong>{' '}
+            {t('permFolder')} <strong>{permFolder.name}</strong>{' '}
             <span className="text-app-muted">({permFolder.path})</span>
           </p>
           <p className="mb-4 text-[11px] leading-relaxed text-app-muted">
-            Rola z uprawnieniem widzi pliki w tym folderze <strong>i jego podfolderach</strong>.
-            Uprawnienia oznaczone jako dziedziczone pochodzą z folderu nadrzędnego — zmienisz je
-            na tamtym folderze. Administrator ma zawsze pełny dostęp; pliki w katalogu głównym
-            widzi tylko administrator.
+            {t.rich('permIntro', { b: (tresc) => <strong>{tresc}</strong> })}
           </p>
 
           <div className="mb-4">
             {permLoading ? (
-              <div className="py-3 text-[13px] text-app-muted">Ładowanie…</div>
+              <div className="py-3 text-[13px] text-app-muted">{tWspolne('loading')}</div>
             ) : permEffective.length === 0 ? (
               <div className="rounded-ctl border border-dashed border-app-line py-3 text-center text-[13px] text-app-muted">
-                Brak uprawnień — tylko administrator widzi ten folder.
+                {t('permNone')}
               </div>
             ) : (
               <ul className="divide-y divide-app-line rounded-ctl border border-app-line">
@@ -1256,7 +1259,7 @@ function FilesPageInner() {
                         {roleLabel(roles, eff.role)}
                         <span className="text-app-muted"> · {ACCESS_LABELS[eff.access_level] || eff.access_level}</span>
                         {!isOwn && (
-                          <span className="ml-2 text-[11px] text-app-muted">(dziedziczone z nadrzędnego)</span>
+                          <span className="ml-2 text-[11px] text-app-muted">{t('permInheritedTag')}</span>
                         )}
                       </span>
                       {isOwn && direct ? (
@@ -1264,7 +1267,7 @@ function FilesPageInner() {
                           onClick={() => handleDeletePermission(direct.id)}
                           className="text-[11px] font-bold text-app-danger hover:underline"
                         >
-                          Usuń
+                          {tWspolne('delete')}
                         </button>
                       ) : (
                         <span className="text-[11px] text-app-line">—</span>
@@ -1281,13 +1284,12 @@ function FilesPageInner() {
               zawężać poniżej dziedziczonego nie można. */}
           {permAvailableRoles.length === 0 ? (
             <div className="border-t border-app-line pt-4 text-[11px] text-app-muted">
-              Wszystkie role mają już maksymalny dostęp (Zapis) — dziedziczony albo własny.
-              Nie ma czego dodać.
+              {t('permAllMax')}
             </div>
           ) : (
             <div className="flex flex-wrap items-end gap-2 border-t border-app-line pt-4">
               <div className="min-w-[160px] flex-1">
-                <Field label="Rola">
+                <Field label={t('permRole')}>
                   <select value={newPermRole} onChange={(e) => setNewPermRole(e.target.value)} className={inputClass}>
                     {permAvailableRoles.map((r) => (
                       <option key={r.value} value={r.value}>{r.label}</option>
@@ -1296,7 +1298,7 @@ function FilesPageInner() {
                 </Field>
               </div>
               <div>
-                <Field label="Poziom">
+                <Field label={t('permLevel')}>
                   <select value={newPermAccess} onChange={(e) => setNewPermAccess(e.target.value)} className={`${inputClass} w-auto`}>
                     {permAvailableLevels.map((lvl) => (
                       <option key={lvl} value={lvl}>{ACCESS_LABELS[lvl]}</option>
@@ -1304,7 +1306,7 @@ function FilesPageInner() {
                   </select>
                 </Field>
               </div>
-              <Button variant="primary" onClick={handleAddPermission}>Dodaj</Button>
+              <Button variant="primary" onClick={handleAddPermission}>{tWspolne('add')}</Button>
             </div>
           )}
         </Modal>
@@ -1312,20 +1314,19 @@ function FilesPageInner() {
 
       {showUploadModal && canWriteHere && (
         <Modal
-          title="Prześlij pliki"
+          title={t('uploadTitle')}
           onClose={() => { setShowUploadModal(false); setUploadItems([]); }}
           footer={
             <Button onClick={() => { setShowUploadModal(false); setUploadItems([]); }} disabled={uploading}>
-              {uploading ? 'Wgrywanie…' : uploadItems.length > 0 ? 'Zamknij' : 'Anuluj'}
+              {uploading ? t('uploadInProgress') : uploadItems.length > 0 ? tWspolne('close') : tWspolne('cancel')}
             </Button>
           }
         >
           <p className="mb-1 text-[13px] text-app-muted">
-            Dozwolone typy: {allowedExts.map((e) => e.toUpperCase()).join(', ')} (do 100 MB).
-            Możesz wybrać wiele plików naraz.
+            {t('uploadAllowed', { types: allowedExts.map((e) => e.toUpperCase()).join(', ') })}
           </p>
           <p className="mb-4 text-[13px] text-app-muted">
-            Folder docelowy: <strong className="text-app-text">{currentFolderName || 'katalog główny'}</strong>
+            {t('uploadTarget')} <strong className="text-app-text">{currentFolderName || t('rootFolderInline')}</strong>
           </p>
           <input
             type="file"
@@ -1339,10 +1340,10 @@ function FilesPageInner() {
           {uploadItems.length > 0 && (
             <div className="mt-4">
               <div className="mb-2 text-[13px] font-medium text-app-text">
-                Postęp: {uploadItems.filter((it) => it.status === 'done').length}/{uploadItems.length} wgranych
+                {t('uploadProgress', { done: uploadItems.filter((it) => it.status === 'done').length, total: uploadItems.length })}
                 {uploadItems.some((it) => it.status === 'error') && (
                   <span className="text-app-danger">
-                    {' '}({uploadItems.filter((it) => it.status === 'error').length} z błędem)
+                    {' '}{t('uploadErrors', { count: uploadItems.filter((it) => it.status === 'error').length })}
                   </span>
                 )}
               </div>
@@ -1352,7 +1353,7 @@ function FilesPageInner() {
                     <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${STAN_WGRYWANIA[it.status]}`} aria-hidden="true" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-app-text" title={it.name}>{it.name}</span>
-                      <span className="block text-[11px] text-app-muted">{OPIS_WGRYWANIA[it.status]}</span>
+                      <span className="block text-[11px] text-app-muted">{t(KLUCZ_WGRYWANIA[it.status])}</span>
                       {it.status === 'error' && it.error && (
                         <span className="block text-[11px] text-app-danger">{it.error}</span>
                       )}
@@ -1380,41 +1381,41 @@ function FilesPageInner() {
               {(isAdmin || canWriteHere) && (
                 <Button variant="danger" onClick={() => { handleDelete(selectedFile.id); setSelectedFile(null); }}>
                   <IconTrash size={16} />
-                  Usuń
+                  {tWspolne('delete')}
                 </Button>
               )}
               {selectedFile.mime_type === 'application/pdf' && (
                 <Button onClick={() => handlePreview(selectedFile)}>
                   <IconEye size={16} />
-                  Podgląd
+                  {t('preview')}
                 </Button>
               )}
               <Button variant="primary" onClick={() => handleDownload(selectedFile)}>
                 <IconDownload size={16} />
-                Pobierz plik
+                {t('download')}
               </Button>
             </>
           }
         >
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Szczegol etykieta="Typ pliku" wartosc={selectedFile.mime_type || 'nieznany'} />
-            <Szczegol etykieta="Rozmiar" wartosc={rozmiarPliku(selectedFile.size)} />
-            <Szczegol etykieta="Status przetwarzania" wartosc={selectedFile.status} />
+            <Szczegol etykieta={t('detailType')} wartosc={selectedFile.mime_type || t('detailTypeUnknown')} />
+            <Szczegol etykieta={t('colSize')} wartosc={rozmiarPliku(selectedFile.size)} />
+            <Szczegol etykieta={t('detailStatus')} wartosc={selectedFile.status} />
             <Szczegol
-              etykieta="Data dodania"
+              etykieta={t('colDate')}
               wartosc={czasLokalny(selectedFile.created_at, { dateStyle: 'long', timeStyle: 'short' })}
             />
-            <Szczegol etykieta="Folder" wartosc={selectedFile.folder?.path || 'katalog główny'} />
-            <Szczegol etykieta="Wczytał" wartosc={selectedFile.uploader?.username || '—'} />
-            <Szczegol etykieta="Kategoria" wartosc={etykietaKategorii(selectedFile.doc_type)} />
+            <Szczegol etykieta={t('detailFolder')} wartosc={selectedFile.folder?.path || t('rootFolderInline')} />
+            <Szczegol etykieta={t('detailUploader')} wartosc={selectedFile.uploader?.username || '—'} />
+            <Szczegol etykieta={t('colCategory')} wartosc={etykietaKategorii(selectedFile.doc_type)} />
             {selectedFile.stan_na && (
               <Szczegol
-                etykieta="Stan na"
-                wartosc={`${dataKalendarzowa(selectedFile.stan_na)}${czyZewnetrzny(selectedFile.doc_type) ? ' · materiał dostawcy' : ''}`}
+                etykieta={t('detailStateOn')}
+                wartosc={`${dataKalendarzowa(selectedFile.stan_na)}${czyZewnetrzny(selectedFile.doc_type) ? t('detailSupplier') : ''}`}
               />
             )}
             {selectedFile.original_filename && selectedFile.original_filename !== selectedFile.filename && (
-              <Szczegol etykieta="Nazwa pierwotna" wartosc={selectedFile.original_filename} />
+              <Szczegol etykieta={t('detailOriginalName')} wartosc={selectedFile.original_filename} />
             )}
           </dl>
         </Modal>
@@ -1422,22 +1423,22 @@ function FilesPageInner() {
 
       {renameFolder && (
         <Modal
-          title="Zmień nazwę folderu"
+          title={t('renameFolder')}
           onClose={() => setRenameFolder(null)}
           footer={
             <>
-              <Button onClick={() => setRenameFolder(null)}>Anuluj</Button>
+              <Button onClick={() => setRenameFolder(null)}>{tWspolne('cancel')}</Button>
               <Button
                 variant="primary"
                 onClick={submitRename}
                 disabled={renaming || !renameValue.trim() || renameValue.trim() === renameFolder.name}
               >
-                {renaming ? 'Zapisywanie…' : 'Zapisz'}
+                {renaming ? tWspolne('saving') : tWspolne('save')}
               </Button>
             </>
           }
         >
-          <Field label="Nazwa folderu">
+          <Field label={t('folderName')}>
             <input
               type="text"
               value={renameValue}
@@ -1450,7 +1451,7 @@ function FilesPageInner() {
           <p className="mt-2 text-[11px] text-app-muted">
             {(() => {
               const subs = folders.filter((f) => f.path.startsWith(renameFolder.path + '/')).length;
-              return `Zmiana obejmie ścieżkę tego folderu${subs > 0 ? ` oraz ${subs} podfolderów` : ''}. Pliki i uprawnienia pozostają przypisane bez zmian.`;
+              return subs > 0 ? t('renameNoteSubs', { count: subs }) : t('renameNote');
             })()}
           </p>
         </Modal>
@@ -1472,20 +1473,20 @@ function FilesPageInner() {
 
       {moveTarget && (
         <Modal
-          title={`Przenieś ${moveTarget.length === 1 ? 'plik' : `pliki (${moveTarget.length})`}`}
+          title={moveTarget.length === 1 ? t('moveOne') : t('moveMany', { count: moveTarget.length })}
           onClose={() => setMoveTarget(null)}
           footer={
             <>
-              <Button onClick={() => setMoveTarget(null)}>Anuluj</Button>
+              <Button onClick={() => setMoveTarget(null)}>{tWspolne('cancel')}</Button>
               <Button variant="primary" onClick={submitMove} disabled={moving || (!isAdmin && moveFolderId === '')}>
-                {moving ? 'Przenoszenie…' : 'Przenieś'}
+                {moving ? t('moving') : t('moveButton')}
               </Button>
             </>
           }
         >
-          <Field label="Folder docelowy" hint="Widoczne są tylko foldery z prawem zapisu.">
+          <Field label={t('targetFolder')} hint={t('targetFolderHint')}>
             <select value={moveFolderId} onChange={(e) => setMoveFolderId(e.target.value)} className={inputClass}>
-              <option value="">{isAdmin ? '— katalog główny —' : '— wybierz folder —'}</option>
+              <option value="">{isAdmin ? t('optionRoot') : t('optionChoose')}</option>
               {folders
                 .filter((f) => (isAdmin || f.can_write) && f.id !== currentFolderId)
                 // Alfabetycznie po SCIEZCE, nie po nazwie: etykieta pozycji to pelna
@@ -1546,19 +1547,20 @@ function AkcjeFolderu({
   uprawnienia: (f: Folder) => void;
   usun: (id: number) => void;
 }) {
+  const t = useTranslations('files');
   const klik = (akcja: () => void) => (e: React.MouseEvent) => {
     e.stopPropagation();
     akcja();
   };
   return (
     <>
-      <IconButton tone="edit" title="Zmień nazwę folderu" onClick={klik(() => zmienNazwe(folder))}>
+      <IconButton tone="edit" title={t('renameFolder')} onClick={klik(() => zmienNazwe(folder))}>
         <IconEdit size={16} />
       </IconButton>
-      <IconButton tone="lock" title="Uprawnienia folderu" onClick={klik(() => uprawnienia(folder))}>
+      <IconButton tone="lock" title={t('permTitle')} onClick={klik(() => uprawnienia(folder))}>
         <IconLock size={16} />
       </IconButton>
-      <IconButton tone="danger" title="Usuń folder" onClick={klik(() => usun(folder.id))}>
+      <IconButton tone="danger" title={t('deleteFolder')} onClick={klik(() => usun(folder.id))}>
         <IconTrash size={16} />
       </IconButton>
     </>
@@ -1578,7 +1580,7 @@ function Szczegol({ etykieta, wartosc }: { etykieta: string; wartosc: string }) 
 // Wrapper z granicą Suspense — wymagane przez useSearchParams() w Next.js 14
 export default function FilesPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-gray-500">Ładowanie...</div>}>
+    <Suspense fallback={<div className="p-6 text-gray-500" />}>
       <FilesPageInner />
     </Suspense>
   );

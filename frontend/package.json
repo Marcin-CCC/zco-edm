@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/check-messages.mjs && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "check:messages": "node scripts/check-messages.mjs"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.11",

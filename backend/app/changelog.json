@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "1.5.26",
+      "date": "2026-08-25",
+      "title": "Ekran Pliki po angielsku",
+      "changes": [
+        "Caly ekran Pliki mowi teraz jezykiem interfejsu: naglowki kolumn, przyciski, okna wgrywania, uprawnien i zmiany nazw, komunikaty bledow oraz pytania o potwierdzenie.",
+        "Liczby plikow odmieniaja sie wedlug regul wybranego jezyka. Wczesniej odmiane liczyl kod znajacy wylacznie polski, wiec po angielsku pokazalby „5 plikow”; teraz kazdy jezyk uzywa wlasnych regul — ukrainski ma ich cztery, angielski dwa.",
+        "Czeski, niemiecki, hiszpanski i ukrainski pokazuja na tym ekranie polskie napisy do czasu przetlumaczenia ich w zakladce Jezyki. To zamierzone: brak tlumaczenia nigdy nie zostawia pustego miejsca.",
+        "Budowa aplikacji sprawdza teraz katalogi tlumaczen. Blad w napisie z liczba nie psul wczesniej budowy — wychodzil dopiero na ekranie uzytkownika i tylko w jednym jezyku."
+      ]
+    },
+    {
       "version": "1.5.25",
       "date": "2026-08-25",
       "title": "Nowe jezyki daja sie wybrac",
