@@ -230,6 +230,32 @@ sekcja „Krok 7" — jedna linijka w jednym nodzie.
 
 ---
 
+## Do zrobienia
+
+### Komunikaty błędów serwera w pozostałych językach
+
+Dziś są po polsku i angielsku, w katalogu w kodzie (`backend/app/messages.py`).
+Czeski, niemiecki, hiszpański i ukraiński spadają na polski, a poprawa brzmienia
+wymaga wydania aplikacji — w odróżnieniu od reszty napisów, które poprawia się
+w zakładce „Języki".
+
+**Co trzeba zrobić**
+
+1. `GET /api/translations/base` — backend oddaje swój katalog bazowy (klucz → polski).
+2. Zakładka „Języki" dokłada te klucze do listy, obok napisów interfejsu. Wtedy
+   działa dla nich i ręczna poprawka, i przycisk „Przetłumacz brakujące".
+3. `render()` czyta poprawki z tabeli `translations` — z pamięcią podręczną
+   odświeżaną przy zapisie. Bez niej byłoby zapytanie do bazy przy każdym błędzie,
+   a błędy bywają seriami.
+4. Wygenerowanie cs/de/es/uk tak samo jak dla interfejsu.
+
+**Uwaga na kolizję kluczy.** Katalog backendu ma własne przestrzenie nazw
+(`files.notFound`, `auth.badEmail`), a katalog frontu też ma `files.*` i `auth.*`.
+Przy scalaniu w jednej liście trzeba je rozróżnić — inaczej poprawka jednego
+nadpisze drugi.
+
+---
+
 ## Czego ten plan NIE obejmuje
 
 - **Instrukcji obsługi** — cztery dokumenty po polsku, do których prowadzi przycisk
