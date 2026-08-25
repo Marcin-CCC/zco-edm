@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages, getTranslations } from 'next-intl/server';
 import './globals.css';
+import { KatalogKlienta } from '@/components/katalog-klienta';
 import { LocaleProvider } from '@/components/locale-provider';
 import { MarkaProvider } from '@/components/marka-provider';
 import { enabledLocales } from '@/i18n/locales';
@@ -63,6 +64,7 @@ export default async function RootLayout({
     <html lang={locale} style={zmienneKoloru}>
       <body className={inter.className}>
         <NextIntlClientProvider locale={locale} messages={messages}>
+          <KatalogKlienta />
           <LocaleProvider locales={enabledLocales()}>
             <MarkaProvider marka={marka}>{children}</MarkaProvider>
           </LocaleProvider>

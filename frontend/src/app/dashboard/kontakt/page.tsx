@@ -35,7 +35,7 @@ export default function KontaktPage() {
     setBlad('');
     try {
       const wynik = await contactApi.send(tresc.trim());
-      setWyslano(`Zgłoszenie wysłane na ${wynik.do}. Odpowiedź trafi na Twój adres e-mail.`);
+      setWyslano(t('sent', { adres: wynik.do }));
       setTresc('');
     } catch (e: unknown) {
       setBlad(e instanceof Error ? e.message : t('errSend'));

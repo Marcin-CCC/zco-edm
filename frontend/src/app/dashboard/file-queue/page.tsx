@@ -92,7 +92,7 @@ export default function FileQueuePage() {
         });
         loadQueue(true);
       } else {
-        alert(`Błąd: ${data?.detail || data?.message || res.statusText}`);
+        alert(t('errPrefix', { powod: data?.detail || data?.message || res.statusText }));
       }
     } catch {
       alert(t('errSaveCategory'));
@@ -168,7 +168,7 @@ export default function FileQueuePage() {
         loadQueue();
       } else {
         const errorMsg = data?.message || data?.detail || t('errRetry');
-        alert(`Błąd: ${errorMsg}`);
+        alert(t('errPrefix', { powod: errorMsg }));
         loadQueue(); // Refresh to show updated status
       }
     } catch (err) {
@@ -186,9 +186,7 @@ export default function FileQueuePage() {
    */
   const unstickItem = async (itemId: number) => {
     if (!confirm(
-      'Plik jest oznaczony jako przetwarzany i blokuje kolejkę.\n\n' +
-      'Przerwać go i wysłać do przetworzenia od nowa? Jeśli przetwarzanie faktycznie ' +
-      'jeszcze trwa w n8n, jego wynik zostanie pominięty.'
+      t('confirmForceRetry')
     )) return;
     try {
       const token = localStorage.getItem('auth_token');
@@ -198,7 +196,7 @@ export default function FileQueuePage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
-        alert(`Błąd: ${data?.message || data?.detail || res.statusText}`);
+        alert(t('errPrefix', { powod: data?.message || data?.detail || res.statusText }));
       }
     } catch {
       alert(t('errRelease'));
@@ -223,7 +221,7 @@ export default function FileQueuePage() {
         loadQueue();
         loadStatusSummary();
       } else {
-        alert(`Błąd: ${data?.detail || data?.message || res.statusText}`);
+        alert(t('errPrefix', { powod: data?.detail || data?.message || res.statusText }));
         loadQueue();
       }
     } catch {
@@ -245,12 +243,23 @@ export default function FileQueuePage() {
         loadStatusSummary();
       } else {
         const errorData = await res.json().catch(() => ({}));
-        alert(`Usunięcie nie powiodło się: ${errorData?.detail || res.statusText}`);
+        alert(t('errDeleteWithReason', { powod: errorData?.detail || res.statusText }));
       }
     } catch (err) {
       alert(t('errDelete'));
     }
   };
+
+  // Nazwa statusu POKAZYWANA użytkownikowi. Sama wartość zostaje polska: leży
+  // tak w bazie i służy w kodzie do porównań (ponów, przerwij, szczegóły błędu).
+  // Nieznany status pokazujemy dosłownie — lepiej surowa wartość niż pusty znaczek.
+  const nazwaStatusu = (status: string) =>
+    ({
+      'W kolejce': t('statusQueued'),
+      'Przetwarzanie': t('statusProcessing'),
+      'Przetworzono': t('statusDone'),
+      'Błąd przetwarzania': t('statusError'),
+    })[status] ?? status;
 
   const getStatusClass = (status: string) => {
     switch (status) {
@@ -294,7 +303,7 @@ export default function FileQueuePage() {
             >
               <option value="">{t('allStatuses')}</option>
               {statuses.map((status) => (
-                <option key={status} value={status}>{status}</option>
+                <option key={status} value={status}>{nazwaStatusu(status)}</option>
               ))}
             </select>
             <Button onClick={() => { loadQueue(); loadStatusSummary(); }} disabled={loading}>
@@ -319,11 +328,11 @@ export default function FileQueuePage() {
         {/* Liczniki statusów. Kolor niesie znaczenie stanu, nie akcję — niebieski
             zostaje przyciskom. */}
         <div className="mb-5 grid grid-cols-2 gap-4 md:grid-cols-5">
-          {kafelek('W kolejce', statusSummary['W kolejce'] || 0, 'text-[#b7791f]')}
-          {kafelek('Przetwarzanie', statusSummary['Przetwarzanie'] || 0, 'text-[#2455cc]')}
-          {kafelek('Przetworzone', statusSummary['Przetworzono'] || 0, 'text-[#148a57]')}
-          {kafelek('Błędy', statusSummary['Błąd przetwarzania'] || 0, 'text-app-danger')}
-          {kafelek('Łącznie', queueItems.length, 'text-app-text')}
+          {kafelek(t('tileQueued'), statusSummary['W kolejce'] || 0, 'text-[#b7791f]')}
+          {kafelek(t('tileProcessing'), statusSummary['Przetwarzanie'] || 0, 'text-[#2455cc]')}
+          {kafelek(t('tileDone'), statusSummary['Przetworzono'] || 0, 'text-[#148a57]')}
+          {kafelek(t('tileErrors'), statusSummary['Błąd przetwarzania'] || 0, 'text-app-danger')}
+          {kafelek(t('tileTotal'), queueItems.length, 'text-app-text')}
         </div>
 
         {/* Table */}
@@ -358,7 +367,7 @@ export default function FileQueuePage() {
                   </Td>
                   <Td>
                     <span className={`inline-flex items-center rounded-full px-[9px] py-[5px] text-[11px] font-bold ${getStatusClass(item.status)}`}>
-                      {item.status}
+                      {nazwaStatusu(item.status)}
                     </span>
                   </Td>
                   <Td className="text-app-muted">{fmtDateTime(item.created_at)}</Td>
@@ -450,7 +459,7 @@ export default function FileQueuePage() {
                 <dt className="text-sm text-gray-500">{t('colStatus')}</dt>
                 <dd className="text-gray-800">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(selectedItem.status)}`}>
-                    {selectedItem.status}
+                    {nazwaStatusu(selectedItem.status)}
                   </span>
                 </dd>
               </div>

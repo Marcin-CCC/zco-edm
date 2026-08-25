@@ -128,7 +128,7 @@ export default function AccessListPage() {
                     )}
                     <span className="text-xs text-app-muted">
                       folderów: {items.length}
-                      {rola ? ` · użytkowników: ${rola.users_count}` : ''}
+                      {rola ? t('usersCount', { count: rola.users_count }) : ''}
                     </span>
                   </div>
                   {rola && (

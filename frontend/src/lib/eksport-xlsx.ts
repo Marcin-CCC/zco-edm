@@ -10,6 +10,7 @@
  * z której powstaje nazwa pliku.
  */
 
+import { przetlumacz } from '@/i18n/klient';
 import { aktywnyJezyk } from '@/i18n/locales';
 
 function authHeaders(): Record<string, string> {
@@ -34,7 +35,7 @@ export async function pobierzListeXlsx(fileIds: number[], pytanie?: string): Pro
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ file_ids: fileIds, pytanie: pytanie?.trim() || null }),
   });
-  if (!res.ok) throw new Error(`Nie udało się przygotować arkusza (${res.status}).`);
+  if (!res.ok) throw new Error(przetlumacz('common.errXlsx', { status: res.status }));
 
   // Nagłówek niesie dwa warianty nazwy: `filename*` w UTF-8 (z polskimi znakami)
   // i `filename` transliterowany na ASCII, bo nagłówki HTTP kodowane są w latin-1.

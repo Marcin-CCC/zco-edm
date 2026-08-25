@@ -93,11 +93,11 @@ export default function ProfilPage() {
   const zmienHaslo = async () => {
     setBladHasla('');
     if (hasla.nowe.length < MIN_HASLO) {
-      setBladHasla(`Nowe hasło musi mieć co najmniej ${MIN_HASLO} znaków.`);
+      setBladHasla(t('passwordTooShort', { min: MIN_HASLO }));
       return;
     }
     if (hasla.nowe !== hasla.powtorz) {
-      setBladHasla('Powtórzone hasło różni się od nowego.');
+      setBladHasla(t('passwordMismatch'));
       return;
     }
     setZapisywanie(true);

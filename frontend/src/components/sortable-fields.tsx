@@ -74,7 +74,7 @@ export function SortableFields<T>({ items, onReorder, renderItem, klucz }: Props
           <button
             type="button"
             title={t('reorderHint')}
-            aria-label={`Zmień kolejność pozycji ${i + 1}`}
+            aria-label={t('reorderItem', { nr: i + 1 })}
             onMouseDown={() => setPrzeciagalny(i)}
             onKeyDown={(e) => {
               if (e.key === 'ArrowUp') { e.preventDefault(); przenies(i, i - 1); }

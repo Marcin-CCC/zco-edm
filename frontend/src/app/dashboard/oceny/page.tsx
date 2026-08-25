@@ -87,10 +87,10 @@ interface Pytajacy {
 }
 
 /** Otwarcie dokumentu w nowej karcie — tak samo jak lista źródeł w Bazie wiedzy. */
-async function otworzDokument(fileId: number, komunikatBledu: string) {
+async function otworzDokument(fileId: number, komunikatBledu: string, bladPobierania: string) {
   try {
     const res = await fetch(`/api/files/${fileId}/download`, { headers: authHeaders() });
-    if (!res.ok) throw new Error(`Błąd pobierania (${res.status})`);
+    if (!res.ok) throw new Error(bladPobierania.replace('{status}', String(res.status)));
     window.open(URL.createObjectURL(await res.blob()), '_blank');
   } catch (e: unknown) {
     alert(e instanceof Error ? e.message : komunikatBledu);
@@ -137,7 +137,7 @@ function ListaZrodel({ zrodla, dobrane = [], uklad = 'pion' }: {
           <li key={i}>
             {z.file_id ? (
               <button
-                onClick={() => otworzDokument(z.file_id!, t('errOpenDocument'))}
+                onClick={() => otworzDokument(z.file_id!, t('errOpenDocument'), t('errFetch', { status: '{status}' }))}
                 title={t('openDocument')}
                 className={`inline-flex items-center gap-1 text-left hover:underline ${nieuzyte ? 'text-app-muted' : 'text-app-blue'}`}
               >
@@ -265,7 +265,7 @@ export default function OcenyPage() {
         ? `/api/chat/oceny?tylko_negatywne=${tylkoNegatywne}${osoba}${zakres}`
         : `/api/chat/rejestr?tylko_ocenione=${tylkoOcenione}${osoba}${zakres}`;
       const res = await fetch(url, { headers: authHeaders() });
-      if (!res.ok) throw new Error(res.status === 403 ? 'Tylko dla administratora.' : `Błąd ${res.status}`);
+      if (!res.ok) throw new Error(res.status === 403 ? 'Tylko dla administratora.' : t('errStatus', { status: res.status }));
       const d = await res.json();
       if (widok === 'oceny') {
         setOceny(d.oceny || []);
@@ -423,7 +423,7 @@ export default function OcenyPage() {
                     onClick={() => setRozwiniete((s) => ({ ...s, [p.message_id]: !otwarte }))}
                     className="ml-auto font-semibold text-app-blue hover:underline"
                   >
-                    {otwarte ? 'Zwiń' : t('showAnswer')}
+                    {otwarte ? t('collapse') : t('showAnswer')}
                   </button>
                 </div>
 
@@ -470,7 +470,7 @@ export default function OcenyPage() {
                   onClick={() => setRozwiniete((p) => ({ ...p, [o.id]: !otwarte }))}
                   className="text-blue-600 hover:underline ml-auto"
                 >
-                  {otwarte ? 'Zwiń' : t('showAnswerAndSources')}
+                  {otwarte ? t('collapse') : t('showAnswerAndSources')}
                 </button>
               </div>
 

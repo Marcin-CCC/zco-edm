@@ -1,4 +1,5 @@
 import type { Role } from '@/lib/roles';
+import { przetlumacz } from '@/i18n/klient';
 import { aktywnyJezyk } from '@/i18n/locales';
 
 /** Jedna pozycja podglądu nadawania nazw. `proponowana` puste = `problem` mówi dlaczego. */
@@ -61,7 +62,7 @@ export async function apiRequest<T>(
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
-      throw new Error('Sesja wygasła. Zaloguj się ponownie.');
+      throw new Error(przetlumacz('common.sessionExpired'));
     }
     const errorText = await response.text();
     let errorData: any = {};

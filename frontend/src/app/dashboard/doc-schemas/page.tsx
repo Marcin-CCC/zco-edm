@@ -150,7 +150,7 @@ export default function DocSchemasPage() {
   };
 
   const handleDelete = async (slug: string) => {
-    if (!confirm(`Czy na pewno usunąć schemat „${slug}"?`)) return;
+    if (!confirm(t('confirmDelete', { slug }))) return;
     setError('');
     try {
       await docSchemasApi.delete(slug);
@@ -192,7 +192,7 @@ export default function DocSchemasPage() {
               <div>
                 <Field
                   label={`Slug (identyfikator)${editingSlug ? ' — niezmienialny' : ''}`}
-                  hint={'małe litery, cyfry, "-" lub "_" (2–50 znaków)'}
+                  hint={t('slugHint')}
                 >
                   <input
                     type="text"
@@ -368,7 +368,7 @@ export default function DocSchemasPage() {
         ) : schemas.length === 0 ? (
           <EmptyState
             title={t('empty')}
-            hint={'Dodaj pierwszy schemat przyciskiem u góry strony.'}
+            hint={t('emptyHint')}
           />
         ) : (
           <Table>

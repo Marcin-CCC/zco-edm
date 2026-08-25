@@ -1,6 +1,19 @@
 {
   "entries": [
     {
+      "version": "1.5.33",
+      "date": "2026-08-25",
+      "title": "Wszystkie szesc jezykow kompletne",
+      "changes": [
+        "Czeski, niemiecki, hiszpanski i ukrainski maja teraz przetlumaczone wszystkie ekrany, nie tylko menu boczne. Wczesniej pozostale napisy wypadaly po polsku.",
+        "Tlumaczenia sa wbudowane w aplikacje, wiec kazde wdrozenie dostaje je od razu — bez uruchamiania tlumaczenia maszynowego na kazdej instancji z osobna. Zakladka Jezyki sluzy teraz do POPRAWIANIA.",
+        "Ekran Kolejka plikow: przetlumaczone kafelki z licznikami (W kolejce, Przetwarzanie, Przetworzone, Bledy, Lacznie) oraz nazwy statusow przy plikach i w filtrze.",
+        "Domkniete 44 napisy przeoczone przy poprzednim przejsciu — podpowiedzi w Ustawieniach, komunikaty na Dashboardzie, etykiety operatorow w wyszukiwarce, komunikaty bledow sieci.",
+        "Liczby odmieniaja sie regulami kazdego jezyka: czeski i ukrainski maja cztery formy, niemiecki i hiszpanski dwie.",
+        "Napisy dla czterech nowych jezykow przygotowal model dzialajacy na miejscu, wiec wymagaja przejrzenia przez osobe znajaca jezyk. Poprawki wprowadza sie w zakladce Jezyki."
+      ]
+    },
+    {
       "version": "1.5.32",
       "date": "2026-08-25",
       "title": "Komunikaty bledow w jezyku interfejsu",

@@ -9,13 +9,14 @@ import { Button } from '@/components/ui/primitives';
 import { docSchemasApi, docSearchApi, DocTypeSchema, DocSearchHit } from '@/lib/api';
 import { pobierzListeXlsx } from '@/lib/eksport-xlsx';
 
+// KLUCZE, nie napisy: to stała modułu, a napis idzie za językiem interfejsu.
 const OPS = [
-  { value: 'contains', label: 'zawiera' },
-  { value: 'eq', label: 'równe' },
-  { value: 'gte', label: '≥ (od)' },
-  { value: 'lte', label: '≤ (do)' },
-  { value: 'gt', label: '> (po)' },
-  { value: 'lt', label: '< (przed)' },
+  { value: 'contains', labelKey: 'opContainsLabel' },
+  { value: 'eq', labelKey: 'opEqLabel' },
+  { value: 'gte', labelKey: 'opGteLabel' },
+  { value: 'lte', labelKey: 'opLteLabel' },
+  { value: 'gt', labelKey: 'opGtLabel' },
+  { value: 'lt', labelKey: 'opLtLabel' },
 ];
 
 /** 1 dokument, 2 dokumenty, 5 dokumentów. */
@@ -116,7 +117,7 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
       setHits(res.hits);
       if (res.unknown_type) {
         setError(
-          `W systemie nie ma rodzaju dokumentów „${res.unknown_type}". ` +
+          t('unknownType', { type: res.unknown_type }) +
           `Rozpoznawane rodzaje: ${(res.known_types || []).join(', ')}.`
         );
       }
@@ -130,12 +131,12 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
   const download = async (id: number, filename: string) => {
     try {
       const res = await fetch(`/api/files/${id}/download`, { headers: authHeaders() });
-      if (!res.ok) throw new Error(`Błąd pobierania (${res.status})`);
+      if (!res.ok) throw new Error(t('errDownload', { status: res.status }));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
     } catch (e: any) {
-      alert(e?.message || `Nie udało się otworzyć „${filename}".`);
+      alert(e?.message || t('errOpenNamed', { filename }));
     }
   };
 
@@ -237,7 +238,7 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
                 onChange={(e) => updateFilter(i, { op: e.target.value })}
                 className="px-1.5 py-1.5 border border-gray-300 rounded-md text-sm bg-white shrink-0"
               >
-                {OPS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {OPS.map((o) => <option key={o.value} value={o.value}>{t(o.labelKey)}</option>)}
               </select>
               <input
                 type="text"

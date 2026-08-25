@@ -270,8 +270,8 @@ export default function DashboardPage() {
             <AreaChart
               data={parsed}
               color={KOLOR_PARSOWANIE}
-              unitLabel="sparsowanych plików"
-              emptyText={`Brak sparsowanych plików w ostatnich ${dni} dniach`}
+              unitLabel={t('chartParsedUnit')}
+              emptyText={t('chartParsedEmpty', { days: dni })}
             />
           )}
         </Card>
@@ -295,8 +295,8 @@ export default function DashboardPage() {
             <AreaChart
               data={queries}
               color={KOLOR_ZAPYTANIA}
-              unitLabel="zapytań"
-              emptyText={`Brak zapytań w ostatnich ${dni} dniach`}
+              unitLabel={t('chartQueriesUnit')}
+              emptyText={t('chartQueriesEmpty', { days: dni })}
             />
           )}
         </Card>
@@ -359,7 +359,7 @@ export default function DashboardPage() {
             {aktywni.length === 0 ? (
               <EmptyState
                 title={t('noActivity')}
-                hint={`Nikt nie wysłał plików ani nie zadał pytania w ostatnich ${dni} dniach.`}
+                hint={t('noActivityHint', { days: dni })}
               />
             ) : (
               <>

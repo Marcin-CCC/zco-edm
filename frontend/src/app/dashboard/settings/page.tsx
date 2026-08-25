@@ -96,7 +96,7 @@ export default function SettingsPage() {
         support_email: d.support_email || '',
       }));
     } catch {
-      setBlad('Nie udało się wczytać ustawień.');
+      setBlad(t('errLoad'));
     } finally {
       setLoading(false);
     }
@@ -131,7 +131,7 @@ export default function SettingsPage() {
     try {
       const wynik = await settingsApi.uploadAppIcon(plik);
       setIkona(wynik.app_icon);
-      setKomunikat('Ikona zapisana. Pojawi się w menu po odświeżeniu strony.');
+      setKomunikat(t('iconSaved'));
     } catch (e: unknown) {
       setBlad(e instanceof Error ? e.message : t('errIcon'));
     }
@@ -181,7 +181,7 @@ export default function SettingsPage() {
               />
               <Button onClick={() => wybor.current?.click()}>{t('pickFile')}</Button>
               <Button
-                onClick={async () => { await settingsApi.resetAppIcon(); setIkona(''); setKomunikat('Przywrócono ikonę domyślną.'); }}
+                onClick={async () => { await settingsApi.resetAppIcon(); setIkona(''); setKomunikat(t('iconRestored')); }}
                 disabled={!ikona}
               >
                 {t('restoreDefault')}
@@ -263,7 +263,7 @@ export default function SettingsPage() {
           </Field>
           <Field
             label={t('chatWebhook')}
-            hint={'URL triggera „When chat message received” z workflow czatu n8n (tryb streaming).'}
+            hint={t('chatWebhookHint')}
           >
             <input
               value={form.chat_webhook_url}
@@ -273,8 +273,7 @@ export default function SettingsPage() {
           </Field>
           <Field
             label={t('allowedExtensions')}
-            hint={'Lista rozdzielona przecinkami, np. pdf,docx,xlsx,odt. Musi odpowiadać typom '
-              + 'obsługiwanym przez workflow n8n — inaczej plik zostanie przyjęty, ale nie przetworzony.'}
+            hint={t('extensionsHint')}
           >
             <input
               value={form.allowed_extensions}
@@ -284,8 +283,7 @@ export default function SettingsPage() {
           </Field>
           <Field
             label={t('idleLogout')}
-            hint={'Po tylu minutach bez aktywności użytkownik wróci na ekran logowania (od 1 do 1440 min). '
-              + 'Niezależnie od tego sesja ma twardy limit 12 godzin.'}
+            hint={t('idleHint')}
           >
             <input
               type="number"

@@ -586,7 +586,7 @@ export default function ChatPage() {
         // Wyjątek: nieznany RODZAJ dokumentu to informacja o samym pytaniu (rejestr
         // takiego rodzaju nie zna), a nie zapowiedź odpowiedzi — ta zostaje.
         const notice = rejestr.listRes.unknown_type
-          ? `_W systemie nie ma rodzaju dokumentów „${rejestr.listRes.unknown_type}". ` +
+          ? t('unknownType', { type: rejestr.listRes.unknown_type }) +
             `Rozpoznawane rodzaje: ${(rejestr.listRes.known_types || []).join(', ')}._\n\n`
           : '';
         assistantText = notice;
@@ -631,7 +631,7 @@ export default function ChatPage() {
 
         if (!res.ok || !res.body) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err?.detail || `Błąd czatu (${res.status})`);
+          throw new Error(err?.detail || t('errChat', { status: res.status }));
         }
 
         const reader = res.body.getReader();
@@ -839,7 +839,7 @@ export default function ChatPage() {
     if (!s.file_id) return;
     try {
       const res = await fetch(`/api/files/${s.file_id}/download`, { headers: authHeaders() });
-      if (!res.ok) throw new Error(`Błąd pobierania (${res.status})`);
+      if (!res.ok) throw new Error(t('errDownload', { status: res.status }));
       const blob = await res.blob();
       window.open(URL.createObjectURL(blob), '_blank');
     } catch (e: any) {
@@ -854,7 +854,7 @@ export default function ChatPage() {
   // przełącznikiem, żeby powrót był zmianą jednego słowa, a nie pisaniem od nowa.
   const POKAZ_PRZYKLADOWE_PYTANIA = false;
   const przykladowePytania = POKAZ_PRZYKLADOWE_PYTANIA
-    ? Object.values(typeNames).slice(0, 3).map((nazwa) => `Pokaż dokumenty typu ${nazwa}`)
+    ? Object.values(typeNames).slice(0, 3).map((nazwa) => t('sampleShowType', { name: nazwa }))
     : [];
 
   return (
@@ -896,7 +896,7 @@ export default function ChatPage() {
                   onClick={(e) => deleteConversation(c.id, e)}
                   className="shrink-0 text-app-muted opacity-0 transition-opacity hover:text-app-danger focus:opacity-100 group-hover:opacity-100"
                   title={t('deleteConversation')}
-                  aria-label={`Usuń rozmowę: ${c.title}`}
+                  aria-label={t('deleteConversationNamed', { title: c.title })}
                 >
                   <IconClose size={14} />
                 </button>
