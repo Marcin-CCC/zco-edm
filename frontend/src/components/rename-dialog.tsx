@@ -136,7 +136,7 @@ export function RenameDialog({ fileIds, etykietaKategorii, onClose, onDone }: Pr
                         className="w-full rounded-md border border-gray-300 p-1.5 font-mono text-xs text-gray-800"
                       />
                       {w.problem && (
-                        <p className="mt-1 text-xs text-amber-700">{w.problem} — wpisz nazwę ręcznie</p>
+                        <p className="mt-1 text-xs text-amber-700">{w.problem} {t('renameTypeManually')}</p>
                       )}
                     </td>
                   </tr>

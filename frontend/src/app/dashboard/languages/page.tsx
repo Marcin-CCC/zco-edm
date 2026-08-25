@@ -188,12 +188,12 @@ export default function LanguagesPage() {
 
       <Card className="mb-4 p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <label className="text-sm text-app-muted">
+          <label className="flex items-center gap-2 text-sm text-app-muted">
             {t('language')}
             <select
               value={jezyk}
               onChange={(e) => setJezyk(e.target.value as Locale)}
-              className={`${inputClass} ml-2 w-auto`}
+              className={`${inputClass} w-auto`}
             >
               {tlumaczone.map((l) => (
                 <option key={l} value={l}>
@@ -247,7 +247,13 @@ export default function LanguagesPage() {
         ) : !widoczne.length ? (
           <EmptyState title={t('nothingHere')} hint={t('nothingHereHint')} />
         ) : (
-          <Table>
+          <Table className="w-full table-fixed">
+            <colgroup>
+              <col className="w-[18%]" />
+              <col className="w-[30%]" />
+              <col className="w-[30%]" />
+              <col className="w-[22%]" />
+            </colgroup>
             <thead>
               <tr>
                 <Th>{t('colKey')}</Th>
@@ -262,7 +268,7 @@ export default function LanguagesPage() {
                 return (
                   <tr key={w.klucz} className="hover:bg-app-hover">
                     <Td>
-                      <code className="text-[12px] text-app-muted">{w.klucz}</code>
+                      <code className="break-all text-[12px] text-app-muted">{w.klucz}</code>
                     </Td>
                     <Td>{w.zrodlowy}</Td>
                     <Td>
@@ -275,7 +281,7 @@ export default function LanguagesPage() {
                         className={inputClass}
                       />
                     </Td>
-                    <Td>
+                    <Td className="whitespace-nowrap">
                       {brakuje(w) ? (
                         <Badge tone="danger">{t('stateMissing')}</Badge>
                       ) : w.poprawka?.source === 'machine' ? (

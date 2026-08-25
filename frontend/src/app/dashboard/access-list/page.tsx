@@ -127,7 +127,7 @@ export default function AccessListPage() {
                       </Badge>
                     )}
                     <span className="text-xs text-app-muted">
-                      folderów: {items.length}
+                      {t('foldersCount', { count: items.length })}
                       {rola ? t('usersCount', { count: rola.users_count }) : ''}
                     </span>
                   </div>

@@ -226,7 +226,7 @@ export default function SettingsPage() {
             </div>
             {slabyKontrast && (
               <p className="mt-1.5 text-[11px] text-[#b7791f]">
-                Niski kontrast na tle menu ({wsp?.toFixed(1)}:1) — napis może być słabo czytelny.
+                {t('lowContrast', { ratio: wsp?.toFixed(1) ?? '' })}
               </p>
             )}
             <p className="mt-1 text-[11px] text-app-muted">

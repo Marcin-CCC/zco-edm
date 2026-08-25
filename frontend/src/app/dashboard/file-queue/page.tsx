@@ -441,7 +441,7 @@ export default function FileQueuePage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-800">Szczegóły pozycji #{selectedItem.id}</h2>
+              <h2 className="text-lg font-bold text-gray-800">{t('itemDetails', { id: selectedItem.id })}</h2>
               <button
                 onClick={() => setSelectedItem(null)}
                 className="text-gray-500 hover:text-gray-700"

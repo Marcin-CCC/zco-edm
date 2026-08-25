@@ -297,7 +297,7 @@ export default function ProfilPage() {
                 onChange={(e) => setHasla({ ...hasla, nowe: e.target.value })}
                 className={poleKlasy}
               />
-              <p className="mt-1 text-xs text-gray-500">Co najmniej {MIN_HASLO} znaków.</p>
+              <p className="mt-1 text-xs text-gray-500">{t('passwordMinChars', { min: MIN_HASLO })}</p>
             </div>
             <div>
               <label className="block text-sm text-gray-600 mb-1">{t('repeatPassword')}</label>

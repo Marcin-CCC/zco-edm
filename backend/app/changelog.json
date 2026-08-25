@@ -1,6 +1,19 @@
 {
   "entries": [
     {
+      "version": "1.6.0",
+      "date": "2026-08-25",
+      "title": "Szesc jezykow interfejsu",
+      "changes": [
+        "Interfejs dziala w szesciu jezykach: polskim, angielskim, czeskim, niemieckim, hiszpanskim i ukrainskim. Jezyk wybiera sie na ekranie logowania albo w Profilu, a wybor zostaje zapamietany przy koncie.",
+        "Ekran Lista odpowiedzi: przetlumaczone zakladki (Oceny, Wszystkie pytania) i liczniki przy kazdym pytaniu — nad progiem, w kontekscie, dobrane, zawezenie, razem. Wczesniej zostawaly po polsku niezaleznie od wybranego jezyka.",
+        "Ekran Jezyki: slowo „Jezyk” stoi teraz obok przelacznika, a nie nad nim. Tabela ma ustalone szerokosci kolumn — zrodlo i tlumaczenie sa rownie szerokie, bo porownuje sie je wzrokiem, a kolumna Stan miesci cala etykiete bez lamania na dwie linie.",
+        "Domkniete kolejne napisy, ktore zostawaly po polsku: „Szczegoly pozycji”, „folderow:”, ostrzezenie o niskim kontrascie w Ustawieniach, podpowiedz o dlugosci hasla w Profilu, podpowiedz przy zmianie nazw plikow.",
+        "Odpowiedzi AI powstaja w jezyku interfejsu, a cytowania i odmowy sa rozpoznawane po znacznikach niezaleznych od jezyka — dzieki temu zrodla pod odpowiedzia pokazuja sie tak samo we wszystkich jezykach.",
+        "Tlumaczenia czterech nowych jezykow warto dac do przejrzenia osobie znajacej jezyk. Poprawki wprowadza sie w zakladce Jezyki i przezywaja aktualizacje aplikacji."
+      ]
+    },
+    {
       "version": "1.5.34",
       "date": "2026-08-25",
       "title": "Przeglad jakosci tlumaczen",

@@ -301,7 +301,7 @@ export default function OcenyPage() {
       {/* Wybrana zakładka na szarym tle z białym elementem aktywnym — niebieskie
           wypełnienie jest w tym layoucie zarezerwowane dla akcji. */}
       <div className="mb-4 inline-flex gap-1 rounded-ctl bg-[#eef1f6] p-1">
-        {([['oceny', 'Oceny'], ['rejestr', 'Wszystkie pytania']] as const).map(([k, etykieta]) => (
+        {([['oceny', t('tabRatings')], ['rejestr', t('tabAll')]] as const).map(([k, etykieta]) => (
           <button
             key={k}
             onClick={() => zmienFiltr(() => setWidok(k))}
@@ -350,7 +350,7 @@ export default function OcenyPage() {
                 <span className="text-app-muted">{t(NAZWA_KLUCZ[k])}</span>
               </span>
             ))}
-            <span className="text-[13px] text-app-muted">razem: {razem}</span>
+            <span className="text-[13px] text-app-muted">{t('total', { count: razem })}</span>
             <label className="text-sm flex items-center gap-2 ml-auto">
               <input
                 type="checkbox"
@@ -460,10 +460,10 @@ export default function OcenyPage() {
 
               <div className="mt-1.5 flex flex-wrap gap-3 text-[11px] text-app-muted">
                 <span>{t('path')} <strong>{d.sciezka || '?'}</strong></span>
-                <span>nad progiem: {d.nad_progiem ?? '?'}</span>
-                <span>w kontekście: {d.w_kontekscie ?? '?'}</span>
-                {!!d.dobrane?.length && <span>dobrane: {d.dobrane.length}</span>}
-                {!!d.terminy?.length && <span>zawężenie: {d.terminy.join(', ')}</span>}
+                <span>{t('aboveThreshold', { count: d.nad_progiem ?? '?' })}</span>
+                <span>{t('inContext', { count: d.w_kontekscie ?? '?' })}</span>
+                {!!d.dobrane?.length && <span>{t('pickedCount', { count: d.dobrane.length })}</span>}
+                {!!d.terminy?.length && <span>{t('narrowing', { terms: d.terminy.join(', ') })}</span>}
                 {d.historia && <span>{t('withThread')}</span>}
                 {d.wersja && <span className="text-app-muted">v{d.wersja}</span>}
                 <button
