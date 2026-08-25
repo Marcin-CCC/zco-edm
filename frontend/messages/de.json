@@ -1,0 +1,40 @@
+{
+  "common": {
+    "loading": "Wird geladen…"
+  },
+  "login": {
+    "email": "E-Mail-Adresse",
+    "error": "Anmeldung fehlgeschlagen",
+    "password": "Passwort",
+    "submit": "Anmelden",
+    "submitting": "Anmeldung läuft…",
+    "title": "Anmelden"
+  },
+  "nav": {
+    "accessList": "Zugriffsliste",
+    "answers": "Antwortprotokoll",
+    "chat": "KI-Chat",
+    "dashboard": "Übersicht",
+    "docSchemas": "Dokumentschemata",
+    "fileQueue": "Dateiwarteschlange",
+    "files": "Dateien",
+    "languages": "Sprachen",
+    "search": "Suche",
+    "settings": "Einstellungen",
+    "users": "Benutzer"
+  },
+  "shell": {
+    "language": "Sprache der Oberfläche",
+    "logout": "Abmelden",
+    "manual": "Handbuch",
+    "openMenu": "Menü öffnen",
+    "profile": "Profil"
+  },
+  "sidebar": {
+    "collapse": "Menü einklappen",
+    "expand": "Menü ausklappen",
+    "helpAction": "Support kontaktieren",
+    "helpText": "Wenden Sie sich an den technischen Support.",
+    "helpTitle": "Brauchen Sie Hilfe?"
+  }
+}

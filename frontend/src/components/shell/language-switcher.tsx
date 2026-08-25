@@ -91,7 +91,7 @@ export function LanguageSwitcher({ wariant = 'belka' }: { wariant?: Wariant } = 
       {otwarte && (
         <div
           role="menu"
-          className="absolute right-0 top-[46px] w-44 rounded-xl border border-app-line bg-white py-1 shadow-card"
+          className="absolute right-0 top-[46px] w-52 rounded-xl border border-app-line bg-white py-1 shadow-card"
         >
           <div className="border-b border-app-line px-3 py-2 text-xs text-app-muted">
             {t('language')}

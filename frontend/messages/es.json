@@ -1,0 +1,40 @@
+{
+  "common": {
+    "loading": "Cargando…"
+  },
+  "login": {
+    "email": "Correo electrónico",
+    "error": "Error al iniciar sesión",
+    "password": "Contraseña",
+    "submit": "Iniciar sesión",
+    "submitting": "Iniciando sesión…",
+    "title": "Iniciar sesión"
+  },
+  "nav": {
+    "accessList": "Lista de accesos",
+    "answers": "Registro de respuestas",
+    "chat": "Chat con IA",
+    "dashboard": "Panel",
+    "docSchemas": "Esquemas de documentos",
+    "fileQueue": "Cola de archivos",
+    "files": "Archivos",
+    "languages": "Idiomas",
+    "search": "Búsqueda",
+    "settings": "Ajustes",
+    "users": "Usuarios"
+  },
+  "shell": {
+    "language": "Idioma de la interfaz",
+    "logout": "Cerrar sesión",
+    "manual": "Manual de usuario",
+    "openMenu": "Abrir menú",
+    "profile": "Perfil"
+  },
+  "sidebar": {
+    "collapse": "Contraer menú",
+    "expand": "Expandir menú",
+    "helpAction": "Contactar con soporte",
+    "helpText": "Póngase en contacto con el soporte técnico.",
+    "helpTitle": "¿Necesita ayuda?"
+  }
+}

@@ -8,7 +8,11 @@ import { MarkaProvider } from '@/components/marka-provider';
 import { enabledLocales } from '@/i18n/locales';
 import { markaAktualna } from '@/lib/marka';
 
-const inter = Inter({ subsets: ['latin'] });
+// `latin` NIE wystarcza nawet dla polskiego: ą, ć, ę, ł, ń, ś, ź, ż leżą w
+// `latin-ext` (U+0100–024F), więc bez tego podzbioru przeglądarka rysowała je
+// czcionką zastępczą — w jednym wyrazie mieszały się dwa kroje. To samo dotyczy
+// czeskiego (ě, ř, ů). `cyrillic` doszedł dla ukraińskiego.
+const inter = Inter({ subsets: ['latin', 'latin-ext', 'cyrillic'] });
 
 // Marka pochodzi ze zmiennych środowiskowych, więc strona musi powstawać przy żądaniu,
 // a nie w czasie budowy obrazu — inaczej ten sam obraz nie obsłużyłby dwóch wdrożeń.

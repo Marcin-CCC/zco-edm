@@ -13,8 +13,9 @@
 /** Kod bazowy. Nie jest „jednym z" — dla pozostałych jest wartością zapasową. */
 export const BASE_LOCALE = 'pl';
 
-/** Kolejność ta sama, co przycisków w przełączniku. Kody ISO 639-1. */
-export const LOCALES = ['pl', 'en'] as const;
+/** Kolejność ta sama, co przycisków w przełączniku. Kody ISO 639-1.
+ *  Bazowy pierwszy, potem angielski (nim pokazujemy system), dalej alfabetycznie. */
+export const LOCALES = ['pl', 'en', 'cs', 'de', 'es', 'uk'] as const;
 
 export type Locale = (typeof LOCALES)[number];
 
@@ -22,6 +23,10 @@ export type Locale = (typeof LOCALES)[number];
 export const LOCALE_NAMES: Record<Locale, string> = {
   pl: 'Polski',
   en: 'English',
+  cs: 'Čeština',
+  de: 'Deutsch',
+  es: 'Español',
+  uk: 'Українська',
 };
 
 /** Nazwa ciasteczka, z którego układ główny czyta język przy renderowaniu na serwerze. */

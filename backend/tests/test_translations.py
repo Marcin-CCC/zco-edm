@@ -93,7 +93,7 @@ class TestDostepu:
             _sprawdz_jezyk("pl")
         assert e.value.status_code == 400
 
-    @pytest.mark.parametrize("kod", ["de", "klingoński", ""])
+    @pytest.mark.parametrize("kod", ["fr", "klingoński", ""])
     def test_nieobslugiwany_jezyk_odrzucony(self, kod):
         with pytest.raises(HTTPException) as e:
             _sprawdz_jezyk(kod)
@@ -110,8 +110,11 @@ class TestOdczytuDlaFrontu:
         assert read_overrides("pl", db=None) == {}
 
     def test_nieznany_jezyk_nie_wywraca_strony(self):
-        """Ciasteczko może nieść cokolwiek; pusty słownik zostawia napisy z katalogu."""
-        assert read_overrides("de", db=None) == {}
+        """Ciasteczko może nieść cokolwiek; pusty słownik zostawia napisy z katalogu.
+
+        `db=None` jest tu SPRAWDZENIEM, nie skrótem: wyjście musi nastąpić przed
+        dotknięciem bazy, bo to wywołanie idzie przy każdym renderze strony."""
+        assert read_overrides("fr", db=None) == {}
 
 
 class TestZapisu:

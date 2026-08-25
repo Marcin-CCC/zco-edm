@@ -62,8 +62,11 @@ class TestNormalizacji:
     def test_rozpoznane_postacie(self, wejscie, wynik):
         assert normalize_locale(wejscie) == wynik
 
-    @pytest.mark.parametrize("wejscie", ["de", "polski", "", None, "xx-YY"])
+    # „fr" nie jest na liście — gdyby kiedyś doszedł, ten test wskaże miejsce
+    # do zmiany zamiast po cichu przestać cokolwiek sprawdzać.
+    @pytest.mark.parametrize("wejscie", ["fr", "polski", "", None, "xx-YY"])
     def test_nierozpoznane_daja_none(self, wejscie):
+        assert "fr" not in SUPPORTED_LOCALES, "zmień przykład — francuski doszedł do listy"
         assert normalize_locale(wejscie) is None
 
     def test_polski_jest_bazowy_i_obslugiwany(self):
@@ -94,7 +97,7 @@ class TestZapisuPrzyKoncie:
     def test_nieobslugiwany_jezyk_odrzucony(self):
         konto = Konto(locale="pl")
         with pytest.raises(HTTPException) as e:
-            zmien(konto, "de")
+            zmien(konto, "fr")
         assert e.value.status_code == 400
         assert konto.locale == "pl"          # nic nie ruszone
 
@@ -123,10 +126,18 @@ class TestSchematu:
 class TestKatalogowTlumaczen:
     """Pilnowanie katalogów `frontend/messages/*.json`.
 
-    Front nie ma własnego uruchamiacza testów, a to jedyny zestaw, który idzie w CI.
-    Katalog z inną STRUKTURĄ niż polski to najczęstsza usterka przy tłumaczeniu:
-    literówka w kluczu daje napis, którego nikt nie użyje, a brak klucza cofa ekran
-    do polskiego — jedno i drugie widać dopiero na wdrożeniu.
+    Front nie ma własnego uruchamiacza testów, a to jedyny zestaw idący w CI.
+
+    **Dlaczego kompletności wymagamy tylko od angielskiego.** Napisy powstają po
+    polsku, a angielski jest językiem, w którym system się pokazuje — te dwa muszą
+    się zgadzać co do jednego klucza. Pozostałe języki dochodzą stopniowo: napis bez
+    tłumaczenia wypada po polsku (katalog jest DOKŁADANY na bazowy), a uzupełnia się
+    go w zakładce „Języki”, bez wydawania nowej wersji. Wymóg kompletności dla nich
+    znaczyłby, że każdy nowy przycisk trzeba przetłumaczyć na pięć języków, zanim
+    w ogóle da się go wdrożyć — a to zablokowałoby rozwój, nie poprawiło tłumaczeń.
+
+    Klucza SPOZA katalogu bazowego nie wolno mieć nigdy i w żadnym języku: to zawsze
+    literówka, a napis pod nim nigdy się nie pokaże, więc nikt by jej nie zauważył.
     """
 
     @staticmethod
@@ -146,19 +157,32 @@ class TestKatalogowTlumaczen:
             wynik |= TestKatalogowTlumaczen.klucze(v, f"{pelny}.") if isinstance(v, dict) else {pelny}
         return wynik
 
-    def test_kazdy_jezyk_ma_swoj_katalog(self):
-        for kod in SUPPORTED_LOCALES:
-            assert self.katalog(kod), f"pusty katalog dla {kod}"
+    @pytest.mark.parametrize("kod", SUPPORTED_LOCALES)
+    def test_kazdy_jezyk_ma_swoj_katalog(self, kod):
+        """Brak pliku to nie „język bez tłumaczeń", tylko wyjątek przy renderowaniu
+        strony — `import` katalogu leci przy każdym żądaniu."""
+        assert self.katalog(kod), f"pusty katalog dla {kod}"
 
     @pytest.mark.parametrize("kod", [k for k in SUPPORTED_LOCALES if k != BASE_LOCALE])
     def test_bez_kluczy_spoza_polskiego(self, kod):
-        """Klucz, którego nie ma po polsku, jest literówką — nikt go nie odczyta."""
         nadmiarowe = self.klucze(self.katalog(kod)) - self.klucze(self.katalog(BASE_LOCALE))
         assert not nadmiarowe, f"{kod}.json: klucze spoza katalogu bazowego: {sorted(nadmiarowe)}"
 
-    @pytest.mark.parametrize("kod", [k for k in SUPPORTED_LOCALES if k != BASE_LOCALE])
-    def test_komplet_tlumaczen(self, kod):
-        """Brak klucza NIE psuje ekranu (zostaje polski), ale ma być widoczny tutaj,
-        a nie dopiero wtedy, gdy ktoś zobaczy polskie zdanie w angielskim menu."""
-        brakujace = self.klucze(self.katalog(BASE_LOCALE)) - self.klucze(self.katalog(kod))
-        assert not brakujace, f"{kod}.json: brakuje tłumaczeń: {sorted(brakujace)}"
+    def test_angielski_kompletny(self):
+        """Twardy wymóg — angielskim system się pokazuje i nie może w nim wypaść
+        polskie zdanie w środku ekranu."""
+        brakujace = self.klucze(self.katalog(BASE_LOCALE)) - self.klucze(self.katalog("en"))
+        assert not brakujace, f"en.json: brakuje tłumaczeń: {sorted(brakujace)}"
+
+    def test_pokrycie_pozostalych_jezykow(self, capsys):
+        """Nie przewraca budowy — wypisuje stan, żeby ubytek był widoczny w CI.
+        Uzupełnianie odbywa się w zakładce „Języki”, nie przy wydaniu."""
+        wszystkie = self.klucze(self.katalog(BASE_LOCALE))
+        with capsys.disabled():
+            print("\n  pokrycie katalogów w obrazie (reszta dochodzi w zakładce Języki):")
+            for kod in SUPPORTED_LOCALES:
+                if kod == BASE_LOCALE:
+                    continue
+                mam = len(self.klucze(self.katalog(kod)) & wszystkie)
+                print(f"    {kod}: {mam}/{len(wszystkie)}")
+        assert wszystkie, "katalog bazowy jest pusty"

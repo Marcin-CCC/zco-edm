@@ -21,9 +21,22 @@ import { useAuth } from '@/lib/store';
 
 import bazowy from '../../../../messages/pl.json';
 import angielski from '../../../../messages/en.json';
+import czeski from '../../../../messages/cs.json';
+import niemiecki from '../../../../messages/de.json';
+import hiszpanski from '../../../../messages/es.json';
+import ukrainski from '../../../../messages/uk.json';
 
-/** Katalogi z obrazu, po kodzie języka. Nowy język = jeden wpis tutaj. */
-const KATALOGI: Record<string, unknown> = { pl: bazowy, en: angielski };
+/** Katalogi z obrazu, po kodzie języka. Import musi być statyczny: to komponent
+ *  kliencki, a `import()` po zmiennej nie da się spakować przy budowie.
+ *  Nowy język = plik w `messages/`, wpis tutaj i kod w `LOCALES`. */
+const KATALOGI: Record<string, unknown> = {
+  pl: bazowy,
+  en: angielski,
+  cs: czeski,
+  de: niemiecki,
+  es: hiszpanski,
+  uk: ukrainski,
+};
 
 type Wpis = {
   klucz: string;

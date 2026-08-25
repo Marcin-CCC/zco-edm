@@ -91,6 +91,12 @@ w języku wdrożenia, przełączenie po zalogowaniu zostaje na stałe.
 
 ## 3. Wyciągnięcie napisów — ekran po ekranie (W TOKU)
 
+**Języki (1.5.24):** `pl` (bazowy), `en`, `cs`, `de`, `es`, `uk`. Kompletności
+katalogu w obrazie wymagamy WYŁĄCZNIE od angielskiego — nim system się pokazuje.
+Pozostałe dochodzą stopniowo: napis bez tłumaczenia wypada po polsku, a uzupełnia
+się go w zakładce „Języki". Inaczej każdy nowy przycisk trzeba by przetłumaczyć na
+pięć języków, zanim w ogóle dałoby się go wdrożyć.
+
 **Stan 25.08.2026 (1.5.23):** zrobione — ekran logowania, menu boczne,
 górna belka, zakładki administratora. Pomiar całości: 348 napisów w 30 plikach
 (więcej niż pierwotne 211 — tamten spis pomijał napisy bez znaków diakrytycznych).

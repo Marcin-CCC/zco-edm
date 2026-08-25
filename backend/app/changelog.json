@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "1.5.24",
+      "date": "2026-08-25",
+      "title": "Szesc jezykow interfejsu i poprawiony krój pisma",
+      "changes": [
+        "Doszly cztery jezyki: czeski, ukrainski, hiszpanski i niemiecki. Razem z polskim i angielskim daje to szesc pozycji w przelaczniku.",
+        "Napisy powloki — logowanie, menu boczne, gorna belka — sa przetlumaczone we wszystkich szesciu. Ekrany, ktore dopiero dochodza, beda w nowych jezykach uzupelniane w zakladce Jezyki, a do tego czasu wypadaja po polsku.",
+        "Polskie znaki wreszcie wyglada jak reszta tekstu. Aplikacja ladowala tylko podstawowy zakres kroju Inter, w ktorym nie ma a-ogonek, l-kreska ani s-akut — przegladarka rysowala je czcionka zastepcza i w jednym wyrazie mieszaly sie dwa kroje. Doszly zakresy rozszerzony lacinski (potrzebny tez czeskiemu) i cyrylica (ukrainski).",
+        "Napisy dla nowych jezykow przygotowal zespol tworzacy aplikacje, nie rodzimi uzytkownicy. Wszystko, co brzmi nienaturalnie, poprawia sie w zakladce Jezyki — bez czekania na nowa wersje."
+      ]
+    },
+    {
       "version": "1.5.23",
       "date": "2026-08-25",
       "title": "Zakladka Jezyki i przelacznik na ekranie logowania",

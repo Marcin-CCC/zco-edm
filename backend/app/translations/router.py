@@ -186,7 +186,16 @@ SYSTEM_TLUMACZA = (
     "- Napis ma być tak krótki jak oryginał: dłuższy nie zmieści się w przycisku."
 )
 
-NAZWY_JEZYKOW = {"en": "angielski", "pl": "polski"}
+# Nazwa języka DOCELOWEGO wpisywana do polecenia dla modelu. Po polsku, bo cały
+# prompt tłumacza jest po polsku i model dostaje jeden spójny tekst.
+NAZWY_JEZYKOW = {
+    "en": "angielski",
+    "cs": "czeski",
+    "de": "niemiecki",
+    "es": "hiszpański",
+    "uk": "ukraiński",
+    "pl": "polski",
+}
 
 
 async def _przetlumacz_partie(kod: str, teksty: list[str]) -> list[str]:

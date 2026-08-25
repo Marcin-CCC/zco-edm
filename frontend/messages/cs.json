@@ -1,0 +1,40 @@
+{
+  "common": {
+    "loading": "Načítání…"
+  },
+  "login": {
+    "email": "E-mailová adresa",
+    "error": "Přihlášení se nezdařilo",
+    "password": "Heslo",
+    "submit": "Přihlásit se",
+    "submitting": "Přihlašování…",
+    "title": "Přihlášení"
+  },
+  "nav": {
+    "accessList": "Seznam přístupů",
+    "answers": "Přehled odpovědí",
+    "chat": "Chat s AI",
+    "dashboard": "Přehled",
+    "docSchemas": "Schémata dokumentů",
+    "fileQueue": "Fronta souborů",
+    "files": "Soubory",
+    "languages": "Jazyky",
+    "search": "Vyhledávání",
+    "settings": "Nastavení",
+    "users": "Uživatelé"
+  },
+  "shell": {
+    "language": "Jazyk rozhraní",
+    "logout": "Odhlásit se",
+    "manual": "Návod k použití",
+    "openMenu": "Otevřít menu",
+    "profile": "Profil"
+  },
+  "sidebar": {
+    "collapse": "Sbalit menu",
+    "expand": "Rozbalit menu",
+    "helpAction": "Kontaktovat podporu",
+    "helpText": "Obraťte se na technickou podporu.",
+    "helpTitle": "Potřebujete pomoc?"
+  }
+}

@@ -21,7 +21,7 @@ import os
 BASE_LOCALE = "pl"
 
 # Kolejność ma znaczenie: tak samo idą przyciski w przełączniku.
-SUPPORTED_LOCALES: tuple[str, ...] = ("pl", "en")
+SUPPORTED_LOCALES: tuple[str, ...] = ("pl", "en", "cs", "de", "es", "uk")
 
 
 def normalize_locale(value: str | None) -> str | None:
