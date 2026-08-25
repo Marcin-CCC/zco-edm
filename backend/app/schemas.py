@@ -36,6 +36,9 @@ class ProfileUpdate(BaseModel):
     username: Optional[str] = None
     full_name: Optional[str] = None
     email: Optional[str] = None
+    # Język interfejsu. Ustawia go przełącznik w górnej belce, tym samym żądaniem
+    # co reszta profilu — osobny endpoint dokładałby drugą drogę do tej samej kolumny.
+    locale: Optional[str] = None
 
 
 class PasswordChange(BaseModel):
@@ -49,6 +52,8 @@ class UserResponse(UserBase):
     created_at: datetime
     updated_at: datetime
     last_login: Optional[datetime] = None
+    # NULL = brak wyboru; front bierze wtedy domyślny język wdrożenia.
+    locale: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -63,6 +68,8 @@ class UserInDB(UserBase):
     created_at: datetime
     updated_at: datetime
     last_login: Optional[datetime] = None
+    # NULL = brak wyboru; front bierze wtedy domyślny język wdrożenia.
+    locale: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

@@ -8,6 +8,8 @@ interface User {
   role: string;
   is_active: boolean;
   is_admin?: boolean;
+  /** Język interfejsu wybrany przy koncie. Puste = domyślny dla wdrożenia. */
+  locale?: string | null;
   created_at: string;
   updated_at: string;
   last_login?: string;

@@ -28,7 +28,7 @@ elementem zwykłej drogi powrotu.
 
 ---
 
-## 1. Cytowania i odmowy niezależne od języka
+## 1. Cytowania i odmowy niezależne od języka — ZROBIONE (1.5.21, 25.08.2026)
 
 **Dlaczego pierwsze.** Dziś oba mechanizmy są zaczepione o dosłowne polskie napisy.
 Po angielsku model przestaje wystawiać `[Źródło N]`, więc wszystkie źródła dostają
@@ -52,25 +52,40 @@ rozpoznana: trafi do historii i zachowa źródła, z których model nie skorzyst
    Kolejność: najpierw obie aplikacje na 1.5.21, potem „Publish" — jeden workflow
    obsługuje i ZCO DM, i HiRS.
 
-**Sprawdzenie:** pytanie po polsku daje ten sam wynik co dziś (cytowania klikalne,
-odmowa rozpoznana, źródła wyzerowane); to samo pytanie po angielsku daje cytowania.
+**Sprawdzenie — wynik na ruchu produkcyjnym (25.08.2026, ZCO DM, 5 odpowiedzi):**
+odpowiedzi po angielsku mają cytowania (4 z 6 i 3 z 3 źródeł podświetlone; wcześniej
+zawsze 0), liczba podświetleń zgadza się z unikalnymi numerami w treści, odmowy
+zapisały się jako `[[BRAK]]` z pustą listą źródeł, a `[Źródło N]` / `Source N`
+nie wystąpiły ani razu.
 
 **Ryzyko:** to jedyny krok dotykający n8n. Wersja przejściowa rozumie obie postacie,
 więc kolejność wdrożeń nie ma znaczenia.
 
 ---
 
-## 2. Infrastruktura i18n i przełącznik języka
+## 2. Infrastruktura i18n i przełącznik języka — ZROBIONE (1.5.22, 25.08.2026)
 
-- `next-intl`: dostawca, katalog kluczy, polski jako język bazowy.
-- Wybór języka: domyślny dla wdrożenia (zmienna środowiskowa) + nadpisanie per konto.
-  Nowa kolumna `users.locale` (NULL = domyślny wdrożenia).
-- Przełącznik **na lewo od awatara** w górnej belce, kody ISO 639-1 (`PL`, `EN`).
-- Języka przeglądarki NIE używamy jako źródła prawdy — na wspólnym komputerze
-  interfejs zmieniałby język między zmianami.
+- `next-intl` 4.13: `src/i18n/request.ts` czyta język na serwerze, katalogi w
+  `frontend/messages/*.json`, polski bazowy. Katalog innego języka jest DOKŁADANY
+  na polski, nie zastępuje go — stąd zapas polskim zdaniem zamiast kluczem.
+- Skąd bierze się język, w tej kolejności: ciasteczko `locale` → `DEFAULT_LOCALE`
+  wdrożenia → polski. Wybór zapisuje się też przy koncie (nowa kolumna
+  `users.locale`, NULL = brak wyboru) i wraca przy logowaniu na innym komputerze.
+- Dwie zmienne środowiskowe: `UI_LANGUAGES` (lista włączonych; przy jednej pozycji
+  przełącznik znika sam) i `DEFAULT_LOCALE`. Obie w obu plikach compose.
+- Przełącznik **na lewo od awatara**, kody ISO 639-1; wybrany znaczony ptaszkiem,
+  nie niebieskim tłem — w layoucie 1.5 niebieski jest kolorem akcji.
+- Języka przeglądarki NIE pytamy.
 
-**Sprawdzenie:** przełącznik działa, wybór przeżywa przeładowanie i wylogowanie,
-przy braku tłumaczenia widać tekst polski (a nie klucz).
+**Sprawdzenie (zmierzone na zbudowanym obrazie, nie na kodzie):** ciasteczko `pl`,
+`en`, `en-US` daje `<html lang>` zgodny z wyborem, `de` i brak ciasteczka wracają do
+domyślnego; `DEFAULT_LOCALE=en` przestawia stronę bez ciasteczka; usunięcie klucza
+`shell.logout` z `en.json` pokazuje „Wyloguj", a nie `shell.logout`; przy
+`UI_LANGUAGES=pl` stare ciasteczko `en` nie ma prawa przejść.
+
+**Zostaje do kroku 3:** przetłumaczone jest wyłącznie menu przy awatarze (5 napisów).
+Ekran logowania nie ma przełącznika — górnej belki tam nie ma; pierwsze wejście jest
+w języku wdrożenia, przełączenie po zalogowaniu zostaje na stałe.
 
 ---
 

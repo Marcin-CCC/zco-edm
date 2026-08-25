@@ -393,3 +393,23 @@ export function IconStop(p: Props) {
     </Svg>
   );
 }
+
+/** Sama „ptaszka" — zaznaczenie wybranej pozycji w menu. */
+export function IconCheck(p: Props) {
+  return (
+    <Svg {...p}>
+      <path d="M20 6L9 17l-5-5" />
+    </Svg>
+  );
+}
+
+/** Kula ziemska — język interfejsu. */
+export function IconGlobe(p: Props) {
+  return (
+    <Svg {...p}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18" />
+    </Svg>
+  );
+}

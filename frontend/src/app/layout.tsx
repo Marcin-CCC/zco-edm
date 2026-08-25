@@ -1,7 +1,11 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import { NextIntlClientProvider } from 'next-intl';
+import { getLocale, getMessages } from 'next-intl/server';
 import './globals.css';
+import { LocaleProvider } from '@/components/locale-provider';
 import { MarkaProvider } from '@/components/marka-provider';
+import { enabledLocales } from '@/i18n/locales';
 import { markaAktualna } from '@/lib/marka';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -37,10 +41,22 @@ export default async function RootLayout({
     '--marka-naglowek': marka.naglowek,
   } as React.CSSProperties;
 
+  // Język i teksty czytamy TU, w komponencie serwerowym, i podajemy w dół tak samo
+  // jak markę. Dzięki temu właściwy tekst jest w HTML-u już przy pierwszym renderze
+  // — bez mignięcia polskiego napisu przed przełączeniem na angielski po hydratacji.
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <html lang="pl" style={zmienneKoloru}>
+    // `lang` musi iść za wyborem: to z niego korzystają czytniki ekranu przy doborze
+    // głosu i przeglądarka przy propozycji tłumaczenia strony.
+    <html lang={locale} style={zmienneKoloru}>
       <body className={inter.className}>
-        <MarkaProvider marka={marka}>{children}</MarkaProvider>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <LocaleProvider locales={enabledLocales()}>
+            <MarkaProvider marka={marka}>{children}</MarkaProvider>
+          </LocaleProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

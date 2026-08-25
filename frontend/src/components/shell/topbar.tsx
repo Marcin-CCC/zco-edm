@@ -10,9 +10,11 @@
  */
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
 
 import { IconChevronDown, IconMenu } from '@/components/icons';
+import { LanguageSwitcher } from '@/components/shell/language-switcher';
 import { roleLabel, useRoles } from '@/lib/roles';
 import { useAuth } from '@/lib/store';
 import { inicjaly } from '@/lib/user';
@@ -20,6 +22,7 @@ import { inicjaly } from '@/lib/user';
 export function Topbar({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
   const { user, logout } = useAuth();
   const { roles } = useRoles();
+  const t = useTranslations('shell');
   const pathname = usePathname();
   const [otwarte, setOtwarte] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -45,57 +48,61 @@ export function Topbar({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
       <button
         onClick={onOpenMobileMenu}
         className="rounded-ctl p-2 text-app-text hover:bg-app-hover lg:hidden"
-        aria-label="Otwórz menu"
+        aria-label={t('openMenu')}
       >
         <IconMenu size={22} />
       </button>
       <div className="hidden lg:block" />
 
-      <div className="relative flex items-center gap-3.5" ref={menuRef}>
-        <button
-          onClick={() => setOtwarte((v) => !v)}
-          className="flex items-center gap-3.5 rounded-ctl px-1 py-1 hover:bg-app-hover"
-          aria-haspopup="menu"
-          aria-expanded={otwarte}
-        >
-          <span className="grid h-[38px] w-[38px] flex-none place-items-center rounded-full bg-app-blue font-bold text-white">
-            {inicjaly(user?.full_name, user?.username)}
-          </span>
-          <span className="hidden text-left leading-tight sm:block">
-            <strong className="block text-sm text-app-text">{user?.full_name || user?.username}</strong>
-            <span className="text-xs text-app-muted">{roleLabel(roles, user?.role)}</span>
-          </span>
-          <IconChevronDown size={16} className="text-app-muted" />
-        </button>
+      <div className="flex items-center gap-1">
+        <LanguageSwitcher />
 
-        {otwarte && (
-          <div
-            role="menu"
-            className="absolute right-0 top-[52px] w-52 rounded-xl border border-app-line bg-white py-1 shadow-card"
+        <div className="relative flex items-center gap-3.5" ref={menuRef}>
+          <button
+            onClick={() => setOtwarte((v) => !v)}
+            className="flex items-center gap-3.5 rounded-ctl px-1 py-1 hover:bg-app-hover"
+            aria-haspopup="menu"
+            aria-expanded={otwarte}
           >
-            <div className="border-b border-app-line px-3 py-2">
-              <div className="truncate text-sm font-medium text-app-text">
-                {user?.full_name || user?.username}
-              </div>
-              <div className="truncate text-xs text-app-muted">{user?.email}</div>
-            </div>
-            <Link href="/dashboard/profil" role="menuitem" className="block px-3 py-2 text-sm text-app-text hover:bg-app-hover">
-              Profil
-            </Link>
-            {/* „Instrukcja", nie „Pomoc" — pomoc w menu bocznym prowadzi do kontaktu
-                ze wsparciem i dwie pozycje o tej samej nazwie myliły użytkowników. */}
-            <Link href="/dashboard/pomoc" role="menuitem" className="block px-3 py-2 text-sm text-app-text hover:bg-app-hover">
-              Instrukcja
-            </Link>
-            <button
-              onClick={() => { setOtwarte(false); logout(); }}
-              role="menuitem"
-              className="block w-full px-3 py-2 text-left text-sm text-app-danger hover:bg-app-hover"
+            <span className="grid h-[38px] w-[38px] flex-none place-items-center rounded-full bg-app-blue font-bold text-white">
+              {inicjaly(user?.full_name, user?.username)}
+            </span>
+            <span className="hidden text-left leading-tight sm:block">
+              <strong className="block text-sm text-app-text">{user?.full_name || user?.username}</strong>
+              <span className="text-xs text-app-muted">{roleLabel(roles, user?.role)}</span>
+            </span>
+            <IconChevronDown size={16} className="text-app-muted" />
+          </button>
+
+          {otwarte && (
+            <div
+              role="menu"
+              className="absolute right-0 top-[52px] w-52 rounded-xl border border-app-line bg-white py-1 shadow-card"
             >
-              Wyloguj
-            </button>
-          </div>
-        )}
+              <div className="border-b border-app-line px-3 py-2">
+                <div className="truncate text-sm font-medium text-app-text">
+                  {user?.full_name || user?.username}
+                </div>
+                <div className="truncate text-xs text-app-muted">{user?.email}</div>
+              </div>
+              <Link href="/dashboard/profil" role="menuitem" className="block px-3 py-2 text-sm text-app-text hover:bg-app-hover">
+                {t('profile')}
+              </Link>
+              {/* „Instrukcja", nie „Pomoc" — pomoc w menu bocznym prowadzi do kontaktu
+                  ze wsparciem i dwie pozycje o tej samej nazwie myliły użytkowników. */}
+              <Link href="/dashboard/pomoc" role="menuitem" className="block px-3 py-2 text-sm text-app-text hover:bg-app-hover">
+                {t('manual')}
+              </Link>
+              <button
+                onClick={() => { setOtwarte(false); logout(); }}
+                role="menuitem"
+                className="block w-full px-3 py-2 text-left text-sm text-app-danger hover:bg-app-hover"
+              >
+                {t('logout')}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

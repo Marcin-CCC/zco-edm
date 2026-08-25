@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi, versionApi } from '@/lib/api';
+import { ustawJezykZKonta } from '@/lib/locale';
 import { useAuth } from '@/lib/store';
 import { useMarka } from '@/components/marka-provider';
 import { Logo } from '@/components/shell/logo';
@@ -37,10 +38,17 @@ export default function LoginPage() {
         role: data.role,
         is_active: true,
         is_admin: data.is_admin,
+        locale: data.locale ?? null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         last_login: data.last_login,
       });
+      // Konto niosące własny język wymaga PEŁNEGO wejścia na pulpit: teksty ustala
+      // układ główny na serwerze, a przy nawigacji klienckiej Next go nie odtwarza.
+      if (ustawJezykZKonta(data.locale)) {
+        window.location.href = '/dashboard';
+        return;
+      }
       router.push('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Błąd logowania');

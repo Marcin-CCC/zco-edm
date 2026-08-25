@@ -85,6 +85,10 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
+    # Język interfejsu wybrany przez tę osobę. NULL = brak wyboru, czyli domyślny
+    # dla wdrożenia (zob. app/locales.py). Kolumna DOKŁADANA — starszy obraz, który
+    # o niej nie wie, działa dalej bez zmian.
+    locale = Column(String(5), nullable=True)
 
     # Relacje
     uploaded_files = relationship("File", foreign_keys="File.uploaded_by", back_populates="uploader")

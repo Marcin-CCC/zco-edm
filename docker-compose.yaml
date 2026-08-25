@@ -41,6 +41,12 @@ services:
       - HELP_VARIANT=${HELP_VARIANT:-hirs}
       - BRAND_ICON=${BRAND_ICON:-/ikona-hirs.svg}
       - BRAND_ICON_APPLE=${BRAND_ICON_APPLE:-/ikona-hirs.png}
+      # Języki interfejsu. `UI_LANGUAGES` to lista WŁĄCZONYCH na tym wdrożeniu —
+      # przy jednym języku przełącznik w górnej belce znika, bo nie ma między czym
+      # wybierać. `DEFAULT_LOCALE` to język dla osoby, która nic nie wybrała.
+      # Polski jest bazowy: brakujące tłumaczenie pokazuje polskie zdanie, nie klucz.
+      - UI_LANGUAGES=${UI_LANGUAGES:-pl,en}
+      - DEFAULT_LOCALE=${DEFAULT_LOCALE:-pl}
     depends_on:
       backend:
         condition: service_started

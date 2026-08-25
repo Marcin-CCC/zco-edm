@@ -123,7 +123,7 @@ export const authApi = {
     }),
 
   /** Zmiana WŁASNYCH danych konta (strona Profil). Rola i status tu nie wchodzą. */
-  updateProfile: (data: { username?: string; full_name?: string; email?: string }) =>
+  updateProfile: (data: { username?: string; full_name?: string; email?: string; locale?: string }) =>
     apiRequest<any>('/api/auth/me', {
       method: 'PATCH',
       body: data,

@@ -1,0 +1,9 @@
+{
+  "shell": {
+    "openMenu": "Otwórz menu",
+    "profile": "Profil",
+    "manual": "Instrukcja",
+    "logout": "Wyloguj",
+    "language": "Język interfejsu"
+  }
+}

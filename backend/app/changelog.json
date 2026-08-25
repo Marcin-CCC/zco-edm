@@ -1,6 +1,19 @@
 {
   "entries": [
     {
+      "version": "1.5.22",
+      "date": "2026-08-25",
+      "title": "Przelacznik jezyka interfejsu",
+      "changes": [
+        "W gornej belce, po lewej stronie awatara, pojawil sie przelacznik jezyka. Pokazuje dwuliterowy kod (PL, EN), a po rozwinieciu pelne nazwy jezykow; wybrany jest zaznaczony ptaszkiem.",
+        "Wybor zostaje przy koncie, wiec ta sama osoba dostaje swoj jezyk takze po zalogowaniu na innym komputerze. Przezywa tez wylogowanie — ekran logowania wraca w wybranym jezyku.",
+        "Jezyka przegladarki NIE pytamy. Na wspolnym komputerze interfejs zmienialby jezyk miedzy zmianami bez niczyjej decyzji.",
+        "Polski jest jezykiem bazowym: gdy dla innego jezyka brakuje tlumaczenia, widac polskie zdanie, a nie techniczna nazwe pola.",
+        "To dopiero rusztowanie — na razie przetlumaczone jest menu przy awatarze. Pozostale ekrany dochodza w kolejnych wydaniach.",
+        "Wdrozenie moze zostac jednojezyczne: przy jednym wlaczonym jezyku przelacznik znika sam, bo nie ma miedzy czym wybierac."
+      ]
+    },
+    {
       "version": "1.5.21",
       "date": "2026-08-25",
       "title": "Cytowania i odmowa nie zaleza juz od jezyka odpowiedzi",

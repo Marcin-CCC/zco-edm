@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import ROLE_ADMIN, User
 from app.roles.service import ensure_role_exists
+from app.locales import SUPPORTED_LOCALES, normalize_locale
 from app.schemas import PasswordChange, ProfileUpdate, UserCreate, UserInDB, UserUpdate
 from app.auth.jwt_handler import hash_password, verify_password, create_access_token, get_current_user
 from app.config import settings
@@ -166,6 +167,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
         "is_admin": user.is_admin,
         "role": user.role,
         "is_active": user.is_active,
+        "locale": user.locale,
         "last_login": user.last_login.isoformat() if user.last_login else None
     }
 
@@ -241,6 +243,20 @@ async def update_own_profile(
         if (nowe or None) != current_user.full_name:
             current_user.full_name = nowe or None
             zmiany.append("full_name")
+
+    if payload.locale is not None:
+        # Pusty napis = powrót do domyślnego języka wdrożenia, dlatego NULL, nie "".
+        # Nierozpoznany kod odrzucamy: kolumna wskazuje katalog tłumaczeń i wpis bez
+        # katalogu zostawiłby użytkownika z interfejsem, którego nie ma czym wypełnić.
+        nowy = normalize_locale(payload.locale) if payload.locale.strip() else None
+        if payload.locale.strip() and nowy is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Nieobsługiwany język interfejsu. Dostępne: {', '.join(SUPPORTED_LOCALES)}.",
+            )
+        if nowy != current_user.locale:
+            current_user.locale = nowy
+            zmiany.append("locale")
 
     if zmiany:
         db.commit()
