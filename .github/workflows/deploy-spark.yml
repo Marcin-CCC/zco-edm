@@ -198,7 +198,15 @@ jobs:
           # (HIRS), więc wdrożenie klienckie musi nazwać się samo — inaczej po
           # najbliższym wdrożeniu zmieniłoby nazwę i kolory.
           echo "APP_NAME=ZCO DM" >> .env
-          echo "APP_DESCRIPTION=System zarządzania dokumentami" >> .env
+          # APP_DESCRIPTION celowo NIE jest ustawiane. Puste = podpis pod nazwą
+          # bierze się z katalogu tłumaczeń, więc idzie za językiem interfejsu.
+          # Wpisany tu tekst był po polsku i nie tłumaczył się na żaden inny język.
+          # Wartość ustawia się tylko wtedy, gdy podpis jest nazwą własną, której
+          # tłumaczyć nie wolno (jak rozwinięcie skrótu HiRS).
+          #
+          # UWAGA: ten plik jest źródłem prawdy dla `.env` na Sparku — krok
+          # wdrożeniowy tworzy go od nowa przy każdym przebiegu (`> .env`).
+          # Ręczna zmiana `.env` na serwerze znika przy najbliższym wdrożeniu.
           echo "BRAND_PRIMARY=#1d2a4d" >> .env
           echo "BRAND_ACCENT=#1fc8ba" >> .env
           echo "LOGIN_EMAIL_PLACEHOLDER=admin@zco.pl" >> .env

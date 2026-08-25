@@ -1,11 +1,11 @@
 {
   "entries": [
     {
-      "version": "1.5.29",
+      "version": "1.5.30",
       "date": "2026-08-25",
       "title": "Podpis pod nazwa aplikacji idzie za jezykiem",
       "changes": [
-        "Podpis pod nazwa na ekranie logowania tlumaczy sie razem z reszta interfejsu. Po wydaniu 1.5.28 konfiguracja wdrozenia niosla jeszcze podpis innej instancji i to on sie pokazywal.",
+        "Podpis pod nazwa na ekranie logowania tlumaczy sie razem z reszta interfejsu. Wczesniej byl wpisany po polsku w konfiguracji wdrozenia i zostawal polski niezaleznie od wybranego jezyka.",
         "Wdrozenie, ktorego podpis jest nazwa wlasna i nie wolno go tlumaczyc, wpisuje go samo — tak zostaje na demo HiRS."
       ]
     },
