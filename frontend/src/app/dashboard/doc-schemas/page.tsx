@@ -35,6 +35,7 @@ const EMPTY_FORM = {
   criteria: '',
   name_pattern: '',
   active: true,
+  external: false,
   fields: [] as FieldRow[],
 };
 
@@ -88,6 +89,7 @@ export default function DocSchemasPage() {
       criteria: s.criteria || '',
       name_pattern: s.name_pattern || '',
       active: s.active,
+      external: !!s.external,
       fields: (s.fields || []).map((f) => {
         const { baseType, enumValues } = parseType(f.type);
         return { name: f.name || '', baseType, enumValues, hint: f.hint || '' };
@@ -125,6 +127,7 @@ export default function DocSchemasPage() {
       criteria: form.criteria.trim() || null,
       name_pattern: form.name_pattern.trim() || null,
       active: form.active,
+      external: form.external,
       fields: form.fields
         .filter((f) => f.name.trim())
         .map((f) => ({
@@ -313,6 +316,26 @@ export default function DocSchemasPage() {
                 className="rounded border-app-line text-app-blue"
               />
               Aktywny
+            </label>
+
+            {/* Znacznik przy TYPIE, nie przy pliku: jeden dostawca = jeden typ, więc
+                zaznacza się go raz, a oznaczenie przeżywa przenoszenie plików między
+                folderami. Ta sama wartość posłuży później do zastrzeżenia przy
+                cytowaniu odpowiedzi w czacie. */}
+            <label className="flex items-start gap-2 text-[13px] text-app-text">
+              <input
+                type="checkbox"
+                checked={form.external}
+                onChange={(e) => setForm({ ...form, external: e.target.checked })}
+                className="mt-0.5 rounded border-app-line text-app-blue"
+              />
+              <span>
+                Materiał od dostawcy zewnętrznego
+                <span className="block text-[12px] text-app-muted">
+                  Opisy produktów i inne treści spoza organizacji. Dokumenty tego typu
+                  dostają na liście oznaczenie „zewnętrzny”.
+                </span>
+              </span>
             </label>
 
             <div className="flex justify-end gap-2">

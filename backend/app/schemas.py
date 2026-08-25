@@ -97,6 +97,8 @@ class FileResponse(FileBase):
     # Kategoria zastąpiła status w tabeli plików: status ma znaczenie w kolejce
     # przetwarzania, a na liście dokumentów użytkownik szuka rodzaju dokumentu.
     doc_type: Optional[str] = None
+    # Data ważności treści (materiały od dostawców) — zob. File.stan_na
+    stan_na: Optional[str] = None
     original_filename: Optional[str] = None
     created_at: datetime
     updated_at: datetime
@@ -330,6 +332,8 @@ class DocTypeSchemaBase(BaseModel):
     # Wzorzec nazwy pliku, np. „{typ}-nr-{numer}-{data}"; pusty = bez generowania
     name_pattern: Optional[str] = None
     active: bool = True
+    # Materiał dostawcy, nie dokument organizacji — zob. DocTypeSchema.external
+    external: bool = False
 
 
 class DocTypeSchemaResponse(DocTypeSchemaBase):

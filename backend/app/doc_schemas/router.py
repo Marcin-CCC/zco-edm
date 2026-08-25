@@ -127,6 +127,7 @@ def upsert_schema(
         existing.fields = fields_data
         existing.name_pattern = wzorzec
         existing.active = payload.active
+        existing.external = payload.external
         db.commit()
         db.refresh(existing)
         logger.info(f"[DOC-SCHEMAS] Zaktualizowano schemat '{slug}'")
@@ -135,6 +136,7 @@ def upsert_schema(
     new = DocTypeSchema(
         slug=slug, name=payload.name, criteria=payload.criteria,
         fields=fields_data, name_pattern=wzorzec, active=payload.active,
+        external=payload.external,
     )
     db.add(new)
     db.commit()

@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/primitives';
 import { docSchemasApi, filesApi, foldersApi, settingsApi } from '@/lib/api';
 import type { SortKey, SortOrder } from '@/lib/api';
-import { czasLokalny, kiedy } from '@/lib/czas';
+import { czasLokalny, dataKalendarzowa, kiedy } from '@/lib/czas';
 import { ROLE_ADMIN, isAdmin as czyAdmin, roleLabel, useRoles } from '@/lib/roles';
 import { useAuth } from '@/lib/store';
 
@@ -29,6 +29,8 @@ interface File {
   uploaded_by: number;
   status: string;
   doc_type?: string | null;
+  /** Data ważności treści — materiały od dostawców. Nie mylić z `created_at`. */
+  stan_na?: string | null;
   original_filename?: string | null;
   created_at: string;
   updated_at: string;
@@ -177,6 +179,7 @@ function FilesPageInner() {
   // Słownik kategorii: kolumna KATEGORIA i okno nadawania nazw pokazują nazwę
   // czytelną („Zarządzenie"), a nie slug z rejestru („zarzadzenie").
   const [kategorie, setKategorie] = useState<Record<string, string>>({});
+  const [zewnetrzne, setZewnetrzne] = useState<Set<string>>(new Set());
   const [oknoAkcji, setOknoAkcji] = useState(false);
   const [komunikat, setKomunikat] = useState('');
   const [renameTarget, setRenameTarget] = useState<number[] | null>(null);
@@ -618,9 +621,19 @@ function FilesPageInner() {
   useEffect(() => {
     docSchemasApi
       .list()
-      .then((sch) => setKategorie(Object.fromEntries((sch || []).map((x: any) => [x.slug, x.name]))))
+      .then((sch) => {
+        setKategorie(Object.fromEntries((sch || []).map((x: any) => [x.slug, x.name])));
+        // Znacznik materiału zewnętrznego wisi PRZY TYPIE dokumentu, nie przy pliku —
+        // administrator zaznacza go raz na dostawcę (zob. DocTypeSchema.external).
+        setZewnetrzne(new Set((sch || []).filter((x: any) => x.external).map((x: any) => x.slug)));
+      })
       .catch(() => { /* brak słownika = pokażemy slug */ });
   }, []);
+
+  const czyZewnetrzny = useCallback(
+    (slug: string | null | undefined) => !!slug && zewnetrzne.has(slug),
+    [zewnetrzne],
+  );
 
   const etykietaKategorii = useCallback(
     (slug: string | null | undefined) => {
@@ -1009,6 +1022,10 @@ function FilesPageInner() {
                     <Td><FileTypeIcon filename={file.filename} /></Td>
                     <Td>
                       <span className="block break-words font-bold text-app-text">{file.filename}</span>
+                      {/* Data ważności TREŚCI, nie data dodania pliku. Te dwie się różnią
+                          i właśnie na tym polega pułapka: kolumna „Data dodania" pokaże
+                          dzień importu także wtedy, gdy materiał jest sprzed roku. */}
+                      {file.stan_na && <Sub>stan na {dataKalendarzowa(file.stan_na)}</Sub>}
                       {file.original_filename && file.original_filename !== file.filename && (
                         <Sub>pierwotnie: {file.original_filename}</Sub>
                       )}
@@ -1018,7 +1035,19 @@ function FilesPageInner() {
                         a na liście dokumentów szuka się rodzaju dokumentu. */}
                     <Td>
                       {file.doc_type && file.doc_type !== 'inny' ? (
-                        <Badge tone="purple">{etykietaKategorii(file.doc_type)}</Badge>
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <Badge tone="purple">{etykietaKategorii(file.doc_type)}</Badge>
+                          {/* Obwódka zamiast wypełnienia: kolor wypełnienia niesie kategorię,
+                              a stan odróżniamy kształtem — zasada z layoutu 1.5. */}
+                          {czyZewnetrzny(file.doc_type) && (
+                            <span
+                              title="Materiał od dostawcy zewnętrznego, nie dokument organizacji"
+                              className="rounded-ctl border border-app-line px-1.5 py-0.5 text-[11px] text-app-muted"
+                            >
+                              zewnętrzny
+                            </span>
+                          )}
+                        </span>
                       ) : (
                         <span className="text-[11px] text-app-muted">nierozpoznana</span>
                       )}
@@ -1354,6 +1383,12 @@ function FilesPageInner() {
             <Szczegol etykieta="Folder" wartosc={selectedFile.folder?.path || 'katalog główny'} />
             <Szczegol etykieta="Wczytał" wartosc={selectedFile.uploader?.username || '—'} />
             <Szczegol etykieta="Kategoria" wartosc={etykietaKategorii(selectedFile.doc_type)} />
+            {selectedFile.stan_na && (
+              <Szczegol
+                etykieta="Stan na"
+                wartosc={`${dataKalendarzowa(selectedFile.stan_na)}${czyZewnetrzny(selectedFile.doc_type) ? ' · materiał dostawcy' : ''}`}
+              />
+            )}
             {selectedFile.original_filename && selectedFile.original_filename !== selectedFile.filename && (
               <Szczegol etykieta="Nazwa pierwotna" wartosc={selectedFile.original_filename} />
             )}

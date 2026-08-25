@@ -40,6 +40,18 @@ export function dataLokalna(
   return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pl-PL', opcje);
 }
 
+/** Sama data kalendarzowa („2026-08-21" → „21.08.2026"), BEZ przeliczania stref.
+ *
+ * Osobna funkcja, bo `dataLokalna` dokłada „Z" i przelicza na strefę użytkownika —
+ * przy dacie bez godziny potrafi to cofnąć ją o jeden dzień. Data ważności treści
+ * jest zapisem kalendarzowym („stan na 21 sierpnia"), a nie momentem w czasie.
+ */
+export function dataKalendarzowa(wartosc?: string | null): string {
+  if (!wartosc) return '—';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(wartosc);
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : wartosc;
+}
+
 /** Sama godzina w strefie użytkownika. */
 export function godzinaLokalna(
   iso?: string | null,

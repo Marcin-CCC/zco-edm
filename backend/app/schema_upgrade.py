@@ -69,6 +69,7 @@ def convert_role_columns_to_text(engine: Engine) -> None:
 NEW_COLUMNS = [
     ("files", "original_filename", "varchar(500)"),
     ("doc_type_schemas", "name_pattern", "varchar(200)"),
+    ("doc_type_schemas", "external", "boolean NOT NULL DEFAULT false"),
 ]
 
 

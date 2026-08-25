@@ -33,3 +33,7 @@ httpx==0.28.1
 # === Utilities ===
 aiofiles==25.1.0
 openpyxl==3.1.5
+# Generowanie PDF-ów z importowanych plików Markdown (app/markdown_import.py).
+# Czcionka DejaVu leży w app/fonts/ — wchodzi do obrazu razem z kodem, więc PDF
+# wygląda tak samo w testach i na Sparku, bez pakietów systemowych w obrazie.
+fpdf2==2.8.8

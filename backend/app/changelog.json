@@ -1,6 +1,18 @@
 {
   "entries": [
     {
+      "version": "1.5.19",
+      "date": "2026-08-25",
+      "title": "Import materialow od dostawcow (pliki Markdown) z PDF-em dla czytelnika",
+      "changes": [
+        "Aplikacja przyjmuje pliki .md z naglowkiem opisujacym material (tak wygladaja opisy produktow pobrane ze stron dostawcow). Przy wgraniu powstaje z nich PDF — to on trafia do wyszukiwania i to jego otwiera czytelnik, wiec nikt nie oglada surowego pliku tekstowego.",
+        "Pola dokumentu (kategoria, producent, dostawca, data) czytamy wprost z naglowka pliku, bez pytania modelu. Sa dokladne zamiast prawdopodobnych i widoczne od razu po wgraniu, a nie dopiero po przetworzeniu.",
+        "Data waznosci tresci jest widoczna pod nazwa dokumentu na liscie plikow, w jego szczegolach oraz w glowce i stopce PDF-a. Kolumna „Data dodania” mowi, kiedy plik trafil do systemu — ta data mowi, z kiedy pochodzi tresc, co przy materialach ze stron dostawcow bywa czyms zupelnie innym.",
+        "W Schematach dokumentow doszedl przelacznik „Material od dostawcy zewnetrznego”. Dokumenty takiego typu dostaja na liscie oznaczenie „zewnetrzny”, zeby nie pomylic opisu produktu z procedura organizacji.",
+        "Aby wlaczyc te mozliwosc, administrator dopisuje md do dozwolonych rozszerzen w Ustawieniach aplikacji."
+      ]
+    },
+    {
       "version": "1.5.18",
       "date": "2026-08-24",
       "title": "Stronicowanie Listy odpowiedzi i filtry liczone na calosci",

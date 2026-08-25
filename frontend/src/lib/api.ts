@@ -481,6 +481,8 @@ export interface DocTypeSchema {
   /** Wzorzec nazwy pliku dla tego typu, np. „{typ}-nr-{numer}-{data}". */
   name_pattern?: string | null;
   active: boolean;
+  /** Materiał od dostawcy zewnętrznego, a nie dokument organizacji. */
+  external?: boolean;
 }
 
 // Wyszukiwanie po polach strukturalnych (#7B-2)

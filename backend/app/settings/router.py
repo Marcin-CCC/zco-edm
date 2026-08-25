@@ -60,7 +60,12 @@ def get_chat_webhook_url() -> str | None:
 # (Switch on file ext: pdf/docx/xlsx/odt). pptx NIE ma gałęzi — celowo poza listą.
 # odt idzie gałęzią tekstową: konwersja do DOCX (usługa 8084 /convert-to-docx),
 # a dalej tym samym Doclingiem co docx — PDF jako półprodukt gubiłby tabele.
-_DEFAULT_ALLOWED_EXTENSIONS = "pdf,docx,xlsx,odt"
+#
+# md jest wyjątkiem: n8n go NIE WIDZI. Backend zamienia plik na PDF jeszcze przed
+# zakolejkowaniem i do parsowania wysyła PDF, więc przepływ idzie istniejącą gałęzią
+# `pdf`. Dzięki temu kolejni dostawcy nie wymagają edycji przepływu w n8n.
+# Zob. app/markdown_import.py.
+_DEFAULT_ALLOWED_EXTENSIONS = "pdf,docx,xlsx,odt,md"
 
 
 def _parse_extensions(raw: str) -> list[str]:

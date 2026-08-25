@@ -335,16 +335,31 @@ async def run_extraction(file_id: int, schemas: list[dict], filename: str = "") 
 
     db = SessionLocal()
     try:
-        # Ręcznie zweryfikowany typ — nie nadpisuj auto-klasyfikacją (tylko sfinalizuj READY)
+        # Dwa powody, by NIE pytać modelu o typ i pola:
+        # * typ zatwierdzony ręcznie — człowiek już rozstrzygnął,
+        # * pola wzięte z nagłówka pliku `.md` — są dokładne, a nie prawdopodobne
+        #   (zob. app/markdown_import.py). Wołanie modelu mogłoby je tylko przekłamać
+        #   i zajęłoby kolejkę vLLM, która jest wąskim gardłem parsowania.
         vrow = db.query(FileModel).filter(FileModel.id == file_id).first()
+        meta_wejsciowe = vrow.metadata_ if vrow and isinstance(vrow.metadata_, dict) else {}
         already_verified = bool(
-            vrow and isinstance(vrow.metadata_, dict) and vrow.metadata_.get("doc_type_verified")
+            meta_wejsciowe.get("doc_type_verified")
+            or meta_wejsciowe.get("zrodlo_pol") == "naglowek-md"
         )
+
+        # Typ ustalony poza modelem i tak musi trafić do chunków — inaczej filtr po
+        # typie w wyszukiwarce nie zobaczyłby tych dokumentów.
+        if already_verified and meta_wejsciowe.get("doc_type"):
+            from app.qdrant_client import set_doc_type
+            try:
+                await asyncio.to_thread(set_doc_type, file_id, meta_wejsciowe["doc_type"])
+            except Exception as e:
+                logger.warning(f"[EXTRACT] Plik {file_id}: zapis typu do Qdranta nieudany: {e}")
 
         # 1) Klasyfikacja (best-effort), o ile typ nie został zatwierdzony ręcznie
         result = None
         if already_verified:
-            logger.info(f"[EXTRACT] Plik {file_id}: typ zweryfikowany ręcznie — pomijam auto-klasyfikację")
+            logger.info(f"[EXTRACT] Plik {file_id}: typ ustalony poza modelem — pomijam auto-klasyfikację")
         else:
             try:
                 text = await asyncio.to_thread(get_text_by_file_id, file_id)

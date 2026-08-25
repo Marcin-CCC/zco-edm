@@ -167,6 +167,20 @@ class File(Base):
         meta = self.metadata_ if isinstance(self.metadata_, dict) else {}
         return meta.get("doc_type")
 
+    @property
+    def stan_na(self) -> str | None:
+        """Data, na którą treść była aktualna — dla materiałów od dostawców.
+
+        Umowa zamiast konfiguracji: pole `pobrano` w polach dokumentu JEST datą
+        ważności treści. Skrypty pobierające strony dostawców nazywają je tak samo,
+        więc nie trzeba tego nigdzie deklarować. Data dodania pliku mówi co innego
+        (kiedy zaimportowaliśmy) i przy starszym materiale myli.
+        """
+        meta = self.metadata_ if isinstance(self.metadata_, dict) else {}
+        pola = meta.get("doc_fields") or {}
+        wartosc = pola.get("pobrano")
+        return str(wartosc) if wartosc else None
+
 
 # ==================== Historia rozmów czatu ====================
 class Conversation(Base):
@@ -366,5 +380,10 @@ class DocTypeSchema(Base):
     # to nazwy pól z `fields` oraz `{typ}`. Pusty = nazw nie generujemy.
     name_pattern = Column(String(200), nullable=True)
     active = Column(Boolean, default=True, nullable=False)
+    # Materiał od dostawcy zewnętrznego (opisy produktów pobrane ze strony
+    # producenta), a nie dokument organizacji. Znacznik siedzi PRZY TYPIE, nie
+    # przy pliku: użytkownik zakłada osobny typ na dostawcę, więc zaznacza to raz,
+    # a oznaczenie przeżywa przenoszenie plików między folderami.
+    external = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

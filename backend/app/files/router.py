@@ -177,6 +177,24 @@ async def upload_file(
     with open(storage_path, "wb") as buffer:
         buffer.write(content)
 
+    # Markdown: do parsowania i do czytania idzie WYGENEROWANY PDF, nie plik źródłowy.
+    # Dzięki temu przepływ n8n zostaje nietknięty (widzi zwykły `pdf`), a człowiek
+    # dostaje coś czytelnego zamiast bloku YAML. Zob. app/markdown_import.py.
+    md_import = None
+    if ext == "md":
+        from app.markdown_import import przygotuj
+        try:
+            md_import = przygotuj(storage_path)
+        except Exception as e:
+            logger.exception(f"[UPLOAD] Nie udało się przygotować PDF-a z {safe_name}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Nie udało się odczytać pliku Markdown: {e}",
+            )
+        storage_path = md_import["sciezka_pdf"]
+        safe_name = md_import["nazwa"]
+        relative_path = f"{os.path.basename(os.path.dirname(storage_path))}/{safe_name}"
+
     # Get file size
     file_size = os.path.getsize(storage_path)
 
@@ -187,6 +205,13 @@ async def upload_file(
     effective_path = storage_path
     if spark_transfer_enabled():
         try:
+            # Źródło `.md` też przenosimy — bez niego usuwanie pliku zostawiłoby
+            # na Sparku osieroconą połówkę pary.
+            if md_import:
+                transfer_to_spark(
+                    md_import["sciezka_md"],
+                    f"{os.path.basename(os.path.dirname(storage_path))}/"
+                    f"{os.path.basename(md_import['sciezka_md'])}")
             effective_path = transfer_to_spark(storage_path, relative_path)
         except RuntimeError as e:
             logger.error(f"[UPLOAD] Transfer na Sparka nie powiódł się: {e}")
@@ -200,12 +225,27 @@ async def upload_file(
         # nazwa w bazie MUSI być identyczna z fizyczną (dopasowanie źródeł czatu po nazwie)
         filename=safe_name,
         file_path=effective_path,
-        mime_type=get_mime_type(file.filename),
+        mime_type=get_mime_type(safe_name),
         size=file_size,
         folder_id=folder_id,
         uploaded_by=current_user.id,
         status=DocumentStatus.PENDING,
     )
+    if md_import:
+        # Pola prosto z nagłówka — bez wołania modelu. Zapisujemy je JUŻ TERAZ, żeby
+        # były widoczne od razu po wgraniu, a nie dopiero po sparsowaniu.
+        db_file.original_filename = md_import["nazwa_pierwotna"]
+        from app.doc_schemas.router import get_active_schemas
+        from app.markdown_import import typ_dokumentu
+        try:
+            nazwy = {s["slug"]: s.get("name") for s in get_active_schemas(db)}
+        except Exception:          # brak rejestru nie może zablokować wgrania
+            nazwy = {}
+        meta = {"doc_fields": md_import["pola"], "zrodlo_pol": "naglowek-md"}
+        typ = typ_dokumentu(md_import["naglowek"], nazwy)
+        if typ:
+            meta["doc_type"] = typ
+        db_file.metadata_ = meta
     db.add(db_file)
     db.commit()
     db.refresh(db_file)
@@ -233,6 +273,7 @@ async def upload_file(
         "folder_id": db_file.folder_id,
         "uploaded_by": db_file.uploaded_by,
         "doc_type": db_file.doc_type,
+        "stan_na": db_file.stan_na,
         "original_filename": db_file.original_filename,
         "status": db_file.status,
         "created_at": db_file.created_at,
@@ -382,6 +423,7 @@ def list_files(
             "folder_id": f.folder_id,
             "uploaded_by": f.uploaded_by,
             "doc_type": f.doc_type,
+            "stan_na": f.stan_na,
             "original_filename": f.original_filename,
             "status": f.status,
             "created_at": f.created_at,
@@ -858,6 +900,7 @@ def get_file(file_id: int, db: Session = Depends(get_db), current_user: User = D
         "folder_id": file_obj.folder_id,
         "uploaded_by": file_obj.uploaded_by,
         "doc_type": file_obj.doc_type,
+        "stan_na": file_obj.stan_na,
         "original_filename": file_obj.original_filename,
         "status": file_obj.status,
         "created_at": file_obj.created_at,
@@ -1017,6 +1060,7 @@ def update_file(
         "folder_id": file_obj.folder_id,
         "uploaded_by": file_obj.uploaded_by,
         "doc_type": file_obj.doc_type,
+        "stan_na": file_obj.stan_na,
         "original_filename": file_obj.original_filename,
         "status": file_obj.status,
         "created_at": file_obj.created_at,
@@ -1077,6 +1121,7 @@ def list_folder_files(folder_id: int, db: Session = Depends(get_db), current_use
             "folder_id": f.folder_id,
             "uploaded_by": f.uploaded_by,
             "doc_type": f.doc_type,
+            "stan_na": f.stan_na,
             "original_filename": f.original_filename,
             "status": f.status,
             "created_at": f.created_at,
