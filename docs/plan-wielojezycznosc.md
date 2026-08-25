@@ -47,8 +47,10 @@ rozpoznana: trafi do historii i zachowa źródła, z których model nie skorzyst
 2. Odmowa: model wystawia stały znacznik, którego backend nie pokazuje użytkownikowi,
    tylko podmienia na przetłumaczone zdanie. Rozpoznawanie odmowy przestaje zależeć
    od języka, a samo zdanie może być w języku interfejsu.
-3. Prompt w n8n — **zmiana po stronie użytkownika**, razem z „Publish". Gotowy tekst
-   dostarczony osobno.
+3. Prompt w n8n — **zmiana po stronie użytkownika**, razem z „Publish". Dokładna
+   instrukcja: [`n8n-zmiany-wielojezycznosc.md`](n8n-zmiany-wielojezycznosc.md).
+   Kolejność: najpierw obie aplikacje na 1.5.21, potem „Publish" — jeden workflow
+   obsługuje i ZCO DM, i HiRS.
 
 **Sprawdzenie:** pytanie po polsku daje ten sam wynik co dziś (cytowania klikalne,
 odmowa rozpoznana, źródła wyzerowane); to samo pytanie po angielsku daje cytowania.
