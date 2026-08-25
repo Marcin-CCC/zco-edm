@@ -41,23 +41,47 @@ logger = logging.getLogger(__name__)
 # (ponowienie po zmianie tematu) i nod Sources Gate w n8n (zerowanie źródeł).
 FORMULKA = "Niestety, nie znaleziono w dokumentach informacji na ten temat."
 
+# Znacznik braku odpowiedzi NIEZALEŻNY OD JĘZYKA. Prompt każe modelowi zwrócić samą tę
+# sekwencję, bez żadnego innego tekstu — dzięki temu rozpoznanie odmowy przestaje zależeć
+# od brzmienia polskiego zdania. Przy odpowiedzi po angielsku model wypisywał własne
+# tłumaczenie formułki i żaden z czterech mechanizmów (ten filtr, historia, ponowienie
+# w interfejsie, zerowanie źródeł w n8n) jej nie rozpoznawał: odmowa szła dalej jak
+# zwykła odpowiedź, razem ze źródłami, z których model nie skorzystał.
+#
+# Znacznik NIE trafia przed oczy użytkownika — zamienia go interfejs, na zdanie
+# w wybranym języku. Do bazy idzie znacznik, więc ta sama rozmowa czytana później
+# w innym języku pokaże odmowę w tym języku.
+ZNACZNIK_BRAKU = "[[BRAK]]"
+
+# Obie postacie naraz. Stara zostaje na czas przejścia: prompt w n8n zmienia człowiek
+# i „Publish" nie musi wypaść w tej samej minucie co wdrożenie kodu. Zostaje też
+# na zawsze dla rozmów zapisanych przed zmianą.
+_ODMOWY = (FORMULKA, ZNACZNIK_BRAKU)
+
 # Zapas na białe znaki za kropką: model kończy zwykle „…temat.\n". Ogon musi je objąć,
 # inaczej sam znak nowej linii zerwałby dopasowanie i formułka poszłaby dalej.
 _ZAPAS_BIALYCH = 8
 
 
-def _ogon(bufor: str) -> str:
-    """Najdłuższa końcówka `bufor`, która jest początkiem formułki (albo nią całą).
+def czy_odmowa(tekst: str) -> bool:
+    """Czy CAŁY tekst jest odmową — w dowolnej z obsługiwanych postaci."""
+    return (tekst or "").strip() in _ODMOWY
 
-    Zwraca "" gdy końcówka nie zapowiada formułki — wtedy cały bufor idzie dalej.
+
+def _ogon(bufor: str) -> str:
+    """Najdłuższa końcówka `bufor`, która jest początkiem odmowy (albo nią całą).
+
+    Zwraca "" gdy końcówka nie zapowiada odmowy — wtedy cały bufor idzie dalej.
     """
     n = len(bufor)
-    for k in range(min(n, len(FORMULKA) + _ZAPAS_BIALYCH), 0, -1):
+    najdluzsza = max(len(o) for o in _ODMOWY)
+    for k in range(min(n, najdluzsza + _ZAPAS_BIALYCH), 0, -1):
         s = bufor[n - k:]
-        if FORMULKA.startswith(s):
-            return s                                    # niepełny początek
-        if s.startswith(FORMULKA) and not s[len(FORMULKA):].strip():
-            return s                                    # pełna formułka + białe znaki
+        for odmowa in _ODMOWY:
+            if odmowa.startswith(s):
+                return s                                # niepełny początek
+            if s.startswith(odmowa) and not s[len(odmowa):].strip():
+                return s                                # pełna odmowa + białe znaki
     return ""
 
 
@@ -86,7 +110,7 @@ class FiltrKoncowejFormulki:
     def domknij(self) -> str:
         """Zamknij odpowiedź: zwróć wstrzymany ogon albo "" , jeśli to doklejka."""
         ogon, self._zawieszone = self._zawieszone, ""
-        if self._byla_tresc and ogon.strip() == FORMULKA:
+        if self._byla_tresc and czy_odmowa(ogon):
             self.usunieto = True
             return ""
         if ogon.strip():
@@ -158,7 +182,10 @@ def bez_koncowej_formulki(tekst: str) -> str:
     a wzorzec z historii sam zachęca do powtórki.
     """
     obciety = (tekst or "").rstrip()
-    if not obciety.endswith(FORMULKA):
-        return tekst
-    reszta = obciety[: -len(FORMULKA)]
-    return reszta.rstrip() if reszta.strip() else tekst
+    # Obie postacie: neutralny znacznik i stare polskie zdanie. Historia sięga wstecz
+    # do rozmów sprzed zmiany promptu, więc sama nowa postać tu nie wystarczy.
+    for odmowa in _ODMOWY:
+        if obciety.endswith(odmowa):
+            reszta = obciety[: -len(odmowa)]
+            return reszta.rstrip() if reszta.strip() else tekst
+    return tekst

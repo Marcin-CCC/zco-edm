@@ -16,6 +16,7 @@ import { OcenaOdpowiedzi } from '@/components/ocena-odpowiedzi';
 import { Button, Card, PageHeader } from '@/components/ui/primitives';
 import { docSchemasApi, docSearchApi } from '@/lib/api';
 import { pobierzListeXlsx } from '@/lib/eksport-xlsx';
+import { ODMOWA_TEKST, ODMOWY, ZNACZNIK_BRAKU } from '@/lib/odmowa';
 
 // Polska odmiana rzeczownika „dokument" po liczbie
 function pluralDocs(n: number): string {
@@ -89,8 +90,12 @@ interface ConvSummary {
 // Model zapisuje cytowania na kilka sposobów: [Źródło 1], [Źródło 1, 2], a przy
 // wyliczeniach powtarza słowo — [Źródło 1, Źródło 2]. Wzorzec obejmuje wszystkie,
 // bo nieobsłużony wariant zostaje w treści jako surowy tekst.
+// Postać NEUTRALNA „[[3]]" (identyczna w każdym języku odpowiedzi) idzie pierwsza,
+// stara „[Źródło 3]" zostaje dla rozmów zapisanych wcześniej. Same cyfry dopuszczamy
+// WYŁĄCZNIE w podwójnym nawiasie — inaczej „[2024]" albo „[ISO 9001]" w treści
+// dokumentu wyglądałyby jak cytowanie i znikałyby z odpowiedzi.
 const INLINE_MARKER_RE =
-  /\[{1,2}\s*Źród(?:ło|ła)\s*(\d+(?:\s*,\s*(?:Źród(?:ło|ła)\s*)?\d+)*)\s*\]{1,2}/gi;
+  /\[\[\s*(\d+(?:\s*,\s*\d+)*)\s*\]\]|\[{1,2}\s*Źród(?:ło|ła)\s*(\d+(?:\s*,\s*(?:Źród(?:ło|ła)\s*)?\d+)*)\s*\]{1,2}/gi;
 
 /** Usuń maszynowy znacznik zbiorczy z końca oraz niedomknięty ogon w trakcie streamowania. */
 function stripEndMarker(text: string): string {
@@ -100,9 +105,6 @@ function stripEndMarker(text: string): string {
     // częściowy, niedomknięty znacznik w trakcie streamowania (np. „[[Źró") — żeby nic nie migało
     .replace(/\s*\[{1,2}[^\]]*$/, '');
 }
-
-/** Odmowa modelu w jedynej postaci, w jakiej ją zwraca (prompt narzuca dokładne zdanie). */
-const ODMOWA_PELNA = 'niestety, nie znaleziono w dokumentach informacji na ten temat.';
 
 /** Tekst modelu bez znaczników cytowań i nadmiarowych spacji, małymi literami. */
 function normalizuj(tekst: string): string {
@@ -131,8 +133,9 @@ function linkifyMarkers(text: string, sourcesCount: number): string | null {
   // 1) numery w kolejności pierwszego wystąpienia
   const order: string[] = [];
   for (const m of text.matchAll(INLINE_MARKER_RE)) {
-    // z „1, Źródło 2" bierzemy same liczby — słowo bywa powtórzone przy wyliczeniu
-    for (const num of m[1].match(/\d+/g) || []) {
+    // Grupa 1 = postać neutralna [[3]], grupa 2 = stara [Źródło 3]. Z „1, Źródło 2"
+    // bierzemy same liczby — słowo bywa powtórzone przy wyliczeniu.
+    for (const num of (m[1] ?? m[2] ?? '').match(/\d+/g) || []) {
       if (!order.includes(num)) order.push(num);
     }
   }
@@ -154,8 +157,8 @@ function linkifyMarkers(text: string, sourcesCount: number): string | null {
   if (!display) return null;  // rozjazd → nie zgadujemy, znaczniki usuwamy
 
   // 2) podmiana na odnośniki markdown (obsługiwane przez własny renderer `a`)
-  return text.replace(INLINE_MARKER_RE, (_full, nums: string) =>
-    (nums.match(/\d+/g) || [])
+  return text.replace(INLINE_MARKER_RE, (_full, neutralne: string, zeSlowem: string) =>
+    ((neutralne ?? zeSlowem ?? '').match(/\d+/g) || [])
       .map((num) => {
         const d = display.get(num);
         return d ? `[${d}](#src-${d})` : '';
@@ -169,6 +172,9 @@ function linkifyMarkers(text: string, sourcesCount: number): string | null {
  * na odnośniki (gdy się da) albo usuwamy, plus skracamy „wystające" linie kropek.
  */
 function renderAnswer(text: string, sources?: ChatSource[]): string {
+  // Znacznik braku odpowiedzi nie jest treścią — jest sygnałem. Użytkownik ma zobaczyć
+  // zdanie, i to w swoim języku, a nie „[[BRAK]]".
+  if (text.trim().toLowerCase() === ZNACZNIK_BRAKU) return ODMOWA_TEKST;
   const base = stripEndMarker(text);
   const linked = sources && sources.length ? linkifyMarkers(base, sources.length) : null;
   return (linked ?? stripInlineMarkers(base))
@@ -325,7 +331,7 @@ export default function ChatPage() {
    * odmowa w czystej postaci — odpowiedź, która przy okazji zawiera to zdanie,
    * nadal jest odpowiedzią.
    */
-  const czystaOdmowa = (tekst: string) => normalizuj(tekst) === ODMOWA_PELNA;
+  const czystaOdmowa = (tekst: string) => ODMOWY.includes(normalizuj(tekst));
 
   /**
    * Czy tura NIE niesie odpowiedzi — odmowa modelu albo komunikat aplikacji
@@ -348,7 +354,7 @@ export default function ChatPage() {
    */
   const zapowiadaOdmowe = (tekst: string) => {
     const t = normalizuj(tekst);
-    return t.length > 0 && ODMOWA_PELNA.startsWith(t);
+    return t.length > 0 && ODMOWY.some((o) => o.startsWith(t));
   };
 
   const sendMessage = async () => {

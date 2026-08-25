@@ -36,7 +36,7 @@ from app.schemas import (
 )
 from app.version import get_version
 from app.chat.definicje import pytanie_definicyjne
-from app.chat.formulka import bez_koncowej_formulki, filtruj_strumien
+from app.chat.formulka import bez_koncowej_formulki, czy_odmowa, filtruj_strumien
 from app.settings.router import _load_cache_from_db, get_chat_webhook_url
 from app.webhook_auth import verify_webhook_secret
 from app.n8n_auth import outgoing_headers
@@ -95,7 +95,14 @@ _HISTORY_ASSIST_CHARS = 700  # przycięcie odpowiedzi
 # Inline znaczniki cytowań („[Źródło 3]", „[Źródło 2, 5]") — zapisujemy je w treści
 # odpowiedzi (frontend robi z nich klikalne odnośniki), ale do historii dla modelu
 # przekazujemy tekst bez nich, żeby nie zaśmiecać promptu.
-_MARKER_RE = re.compile(r"\s*\[{1,2}\s*Źród(?:ło|ła)\s*\d+(?:\s*,\s*\d+)*\s*\]{1,2}", re.IGNORECASE)
+# Dwie postacie naraz: neutralna „[[3]]" (nowa, identyczna w każdym języku odpowiedzi)
+# i stara „[Źródło 3]". Starej nie usuwamy — tak zapisane są rozmowy sprzed zmiany,
+# a prompt w n8n zmienia człowiek, więc obie postacie muszą działać równolegle.
+_MARKER_RE = re.compile(
+    r"\s*(?:\[{1,2}\s*Źród(?:ło|ła)\s*\d+(?:\s*,\s*\d+)*\s*\]{1,2}"
+    r"|\[\[\s*\d+(?:\s*,\s*\d+)*\s*\]\])",
+    re.IGNORECASE,
+)
 
 
 def _strip_markers(content: str) -> str:
@@ -111,12 +118,14 @@ _ADNOTACJA_RE = re.compile(r"^\s*_[^\n]*_\s*\n+")
 
 def _is_refusal(content: str) -> bool:
     c = (content or "").replace(" ", " ").strip()
-    if c.rstrip() == _NO_ANSWER or c.startswith(_NO_MATCH_PREFIX):
+    # `czy_odmowa` zna OBIE postacie: neutralny znacznik [[BRAK]] i stare polskie
+    # zdanie. Dzięki temu odmowa po angielsku nie wchodzi do historii jako odpowiedź.
+    if czy_odmowa(c) or c.startswith(_NO_MATCH_PREFIX):
         return True
     bez_kursywy = c.lstrip("_")
     if bez_kursywy.startswith(_BEZ_ODPOWIEDZI_PREFIKSY):
         return True
-    return _ADNOTACJA_RE.sub("", c, count=1).strip() == _NO_ANSWER
+    return czy_odmowa(_ADNOTACJA_RE.sub("", c, count=1))
 
 
 def build_history(db: Session, user: User, session_id: str) -> str:

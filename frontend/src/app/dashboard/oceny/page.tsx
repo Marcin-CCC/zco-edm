@@ -13,6 +13,7 @@ import { IconDoc } from '@/components/icons';
 import { czasLokalny } from '@/lib/czas';
 import { Card, EmptyState, PageHeader, inputClass } from '@/components/ui/primitives';
 import { roleLabel, useRoles } from '@/lib/roles';
+import { trescDoPokazania } from '@/lib/odmowa';
 
 interface Diagnostyka {
   sciezka?: string;
@@ -418,7 +419,7 @@ export default function OcenyPage() {
 
                 {otwarte && (
                   <p className="mt-2 whitespace-pre-wrap border-t border-app-line pt-2 text-xs text-app-text">
-                    {p.odpowiedz}
+                    {trescDoPokazania(p.odpowiedz)}
                   </p>
                 )}
               </div>
@@ -468,7 +469,7 @@ export default function OcenyPage() {
                       pytanie przepisane do wyszukiwania: <em>{d.search_query}</em>
                     </p>
                   )}
-                  <p className="whitespace-pre-wrap text-app-text">{o.odpowiedz}</p>
+                  <p className="whitespace-pre-wrap text-app-text">{trescDoPokazania(o.odpowiedz)}</p>
                   <ListaZrodel zrodla={d.zrodla} dobrane={d.dobrane} />
                 </div>
               )}

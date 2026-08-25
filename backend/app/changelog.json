@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "1.5.21",
+      "date": "2026-08-25",
+      "title": "Cytowania i odmowa nie zaleza juz od jezyka odpowiedzi",
+      "changes": [
+        "Odnosniki do zrodel model oznacza teraz krotkim znacznikiem, ktory nie zawiera zadnego slowa. Wczesniej rozpoznawalismy wylacznie polskie „Zrodlo N”, wiec odpowiedz udzielona w innym jezyku tracila wszystkie odnosniki: zadne zrodlo nie bylo podswietlone jako uzyte i cala lista chowala sie pod zwijka.",
+        "Tak samo komunikat o braku informacji w dokumentach: model zwraca teraz znacznik, a zdanie dobiera interfejs. Od dokladnego brzmienia tego zdania zalezaly cztery rzeczy naraz — zdejmowanie go, gdy model dokleil je do prawdziwej odpowiedzi, pomijanie takiej tury w pamieci rozmowy, ponowienie pytania po zmianie tematu i wyzerowanie zrodel. Odmowa w innym jezyku nie byla rozpoznawana przez zadna z nich i szla dalej jak zwykla odpowiedz, razem ze zrodlami, z ktorych model nie skorzystal.",
+        "Rozmowy zapisane wczesniej czytaja sie bez zmian — obie postacie, nowa i dotychczasowa, dzialaja rownolegle.",
+        "Zmiana przygotowawcza pod przelaczanie jezyka interfejsu; dla osoby pracujacej po polsku nic nie wyglada inaczej."
+      ]
+    },
+    {
       "version": "1.5.20",
       "date": "2026-08-25",
       "title": "Licznik plikow w folderze obejmuje podfoldery",
