@@ -9,6 +9,7 @@ import re
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.messages import UserMessage
 from app.models import Role
 
 _POLISH_LETTERS = str.maketrans({
@@ -40,7 +41,7 @@ def unique_code(db: Session, name: str) -> str:
     """
     base = code_from_name(name)
     if not base:
-        raise HTTPException(status_code=400, detail="Nazwa roli musi zawierać litery lub cyfry.")
+        raise HTTPException(status_code=400, detail=UserMessage("roles.nameNeedsChars"))
     code, n = base, 1
     while db.query(Role).filter(Role.code == code).first() is not None:
         n += 1

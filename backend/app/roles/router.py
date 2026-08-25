@@ -24,6 +24,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.messages import UserMessage
 from app.auth.auth import get_current_user
 from app.database import get_db
 from app.models import FolderPermission, Role, User
@@ -56,7 +57,7 @@ def _as_response(role: Role, users: dict, perms: dict) -> RoleResponse:
 
 def _require_admin(current_user: User) -> None:
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator może zarządzać rolami.")
+        raise HTTPException(status_code=403, detail=UserMessage("roles.adminOnly"))
 
 
 def _get_role(db: Session, code: str) -> Role:
@@ -98,9 +99,9 @@ def create_role(
 
     name = (payload.name or "").strip()
     if len(name) < 2:
-        raise HTTPException(status_code=400, detail="Nazwa roli musi mieć co najmniej 2 znaki.")
+        raise HTTPException(status_code=400, detail=UserMessage("roles.nameTooShort"))
     if len(name) > 100:
-        raise HTTPException(status_code=400, detail="Nazwa roli może mieć najwyżej 100 znaków.")
+        raise HTTPException(status_code=400, detail=UserMessage("roles.nameTooLong"))
 
     istnieje = db.query(Role).filter(func.lower(Role.name) == name.lower()).first()
     if istnieje is not None:
@@ -151,9 +152,9 @@ def rename_role(
 
     name = (payload.name or "").strip()
     if len(name) < 2:
-        raise HTTPException(status_code=400, detail="Nazwa roli musi mieć co najmniej 2 znaki.")
+        raise HTTPException(status_code=400, detail=UserMessage("roles.nameTooShort"))
     if len(name) > 100:
-        raise HTTPException(status_code=400, detail="Nazwa roli może mieć najwyżej 100 znaków.")
+        raise HTTPException(status_code=400, detail=UserMessage("roles.nameTooLong"))
 
     kolizja = (
         db.query(Role)
@@ -211,7 +212,7 @@ def delete_role(
         if target.code == role.code:
             raise HTTPException(
                 status_code=400,
-                detail="Nie można przenieść użytkowników do roli, która jest usuwana.",
+                detail=UserMessage("roles.cannotMoveToDeleted"),
             )
 
     if target is not None and users_count:

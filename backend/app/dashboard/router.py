@@ -5,6 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, date
 
+from app.messages import UserMessage
 from app.database import get_db
 from app.schemas import DashboardStats
 from app.auth.auth import get_current_user
@@ -212,7 +213,7 @@ def get_activity_by_user(
     brak słupka jest tu informacją, a nie luką.
     """
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator widzi podział na użytkowników.")
+        raise HTTPException(status_code=403, detail=UserMessage("chat.perUserAdminOnly"))
 
     today = datetime.utcnow().date()
     start_day = today - timedelta(days=days - 1)
@@ -284,5 +285,5 @@ def get_system_status(
     a wolne miejsce na serwerze i obciążenie to dane o infrastrukturze klienta.
     """
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Stan serwera widzi tylko administrator.")
+        raise HTTPException(status_code=403, detail=UserMessage("settings.systemStatusAdminOnly"))
     return zbierz(db)

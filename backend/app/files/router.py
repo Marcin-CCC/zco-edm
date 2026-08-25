@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, case, func, nullslast, or_
 
+from app.messages import UserMessage
 from app.database import get_db
 from app.models import File as FileModel, Folder, FolderPermission, User, DocumentStatus, DocTypeSchema
 from app.schemas import FileResponse as FileResponseSchema, FileCreate, FileUpdate
@@ -121,18 +122,18 @@ async def upload_file(
         if folder_id is None:
             raise HTTPException(
                 status_code=403,
-                detail="Wgrywanie do katalogu głównego jest zarezerwowane dla administratora.",
+                detail=UserMessage("files.rootUploadAdminOnly"),
             )
         if folder_id not in writable:
             raise HTTPException(
                 status_code=403,
-                detail="Brak uprawnień do zapisu w tym folderze.",
+                detail=UserMessage("files.noWriteHere"),
             )
 
     # Read file content for size check
     content = await file.read()
     if len(content) > 100 * 1024 * 1024:  # 100MB
-        raise HTTPException(status_code=413, detail="Plik jest za duży. Maksymalny rozmiar to 100MB.")
+        raise HTTPException(status_code=413, detail=UserMessage("files.tooLarge", limit="100 MB"))
 
     # Reset file position for later reading
     file.file.seek(0)
@@ -156,7 +157,7 @@ async def upload_file(
         folder = db.query(Folder).filter(Folder.id == folder_id).first()
         if not folder:
             logger.warning(f"[UPLOAD] Folder {folder_id} nie istnieje")
-            raise HTTPException(status_code=404, detail="Folder nie istnieje.")
+            raise HTTPException(status_code=404, detail=UserMessage("folders.notFound"))
 
     # Ścieżka zapisu: OSOBNY KATALOG NA PLIK (losowy identyfikator) + ORYGINALNA nazwa.
     # - katalog gwarantuje unikalność, więc dwa pliki o tej samej nazwie nie nadpisują
@@ -592,7 +593,7 @@ def rename_preview(
     kliknąć, i słusznie.
     """
     if not payload.file_ids:
-        raise HTTPException(status_code=400, detail="Nie wskazano plików.")
+        raise HTTPException(status_code=400, detail=UserMessage("files.noneSelected"))
     pliki = db.query(FileModel).filter(FileModel.id.in_(payload.file_ids)).all()
     return {"pozycje": _propozycje_nazw(pliki, db)}
 
@@ -618,7 +619,7 @@ def rename_files(
     from app.text_utils import slugify
 
     if not payload.items:
-        raise HTTPException(status_code=400, detail="Nie wskazano plików.")
+        raise HTTPException(status_code=400, detail=UserMessage("files.noneSelected"))
 
     writable = writable_folder_ids(current_user, db)
     zajete = {n for (n,) in db.query(FileModel.filename).all() if n}
@@ -724,7 +725,7 @@ def move_files(
     from app.qdrant_client import set_folder_id, set_summary_folder_id
 
     if not payload.file_ids:
-        raise HTTPException(status_code=400, detail="Nie wskazano plików do przeniesienia.")
+        raise HTTPException(status_code=400, detail=UserMessage("files.noneSelectedToMove"))
 
     writable = writable_folder_ids(current_user, db)   # None = admin (wszędzie)
 
@@ -733,11 +734,11 @@ def move_files(
     if target_id is not None:
         target = db.query(Folder).filter(Folder.id == target_id).first()
         if not target:
-            raise HTTPException(status_code=404, detail="Folder docelowy nie istnieje.")
+            raise HTTPException(status_code=404, detail=UserMessage("files.targetFolderMissing"))
         if writable is not None and target_id not in writable:
-            raise HTTPException(status_code=403, detail="Brak prawa zapisu w folderze docelowym.")
+            raise HTTPException(status_code=403, detail=UserMessage("files.noWriteInTarget"))
     elif writable is not None:
-        raise HTTPException(status_code=403, detail="Tylko administrator może przenosić do katalogu głównego.")
+        raise HTTPException(status_code=403, detail=UserMessage("files.moveToRootAdminOnly"))
 
     przeniesione, pominiete = [], []
     for fid in payload.file_ids:
@@ -788,11 +789,11 @@ async def override_doc_type(
     wywołaniem modelu (tekst z Qdranta; respektuje arbitraż modelu). Tylko admin.
     """
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator może zmieniać kategorię.")
+        raise HTTPException(status_code=403, detail=UserMessage("files.categoryAdminOnly"))
 
     file = db.query(FileModel).filter(FileModel.id == file_id).first()
     if not file:
-        raise HTTPException(status_code=404, detail="Plik nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("files.notFound"))
 
     slug = (payload.doc_type or "").strip()
     schema_row = None
@@ -875,13 +876,13 @@ def get_file(file_id: int, db: Session = Depends(get_db), current_user: User = D
     """Get file metadata."""
     file_obj = db.query(FileModel).filter(FileModel.id == file_id).first()
     if not file_obj:
-        raise HTTPException(status_code=404, detail="Plik nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("files.notFound"))
 
     # RBAC: dostęp po roli do folderu (z dziedziczeniem); admin zawsze,
     # pliki w rootcie tylko admin.
     readable = readable_folder_ids(current_user, db)
     if not can_read_file_folder(file_obj.folder_id, readable):
-        raise HTTPException(status_code=403, detail="Brak dostępu do tego pliku.")
+        raise HTTPException(status_code=403, detail=UserMessage("files.noAccess"))
 
     folder_data = None
     if file_obj.folder:
@@ -941,16 +942,16 @@ def download_file(file_id: int, db: Session = Depends(get_db), current_user: Use
     """Download a file."""
     file_obj = db.query(FileModel).filter(FileModel.id == file_id).first()
     if not file_obj:
-        raise HTTPException(status_code=404, detail="Plik nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("files.notFound"))
 
     # RBAC: bez tego każdy zalogowany mógł pobrać dowolny plik po id.
     readable = readable_folder_ids(current_user, db)
     if not can_read_file_folder(file_obj.folder_id, readable):
-        raise HTTPException(status_code=403, detail="Brak dostępu do tego pliku.")
+        raise HTTPException(status_code=403, detail=UserMessage("files.noAccess"))
 
     local_path = _resolve_local_path(file_obj.file_path)
     if not os.path.exists(local_path):
-        raise HTTPException(status_code=404, detail="Plik nie istnieje na dysku.")
+        raise HTTPException(status_code=404, detail=UserMessage("files.notFoundOnDisk"))
 
     return FileResponse(
         path=local_path,
@@ -964,12 +965,12 @@ def delete_file(file_id: int, db: Session = Depends(get_db), current_user: User 
     """Delete a file (admin lub rola z prawem Zapis do folderu pliku)."""
     file_obj = db.query(FileModel).filter(FileModel.id == file_id).first()
     if not file_obj:
-        raise HTTPException(status_code=404, detail="Plik nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("files.notFound"))
 
     # RBAC: admin wszędzie; nie-admin tylko w folderze z prawem Zapis (root = admin).
     writable = writable_folder_ids(current_user, db)
     if writable is not None and (file_obj.folder_id is None or file_obj.folder_id not in writable):
-        raise HTTPException(status_code=403, detail="Brak uprawnień do usunięcia tego pliku.")
+        raise HTTPException(status_code=403, detail=UserMessage("files.noDeletePermission"))
 
     # Usuń wektory z Qdranta (żeby usunięty/wygasły dokument nie odpowiadał
     # już w czacie). Best-effort — awaria Qdranta nie blokuje usunięcia pliku.
@@ -1022,11 +1023,11 @@ def update_file(
 ):
     """Update file metadata (status, folder). Admin only."""
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator może aktualizować pliki.")
+        raise HTTPException(status_code=403, detail=UserMessage("files.updateAdminOnly"))
 
     file_obj = db.query(FileModel).filter(FileModel.id == file_id).first()
     if not file_obj:
-        raise HTTPException(status_code=404, detail="Plik nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("files.notFound"))
 
     update_data = file_update.model_dump(exclude_unset=True)
     # Zmiana folderu TYLKO przez POST /api/files/move — tam aktualizowany jest też
@@ -1099,12 +1100,12 @@ def list_folder_files(folder_id: int, db: Session = Depends(get_db), current_use
     """Get files in a specific folder."""
     folder = db.query(Folder).filter(Folder.id == folder_id).first()
     if not folder:
-        raise HTTPException(status_code=404, detail="Folder nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("folders.notFound"))
 
     # RBAC: nie-admin widzi pliki tylko w folderach dozwolonych dla jego roli.
     readable = readable_folder_ids(current_user, db)
     if readable is not None and folder_id not in readable:
-        raise HTTPException(status_code=403, detail="Brak dostępu do tego folderu.")
+        raise HTTPException(status_code=403, detail=UserMessage("folders.noAccess"))
 
     files = db.query(FileModel).filter(FileModel.folder_id == folder_id).all()
 
@@ -1162,9 +1163,9 @@ def eksport_listy_xlsx(
     from app.eksport import naglowek_pobierania, nazwa_pliku, zbuduj_xlsx
 
     if not payload.file_ids:
-        raise HTTPException(status_code=400, detail="Pusta lista dokumentów.")
+        raise HTTPException(status_code=400, detail=UserMessage("files.emptyList"))
     if len(payload.file_ids) > 2000:
-        raise HTTPException(status_code=400, detail="Lista jest za długa (maks. 2000).")
+        raise HTTPException(status_code=400, detail=UserMessage("files.listTooLong", limit=2000))
 
     readable = readable_folder_ids(current_user, db)
     rows = db.query(FileModel).filter(FileModel.id.in_(set(payload.file_ids))).all()
@@ -1187,7 +1188,7 @@ def eksport_listy_xlsx(
         })
 
     if not dokumenty:
-        raise HTTPException(status_code=404, detail="Brak dokumentów do wyeksportowania.")
+        raise HTTPException(status_code=404, detail=UserMessage("files.nothingToExport"))
 
     schematy = {s["slug"]: s for s in get_active_schemas(db)}
     zawartosc = zbuduj_xlsx(dokumenty, schematy)

@@ -21,6 +21,7 @@ import re
 import struct
 
 from fastapi import HTTPException, UploadFile
+from app.messages import UserMessage
 
 MAX_ICON_BYTES = 512 * 1024
 DOZWOLONE_TYPY = {"png": "image/png", "svg": "image/svg+xml"}
@@ -63,38 +64,38 @@ async def wczytaj_ikone(plik: UploadFile) -> str:
     nazwa = (plik.filename or "").lower()
     rozszerzenie = nazwa.rsplit(".", 1)[-1] if "." in nazwa else ""
     if rozszerzenie not in DOZWOLONE_TYPY:
-        raise HTTPException(status_code=400, detail="Ikona musi być plikiem PNG albo SVG.")
+        raise HTTPException(status_code=400, detail=UserMessage("branding.iconType"))
 
     dane = await plik.read()
     if not dane:
-        raise HTTPException(status_code=400, detail="Plik jest pusty.")
+        raise HTTPException(status_code=400, detail=UserMessage("files.empty"))
     if len(dane) > MAX_ICON_BYTES:
         raise HTTPException(
             status_code=400,
-            detail=f"Ikona może mieć najwyżej {MAX_ICON_BYTES // 1024} kB.",
+            detail=UserMessage("branding.iconTooBig", limit=MAX_ICON_BYTES // 1024),
         )
 
     if rozszerzenie == "png":
         wymiary = wymiary_png(dane)
         if wymiary is None:
-            raise HTTPException(status_code=400, detail="To nie jest prawidłowy plik PNG.")
+            raise HTTPException(status_code=400, detail=UserMessage("branding.notPng"))
         szerokosc, wysokosc = wymiary
         if szerokosc != wysokosc:
             raise HTTPException(
                 status_code=400,
-                detail=f"Ikona musi być kwadratowa (proporcje 1:1); ten plik ma {szerokosc}×{wysokosc} px.",
+                detail=UserMessage("branding.iconNotSquare", wymiary=f"{szerokosc}×{wysokosc} px"),
             )
         if szerokosc < 64:
-            raise HTTPException(status_code=400, detail="Ikona jest za mała — zalecane minimum to 128×128 px.")
+            raise HTTPException(status_code=400, detail=UserMessage("branding.iconTooSmall"))
     else:
         tekst = dane.decode("utf-8", errors="ignore")
         if "<svg" not in tekst.lower():
-            raise HTTPException(status_code=400, detail="To nie jest prawidłowy plik SVG.")
+            raise HTTPException(status_code=400, detail=UserMessage("branding.notSvg"))
         wymiary = wymiary_svg(tekst)
         if wymiary and abs(wymiary[0] - wymiary[1]) > 0.5:
             raise HTTPException(
                 status_code=400,
-                detail=f"Ikona musi być kwadratowa (proporcje 1:1); ten plik ma {wymiary[0]:g}×{wymiary[1]:g}.",
+                detail=UserMessage("branding.iconNotSquare", wymiary=f"{wymiary[0]:g}×{wymiary[1]:g}"),
             )
 
     return f"data:{DOZWOLONE_TYPY[rozszerzenie]};base64,{base64.b64encode(dane).decode('ascii')}"
@@ -104,5 +105,5 @@ def sprawdz_kolor(wartosc: str) -> str:
     """Kolor nazwy w zapisie szesnastkowym; inne zapisy odrzucamy."""
     kolor = (wartosc or "").strip()
     if not HEX_RE.match(kolor):
-        raise HTTPException(status_code=400, detail="Kolor podaj w zapisie szesnastkowym, np. #1fc8ba.")
+        raise HTTPException(status_code=400, detail=UserMessage("settings.badColor"))
     return kolor.lower()

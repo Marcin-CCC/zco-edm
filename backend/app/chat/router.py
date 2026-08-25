@@ -25,6 +25,7 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.messages import UserMessage
 from app.database import get_db
 from app.auth.auth import get_current_user
 from app.models import (
@@ -295,7 +296,7 @@ async def chat(
     if not chat_url:
         raise HTTPException(
             status_code=503,
-            detail="Adres webhooka czatu nie jest skonfigurowany (Ustawienia aplikacji).",
+            detail=UserMessage("chat.webhookMissing"),
         )
 
     # Adres zwrotny dla źródeł — ten sam mechanizm co status_update_url plików
@@ -718,7 +719,7 @@ def parse_active(
 def _get_owned_conversation(conv_id: int, user: User, db: Session) -> Conversation:
     conv = db.query(Conversation).filter(Conversation.id == conv_id).first()
     if not conv or conv.user_id != user.id:
-        raise HTTPException(status_code=404, detail="Rozmowa nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("chat.conversationNotFound"))
     return conv
 
 
@@ -833,7 +834,7 @@ def zapisz_ocene(
 ):
     """Zapisz ocenę odpowiedzi wraz z migawką planu wyszukiwania."""
     if payload.ocena not in OCENY_DOZWOLONE:
-        raise HTTPException(status_code=400, detail=f"Nieznana ocena: {payload.ocena}")
+        raise HTTPException(status_code=400, detail=UserMessage("chat.unknownRating", ocena=payload.ocena))
     powod = payload.powod if payload.powod in POWODY else None
 
     diagnostyka = None
@@ -919,7 +920,7 @@ def rejestr_pytan(
     każdej rozmowie, a przydaje się tylko przy tych, które budzą wątpliwość.
     """
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator.")
+        raise HTTPException(status_code=403, detail=UserMessage("common.adminOnly"))
 
     limit = max(1, min(limit, 200))
     offset = max(0, offset)
@@ -1016,7 +1017,7 @@ def lista_ocen(
 ):
     """Zestawienie ocen dla administratora — materiał na zestaw kontrolny."""
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator.")
+        raise HTTPException(status_code=403, detail=UserMessage("common.adminOnly"))
     limit = max(1, min(limit, 200))
     offset = max(0, offset)
     zapytanie = db.query(OcenaOdpowiedzi)
@@ -1066,7 +1067,7 @@ def uzytkownicy_pytajacy(
     dla których w ogóle jest co filtrować.
     """
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator.")
+        raise HTTPException(status_code=403, detail=UserMessage("common.adminOnly"))
     wiersze = (
         db.query(User.id, User.username, User.full_name, User.role)
         .join(Conversation, Conversation.user_id == User.id)

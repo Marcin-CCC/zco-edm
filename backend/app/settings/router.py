@@ -3,6 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from app.messages import UserMessage
 from app.database import get_db
 from app.auth.auth import get_current_user
 from app.models import User, Setting
@@ -186,7 +187,7 @@ async def upload_app_icon(
     """
     global _cache_loaded
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator może zmieniać ikonę.")
+        raise HTTPException(status_code=403, detail=UserMessage("settings.iconAdminOnly"))
     if not _cache_loaded:
         _load_cache_from_db(db)
 
@@ -204,7 +205,7 @@ def reset_app_icon(
     """Przywrócenie ikony domyślnej (tej z obrazu aplikacji)."""
     global _cache_loaded
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator może zmieniać ikonę.")
+        raise HTTPException(status_code=403, detail=UserMessage("settings.iconAdminOnly"))
     if not _cache_loaded:
         _load_cache_from_db(db)
     _settings_cache["app_icon"] = ""
@@ -224,7 +225,7 @@ def update_setting(
     global _cache_loaded
 
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator może zmieniać ustawienia.")
+        raise HTTPException(status_code=403, detail=UserMessage("settings.adminOnly"))
 
     if key not in _UPDATABLE_KEYS:
         raise HTTPException(status_code=400, detail=f"Setting '{key}' is not updatable")
@@ -238,7 +239,7 @@ def update_setting(
         try:
             minutes = int(new_value)
         except (TypeError, ValueError):
-            raise HTTPException(status_code=400, detail="Czas bezczynności musi być liczbą minut.")
+            raise HTTPException(status_code=400, detail=UserMessage("settings.idleNotNumber"))
         if minutes < _MIN_IDLE_TIMEOUT or minutes > _MAX_IDLE_TIMEOUT:
             raise HTTPException(status_code=400, detail=f"Czas bezczynności: od {_MIN_IDLE_TIMEOUT} do {_MAX_IDLE_TIMEOUT} minut.")
         new_value = str(minutes)
@@ -250,24 +251,24 @@ def update_setting(
     elif key == "app_name":
         new_value = new_value.strip()
         if not 1 <= len(new_value) <= 40:
-            raise HTTPException(status_code=400, detail="Nazwa aplikacji: od 1 do 40 znaków.")
+            raise HTTPException(status_code=400, detail=UserMessage("settings.appNameLength"))
     elif key == "smtp_port":
         try:
             port = int(new_value)
         except (TypeError, ValueError):
-            raise HTTPException(status_code=400, detail="Port SMTP musi być liczbą.")
+            raise HTTPException(status_code=400, detail=UserMessage("settings.smtpPortNotNumber"))
         if not 1 <= port <= 65535:
-            raise HTTPException(status_code=400, detail="Port SMTP musi mieścić się w zakresie 1–65535.")
+            raise HTTPException(status_code=400, detail=UserMessage("settings.smtpPortRange"))
         new_value = str(port)
     elif key in {"smtp_from", "support_email"}:
         if "@" not in new_value:
-            raise HTTPException(status_code=400, detail="Podaj poprawny adres e-mail.")
+            raise HTTPException(status_code=400, detail=UserMessage("auth.badEmail"))
     elif key == "allowed_extensions":
         exts = _parse_extensions(new_value)
         if not exts:
-            raise HTTPException(status_code=400, detail="Podaj co najmniej jedno rozszerzenie (np. pdf,docx,xlsx).")
+            raise HTTPException(status_code=400, detail=UserMessage("settings.extensionsEmpty"))
         if not all(e.isalnum() for e in exts):
-            raise HTTPException(status_code=400, detail="Rozszerzenia mogą zawierać tylko litery i cyfry, rozdzielone przecinkami.")
+            raise HTTPException(status_code=400, detail=UserMessage("settings.extensionsFormat"))
         new_value = ",".join(exts)  # normalizacja (lowercase, bez kropek/spacji)
 
     # Update cache

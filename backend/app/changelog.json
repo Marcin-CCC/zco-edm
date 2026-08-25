@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "version": "1.5.32",
+      "date": "2026-08-25",
+      "title": "Komunikaty bledow w jezyku interfejsu",
+      "changes": [
+        "Komunikaty bledow z serwera — odmowy dostepu, sprawdzenia formularzy, „plik nie istnieje” — pokazuja sie w jezyku interfejsu. Objelo to 118 komunikatow.",
+        "Jedenascie komunikatow zostaje po polsku swiadomie: to teksty techniczne, ktorych uzytkownik nie zobaczy — bledy miedzy uslugami i wskazowki dla osoby stawiajacej wdrozenie. W logu wygodniej miec jedno brzmienie.",
+        "Komunikatow bledow serwera NIE widac na razie w zakladce Jezyki — ich poprawienie wymaga wydania aplikacji."
+      ]
+    },
+    {
       "version": "1.5.31",
       "date": "2026-08-25",
       "title": "Odpowiedzi w jezyku interfejsu",

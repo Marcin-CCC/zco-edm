@@ -1,8 +1,10 @@
 import logging
 import os
 import sys
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # ============ LOGOWANIE ============
 # Uvicorn konfiguruje wyłącznie własne loggery ("uvicorn.*"). Bez poniższego
@@ -37,6 +39,7 @@ from app.doc_search import router as doc_search_router
 from app.contact import router as contact_router
 from app.roles.router import router as roles_router
 from app.translations.router import router as translations_router
+from app.messages import UserMessage, render
 from app.schema_upgrade import run_startup_upgrades
 
 # Tworzenie tabel w bazie danych
@@ -65,6 +68,34 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ============ KOMUNIKATY BŁĘDÓW W JĘZYKU INTERFEJSU ============
+# Routery podają KLUCZ komunikatu (`Message("files.notFound")`), bo w miejscu, gdzie
+# powstaje błąd, języka żądania się nie zna — przekazywanie go do każdej funkcji
+# zdolnej rzucić wyjątkiem oznaczałoby dodatkowy argument w kilkudziesięciu miejscach.
+# Tłumaczenie dokłada się tutaj, raz, przy zamianie wyjątku na odpowiedź.
+#
+# Język bierzemy z nagłówka wysyłanego przez interfejs. Nie z `users.locale`: żądanie
+# bywa nieuwierzytelnione (logowanie), a liczy się to, co osoba widzi na ekranie.
+NAGLOWEK_JEZYKA = "X-UI-Language"
+
+
+@app.exception_handler(StarletteHTTPException)
+async def obsluz_wyjatek_http(request: Request, exc: StarletteHTTPException):
+    """Zamienia `Message` w `detail` na napis w języku żądania.
+
+    Wyjątki z gotowym napisem (komunikaty techniczne, biblioteki, 404 tras)
+    przechodzą nietknięte — obsługa musi być przezroczysta dla wszystkiego,
+    czego nie oznaczyliśmy sami.
+    """
+    if isinstance(exc.detail, UserMessage):
+        exc = StarletteHTTPException(
+            status_code=exc.status_code,
+            detail=render(exc.detail, request.headers.get(NAGLOWEK_JEZYKA)),
+            headers=getattr(exc, "headers", None),
+        )
+    return await http_exception_handler(request, exc)
 
 
 # ============ KOLEJKA PRZETWARZANIA (dyspozytor) ============

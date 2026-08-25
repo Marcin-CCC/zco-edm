@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { aktywnyJezyk } from '@/i18n/locales';
 import { useTranslations } from 'next-intl';
 import { IconDownload } from '@/components/icons';
 import { PozycjaDokumentu, zHitow } from '@/components/pozycja-dokumentu';
@@ -29,8 +30,13 @@ interface FilterRow {
 }
 
 function authHeaders(): Record<string, string> {
+  // `X-UI-Language`: backend podaje klucz komunikatu i tłumaczy go dopiero przy
+  // odpowiedzi, więc musi wiedzieć, co widzi osoba po drugiej stronie. Nagłówek
+  // idzie z KAŻDYM żądaniem, także tym bez tokenu.
   const token = localStorage.getItem('auth_token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  const naglowki: Record<string, string> = { 'X-UI-Language': aktywnyJezyk() };
+  if (token) naglowki.Authorization = `Bearer ${token}`;
+  return naglowki;
 }
 
 export function DocSearchPanel({ onClose }: { onClose?: () => void }) {

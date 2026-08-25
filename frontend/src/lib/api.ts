@@ -1,4 +1,5 @@
 import type { Role } from '@/lib/roles';
+import { aktywnyJezyk } from '@/i18n/locales';
 
 /** Jedna pozycja podglądu nadawania nazw. `proponowana` puste = `problem` mówi dlaczego. */
 export interface RenameProposal {
@@ -31,6 +32,12 @@ export async function apiRequest<T>(
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
+
+  // Język komunikatów błędów. Backend podaje klucz komunikatu i tłumaczy go dopiero
+  // przy odpowiedzi — potrzebuje więc wiedzieć, co widzi osoba po drugiej stronie.
+  // Nagłówek, a nie pole w treści: dotyczy KAŻDEGO żądania, także tych bez ciała
+  // i tych przed zalogowaniem.
+  headers['X-UI-Language'] = aktywnyJezyk();
 
   const fetchOptions: RequestInit = {
     method,

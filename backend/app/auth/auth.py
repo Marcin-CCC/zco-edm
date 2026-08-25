@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Body
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from app.messages import UserMessage
 from app.database import get_db
 from app.models import ROLE_ADMIN, User
 from app.roles.service import ensure_role_exists
@@ -22,14 +23,14 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 async def register_user(user_data: UserCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Rejestracja nowego uzytkownika. Tylko admin."""
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Brak uprawnien")
+        raise HTTPException(status_code=403, detail=UserMessage("common.noPermission"))
 
     existing = db.query(User).filter(
         (User.email == user_data.email) | (User.username == user_data.username)
     ).first()
 
     if existing:
-        raise HTTPException(status_code=400, detail="Uzytkownik z podanym emailem lub nazwa istnieje")
+        raise HTTPException(status_code=400, detail=UserMessage("auth.userExists"))
 
     ensure_role_exists(db, user_data.role)
 
@@ -127,7 +128,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
     if not username or not password:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Brak danych logowania",
+            detail=UserMessage("auth.noCredentials"),
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -141,12 +142,12 @@ async def login(request: Request, db: Session = Depends(get_db)):
     if not user or not verify_password(password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Nieprawidłowy adres e-mail lub hasło",
+            detail=UserMessage("auth.badCredentials"),
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     if not user.is_active:
-        raise HTTPException(status_code=403, detail="Uzytkownik jest nieaktywny")
+        raise HTTPException(status_code=403, detail=UserMessage("auth.inactive"))
 
     user.last_login = datetime.utcnow()
     db.commit()
@@ -217,29 +218,29 @@ async def update_own_profile(
         # w rodzaju „Paweł C" i zakaz spacji uniemożliwiłby im zapis własnych danych.
         nowa = payload.username.strip()
         if len(nowa) < 3:
-            raise HTTPException(status_code=400, detail="Nazwa użytkownika musi mieć co najmniej 3 znaki.")
+            raise HTTPException(status_code=400, detail=UserMessage("auth.usernameTooShort"))
         if len(nowa) > 100:
-            raise HTTPException(status_code=400, detail="Nazwa użytkownika może mieć najwyżej 100 znaków.")
+            raise HTTPException(status_code=400, detail=UserMessage("auth.usernameTooLong"))
         if nowa != current_user.username:
             if identyfikator_zajety(db, nowa, current_user.id):
-                raise HTTPException(status_code=409, detail="Ta nazwa użytkownika jest już zajęta.")
+                raise HTTPException(status_code=409, detail=UserMessage("auth.usernameTaken"))
             current_user.username = nowa
             zmiany.append("username")
 
     if payload.email is not None:
         nowy = payload.email.strip()
         if not _EMAIL_RE.match(nowy):
-            raise HTTPException(status_code=400, detail="Podaj poprawny adres e-mail.")
+            raise HTTPException(status_code=400, detail=UserMessage("auth.badEmail"))
         if nowy.lower() != (current_user.email or "").lower():
             if identyfikator_zajety(db, nowy, current_user.id):
-                raise HTTPException(status_code=409, detail="Ten adres e-mail jest już używany przez inne konto.")
+                raise HTTPException(status_code=409, detail=UserMessage("auth.emailTaken"))
             current_user.email = nowy
             zmiany.append("email")
 
     if payload.full_name is not None:
         nowe = payload.full_name.strip()
         if len(nowe) > 200:
-            raise HTTPException(status_code=400, detail="Imię i nazwisko może mieć najwyżej 200 znaków.")
+            raise HTTPException(status_code=400, detail=UserMessage("auth.fullNameTooLong"))
         if (nowe or None) != current_user.full_name:
             current_user.full_name = nowe or None
             zmiany.append("full_name")
@@ -252,7 +253,7 @@ async def update_own_profile(
         if payload.locale.strip() and nowy is None:
             raise HTTPException(
                 status_code=400,
-                detail=f"Nieobsługiwany język interfejsu. Dostępne: {', '.join(SUPPORTED_LOCALES)}.",
+                detail=UserMessage("auth.unsupportedLocale", lista=", ".join(SUPPORTED_LOCALES)),
             )
         if nowy != current_user.locale:
             current_user.locale = nowy
@@ -278,15 +279,15 @@ async def change_own_password(
     sprawdził nowe hasło (decyzja produktowa).
     """
     if not verify_password(payload.current_password, current_user.hashed_password):
-        raise HTTPException(status_code=400, detail="Aktualne hasło jest nieprawidłowe.")
+        raise HTTPException(status_code=400, detail=UserMessage("auth.wrongCurrentPassword"))
     nowe = payload.new_password or ""
     if len(nowe) < MIN_DLUGOSC_HASLA:
         raise HTTPException(
             status_code=400,
-            detail=f"Nowe hasło musi mieć co najmniej {MIN_DLUGOSC_HASLA} znaków.",
+            detail=UserMessage("auth.passwordTooShort", min=MIN_DLUGOSC_HASLA),
         )
     if verify_password(nowe, current_user.hashed_password):
-        raise HTTPException(status_code=400, detail="Nowe hasło musi różnić się od dotychczasowego.")
+        raise HTTPException(status_code=400, detail=UserMessage("auth.samePassword"))
 
     current_user.hashed_password = hash_password(nowe)
     db.commit()
@@ -306,7 +307,7 @@ async def check_user(username: str, db: Session = Depends(get_db)):
 async def list_users(skip: int = 0, limit: int = 50, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Lista wszystkich uzytkownikow. Tylko admin."""
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Brak uprawnien")
+        raise HTTPException(status_code=403, detail=UserMessage("common.noPermission"))
     return db.query(User).offset(skip).limit(limit).all()
 
 
@@ -314,10 +315,10 @@ async def list_users(skip: int = 0, limit: int = 50, current_user: User = Depend
 async def get_user(user_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Pobranie danych uzytkownika."""
     if not current_user.is_admin and current_user.id != user_id:
-        raise HTTPException(status_code=403, detail="Brak uprawnien")
+        raise HTTPException(status_code=403, detail=UserMessage("common.noPermission"))
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="Uzytkownik nie znaleziony")
+        raise HTTPException(status_code=404, detail=UserMessage("common.userNotFound"))
     return user
 
 
@@ -325,16 +326,16 @@ async def get_user(user_id: int, current_user: User = Depends(get_current_user),
 async def update_user(user_id: int, user_update: UserUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Edycja uzytkownika. Tylko admin."""
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Brak uprawnien")
+        raise HTTPException(status_code=403, detail=UserMessage("common.noPermission"))
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="Uzytkownik nie znaleziony")
+        raise HTTPException(status_code=404, detail=UserMessage("common.userNotFound"))
     # Login sprawdza obie kolumny naraz, więc kolizja MIĘDZY nimi odcięłaby komuś
     # dostęp — admin też nie powinien móc jej wprowadzić przez pomyłkę.
     if user_update.email is not None and identyfikator_zajety(db, user_update.email, user.id):
-        raise HTTPException(status_code=409, detail="Ten adres e-mail jest już zajęty przez inne konto.")
+        raise HTTPException(status_code=409, detail=UserMessage("auth.emailTakenByOther"))
     if user_update.username is not None and identyfikator_zajety(db, user_update.username, user.id):
-        raise HTTPException(status_code=409, detail="Ta nazwa użytkownika jest już zajęta przez inne konto.")
+        raise HTTPException(status_code=409, detail=UserMessage("auth.usernameTakenByOther"))
     if user_update.email is not None:
         user.email = user_update.email
     if user_update.username is not None:
@@ -358,9 +359,9 @@ async def update_user(user_id: int, user_update: UserUpdate, current_user: User 
 async def delete_user(user_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Usunięcie uzytkownika. Tylko admin."""
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Brak uprawnien")
+        raise HTTPException(status_code=403, detail=UserMessage("common.noPermission"))
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="Uzytkownik nie znaleziony")
+        raise HTTPException(status_code=404, detail=UserMessage("common.userNotFound"))
     db.delete(user)
     db.commit()

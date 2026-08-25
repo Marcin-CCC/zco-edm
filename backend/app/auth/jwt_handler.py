@@ -5,6 +5,7 @@ import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
+from app.messages import UserMessage
 from app.config import settings
 from app.database import get_db
 from app.models import User
@@ -92,7 +93,7 @@ async def get_current_user(
     if current_user is None or not current_user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Uzytkownik nie znaleziony lub nieaktywny",
+            detail=UserMessage("auth.inactiveOrMissing"),
             headers={"WWW-Authenticate": "Bearer"},
         )
     return current_user

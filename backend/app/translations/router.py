@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.messages import UserMessage
 from app.auth.auth import get_current_user
 from app.config import settings
 from app.database import get_db
@@ -55,19 +56,19 @@ def _sprawdz_jezyk(locale: str) -> str:
     if kod is None:
         raise HTTPException(
             status_code=400,
-            detail=f"Nieobsługiwany język. Dostępne: {', '.join(SUPPORTED_LOCALES)}.",
+            detail=UserMessage("translations.unsupported", lista=", ".join(SUPPORTED_LOCALES)),
         )
     if kod == BASE_LOCALE:
         raise HTTPException(
             status_code=400,
-            detail="Polski jest językiem bazowym — jego teksty zmienia się w kodzie, nie tutaj.",
+            detail=UserMessage("translations.baseLocale"),
         )
     return kod
 
 
 def _tylko_admin(user: User) -> None:
     if not user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator może zmieniać tłumaczenia.")
+        raise HTTPException(status_code=403, detail=UserMessage("translations.adminOnly"))
 
 
 @router.get("/{locale}")
@@ -138,9 +139,9 @@ def upsert_override(
     kod = _sprawdz_jezyk(payload.locale)
     klucz = payload.key.strip()
     if not klucz:
-        raise HTTPException(status_code=400, detail="Pusty klucz.")
+        raise HTTPException(status_code=400, detail=UserMessage("translations.emptyKey"))
     if len(klucz) > 200:
-        raise HTTPException(status_code=400, detail="Klucz może mieć najwyżej 200 znaków.")
+        raise HTTPException(status_code=400, detail=UserMessage("translations.keyTooLong"))
 
     wartosc = payload.value.strip()
     if not wartosc:
@@ -259,7 +260,7 @@ async def machine_translate(
     if not payload.items:
         return {"translated": {}, "failed": []}
     if len(payload.items) > 500:
-        raise HTTPException(status_code=400, detail="Najwyżej 500 napisów naraz.")
+        raise HTTPException(status_code=400, detail=UserMessage("translations.tooMany", limit=500))
 
     przetlumaczone: dict[str, str] = {}
     nieudane: list[str] = []

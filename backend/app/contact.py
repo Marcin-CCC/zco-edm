@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.messages import UserMessage
 from app.auth.auth import get_current_user
 from app.database import get_db
 from app.models import User
@@ -61,9 +62,9 @@ def wyslij_zgloszenie(
 
     tresc = (payload.tresc or "").strip()
     if len(tresc) < 10:
-        raise HTTPException(status_code=400, detail="Opisz zgłoszenie w co najmniej 10 znakach.")
+        raise HTTPException(status_code=400, detail=UserMessage("contact.tooShort"))
     if len(tresc) > MAX_TRESC:
-        raise HTTPException(status_code=400, detail=f"Zgłoszenie może mieć najwyżej {MAX_TRESC} znaków.")
+        raise HTTPException(status_code=400, detail=UserMessage("contact.tooLong", limit=MAX_TRESC))
 
     host = ustawienie("smtp_host")
     odbiorca = ustawienie("support_email")
@@ -71,7 +72,7 @@ def wyslij_zgloszenie(
     if not (host and odbiorca and nadawca):
         raise HTTPException(
             status_code=503,
-            detail="Wysyłka zgłoszeń nie jest skonfigurowana — uzupełnij dane poczty w Ustawieniach aplikacji.",
+            detail=UserMessage("contact.mailNotConfigured"),
         )
 
     instancja = ustawienie("app_name") or "EDM"
@@ -112,7 +113,7 @@ def wyslij_zgloszenie(
         logger.error(f"[KONTAKT] Wysyłka zgłoszenia od {current_user.username} nieudana: {e}")
         raise HTTPException(
             status_code=502,
-            detail="Nie udało się wysłać zgłoszenia. Administrator znajdzie powód w logu aplikacji.",
+            detail=UserMessage("contact.sendFailed"),
         )
 
     logger.info(f"[KONTAKT] Zgłoszenie od {current_user.username} wysłane na {odbiorca}")

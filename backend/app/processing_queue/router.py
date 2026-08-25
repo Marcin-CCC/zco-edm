@@ -6,6 +6,7 @@ from sqlalchemy import and_
 from typing import List, Optional
 import httpx
 
+from app.messages import UserMessage
 from app.database import get_db
 from app.models import ProcessingQueue, Document, File as FileModel, DocumentStatus
 from app.auth.auth import get_current_user
@@ -56,7 +57,7 @@ def get_processing_queue_item(
     """Get single processing queue item."""
     item = db.query(ProcessingQueue).filter(ProcessingQueue.id == item_id).first()
     if not item:
-        raise HTTPException(status_code=404, detail="Element kolejki nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("queue.notFound"))
 
     return {
         "id": item.id,
@@ -90,7 +91,7 @@ async def retry_processing(
     file = db.query(FileModel).filter(FileModel.id == file_id).first()
     if not file:
         logger.warning(f"[RETRY] File {file_id} not found")
-        raise HTTPException(status_code=404, detail="Plik nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("files.notFound"))
 
     logger.info(f"[RETRY] Found file: {file.filename}, current status: {file.status}")
 
@@ -139,11 +140,11 @@ async def reparse_file(
     Docelowo do usunięcia — przycisk włączony tylko na czas testów klasyfikacji.
     """
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator.")
+        raise HTTPException(status_code=403, detail=UserMessage("common.adminOnly"))
 
     file = db.query(FileModel).filter(FileModel.id == file_id).first()
     if not file:
-        raise HTTPException(status_code=404, detail="Plik nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("files.notFound"))
 
     # 1) Skasuj wektory pliku (uniknij duplikatów w Qdrancie przy ponownym parsowaniu)
     from app.qdrant_client import delete_vectors_by_file_id
@@ -182,7 +183,7 @@ def skip_page(
     """Skip a specific page in processing."""
     item = db.query(ProcessingQueue).filter(ProcessingQueue.id == item_id).first()
     if not item:
-        raise HTTPException(status_code=404, detail="Element kolejki nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("queue.notFound"))
 
     # Mark the page as skipped in the document
     if item.document:

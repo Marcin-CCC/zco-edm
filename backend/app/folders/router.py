@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 
+from app.messages import UserMessage
 from app.database import get_db
 from app.models import Folder, FolderPermission, File as FileModel, User
 from app.roles.service import ensure_role_exists
@@ -78,7 +79,7 @@ def create_folder(
 ):
     """Create a new folder (admin only)."""
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator moze tworzyc foldery.")
+        raise HTTPException(status_code=403, detail=UserMessage("folders.createAdminOnly"))
 
     # Check if folder with same path already exists
     full_path = f"/{folder_data.name}"
@@ -90,7 +91,7 @@ def create_folder(
 
     existing = db.query(Folder).filter(Folder.path == full_path).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Folder o podanej nazwie juz istnieje.")
+        raise HTTPException(status_code=400, detail=UserMessage("folders.nameExists"))
 
     new_folder = Folder(
         name=folder_data.name,
@@ -137,7 +138,7 @@ def get_access_overview(
     Trasa MUSI być przed '/{folder_id}', inaczej złapałby ją parametr int.
     """
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator może przeglądać listę dostępów.")
+        raise HTTPException(status_code=403, detail=UserMessage("folders.accessListAdminOnly"))
     return access_overview(db)
 
 
@@ -168,11 +169,11 @@ def get_folder(
     """Get folder by ID."""
     folder = db.query(Folder).filter(Folder.id == folder_id).first()
     if not folder:
-        raise HTTPException(status_code=404, detail="Folder nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("folders.notFound"))
     # RBAC: nie-admin widzi tylko dozwolone foldery (+ przodków dla nawigacji).
     visible = visible_folder_ids(current_user, db)
     if visible is not None and folder_id not in visible:
-        raise HTTPException(status_code=403, detail="Brak dostępu do tego folderu.")
+        raise HTTPException(status_code=403, detail=UserMessage("folders.noAccess"))
     return folder
 
 
@@ -198,17 +199,17 @@ def rename_folder(
     (`files.folder_id`), a fizyczna ścieżka pliku jest od niej niezależna.
     """
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator może zmieniać nazwę folderu.")
+        raise HTTPException(status_code=403, detail=UserMessage("folders.renameAdminOnly"))
 
     folder = db.query(Folder).filter(Folder.id == folder_id).first()
     if not folder:
-        raise HTTPException(status_code=404, detail="Folder nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("folders.notFound"))
 
     new_name = (payload.name or "").strip()
     if not new_name:
-        raise HTTPException(status_code=400, detail="Nazwa nie może być pusta.")
+        raise HTTPException(status_code=400, detail=UserMessage("common.emptyName"))
     if "/" in new_name:
-        raise HTTPException(status_code=400, detail="Nazwa nie może zawierać ukośnika.")
+        raise HTTPException(status_code=400, detail=UserMessage("folders.nameWithSlash"))
     if new_name == folder.name:
         return folder
 
@@ -261,11 +262,11 @@ def delete_folder(
 ):
     """Delete a folder (admin only)."""
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator moze usuwac foldery.")
+        raise HTTPException(status_code=403, detail=UserMessage("folders.deleteAdminOnly"))
 
     folder = db.query(Folder).filter(Folder.id == folder_id).first()
     if not folder:
-        raise HTTPException(status_code=404, detail="Folder nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("folders.notFound"))
 
     # Delete associated permissions
     db.query(FolderPermission).filter(FolderPermission.folder_id == folder_id).delete()
@@ -288,11 +289,11 @@ def add_folder_permission(
     """Ustaw uprawnienie roli na folderze (admin). Upsert: gdy rola ma już
     uprawnienie na tym folderze, podmienia poziom zamiast zwracać błąd."""
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator może ustawiać uprawnienia.")
+        raise HTTPException(status_code=403, detail=UserMessage("folders.setPermissionAdminOnly"))
 
     folder = db.query(Folder).filter(Folder.id == folder_id).first()
     if not folder:
-        raise HTTPException(status_code=404, detail="Folder nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("folders.notFound"))
 
     ensure_role_exists(db, perm_data.role)
 
@@ -331,10 +332,10 @@ def get_effective_permissions(
     podfolder tego folderu. Tylko admin (jak pozostałe zarządzanie uprawnieniami).
     """
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator może zarządzać uprawnieniami.")
+        raise HTTPException(status_code=403, detail=UserMessage("folders.permissionsAdminOnly"))
     folder = db.query(Folder).filter(Folder.id == folder_id).first()
     if not folder:
-        raise HTTPException(status_code=404, detail="Folder nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("folders.notFound"))
     return effective_permissions(folder_id, db)
 
 
@@ -346,11 +347,11 @@ def list_folder_permissions(
 ):
     """List permissions for a folder (admin only)."""
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator może zarządzać uprawnieniami.")
+        raise HTTPException(status_code=403, detail=UserMessage("folders.permissionsAdminOnly"))
 
     folder = db.query(Folder).filter(Folder.id == folder_id).first()
     if not folder:
-        raise HTTPException(status_code=404, detail="Folder nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("folders.notFound"))
 
     permissions = db.query(FolderPermission).filter(FolderPermission.folder_id == folder_id).all()
     return permissions
@@ -365,14 +366,14 @@ def delete_folder_permission(
 ):
     """Delete a folder permission (admin only)."""
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator może usuwać uprawnienia.")
+        raise HTTPException(status_code=403, detail=UserMessage("folders.deletePermissionAdminOnly"))
 
     perm = db.query(FolderPermission).filter(
         FolderPermission.id == perm_id,
         FolderPermission.folder_id == folder_id,
     ).first()
     if not perm:
-        raise HTTPException(status_code=404, detail="Uprawnienie nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("folders.permissionNotFound"))
 
     db.delete(perm)
     db.commit()

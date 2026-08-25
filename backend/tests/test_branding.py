@@ -15,6 +15,7 @@ import pytest
 from fastapi import HTTPException, UploadFile
 
 from app.branding import sprawdz_kolor, wczytaj_ikone, wymiary_png, wymiary_svg
+from app.messages import render
 
 
 def png(szerokosc: int, wysokosc: int) -> bytes:
@@ -56,12 +57,12 @@ class TestWczytajIkone:
         with pytest.raises(HTTPException) as e:
             asyncio.run(wczytaj_ikone(plik("logo.png", png(256, 128))))
         assert e.value.status_code == 400
-        assert "256×128" in e.value.detail
+        assert "256×128" in render(e.value.detail, "pl")
 
     def test_za_mala_ikona(self):
         with pytest.raises(HTTPException) as e:
             asyncio.run(wczytaj_ikone(plik("logo.png", png(32, 32))))
-        assert "za mała" in e.value.detail
+        assert "za mała" in render(e.value.detail, "pl")
 
     def test_svg_kwadratowy(self):
         svg = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64"/></svg>'
@@ -76,7 +77,7 @@ class TestWczytajIkone:
     def test_inne_formaty_odrzucone(self, nazwa):
         with pytest.raises(HTTPException) as e:
             asyncio.run(wczytaj_ikone(plik(nazwa, png(128, 128))))
-        assert "PNG" in e.value.detail
+        assert "PNG" in render(e.value.detail, "pl")
 
     def test_pusty_plik(self):
         with pytest.raises(HTTPException):
@@ -85,12 +86,12 @@ class TestWczytajIkone:
     def test_za_duzy_plik(self):
         with pytest.raises(HTTPException) as e:
             asyncio.run(wczytaj_ikone(plik("logo.png", png(128, 128) + b"\x00" * (600 * 1024))))
-        assert "kB" in e.value.detail
+        assert "kB" in render(e.value.detail, "pl")
 
     def test_plik_udajacy_png(self):
         with pytest.raises(HTTPException) as e:
             asyncio.run(wczytaj_ikone(plik("logo.png", b"PK\x03\x04 to jest zip")))
-        assert "prawidłowy plik PNG" in e.value.detail
+        assert "prawidłowy plik PNG" in render(e.value.detail, "pl")
 
 
 class TestKolor:
@@ -106,3 +107,21 @@ class TestKolor:
     def test_niepoprawne(self, zly):
         with pytest.raises(HTTPException):
             sprawdz_kolor(zly)
+
+
+class TestKomunikatowPoAngielsku:
+    """Komunikat powstaje z KLUCZA, więc ten sam błąd musi dać sensowny tekst
+    w każdym języku. Brak wpisu w katalogu zwróciłby sam klucz — i to tu widać."""
+
+    def test_prostokat_po_angielsku(self):
+        with pytest.raises(HTTPException) as e:
+            asyncio.run(wczytaj_ikone(plik("logo.png", png(256, 128))))
+        tekst = render(e.value.detail, "en")
+        assert "256×128" in tekst
+        assert "square" in tekst.lower()
+        assert tekst != e.value.detail.key      # klucz bez tłumaczenia = usterka
+
+    def test_zly_format_po_angielsku(self):
+        with pytest.raises(HTTPException) as e:
+            asyncio.run(wczytaj_ikone(plik("logo.jpg", png(128, 128))))
+        assert "PNG" in render(e.value.detail, "en")

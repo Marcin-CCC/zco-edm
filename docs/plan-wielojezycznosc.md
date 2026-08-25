@@ -140,12 +140,30 @@ Sortowanie ma iść za językiem DOKUMENTÓW, nie za językiem menu.
 
 ---
 
-## 5. Komunikaty backendu
+## 5. Komunikaty backendu — ZROBIONE (1.5.32, 25.08.2026)
 
-121 komunikatów `detail=`. Dzielimy je:
+129 komunikatów `detail=`. Podzielone tak, jak zakładał plan:
 
-- **dla użytkownika** — zamieniamy na kody błędów, tłumaczone we froncie,
-- **techniczne** (dla administratora i do logu) — zostają po polsku.
+- **dla użytkownika** (118) — router podaje KLUCZ (`UserMessage("files.notFound")`),
+- **techniczne** (11) — zostają po polsku: błędy uwierzytelniania między usługami,
+  komunikaty dla osoby stawiającej wdrożenie („uruchom seed.sql"), pomyłki w użyciu API.
+  Tłumaczenie ich byłoby pracą bez odbiorcy, a w logu wygodniej mieć jedno brzmienie.
+
+**Tłumaczy BACKEND, nie front** — wbrew pierwotnemu zamysłowi. Front musiałby rozpoznać
+kod błędu w każdym miejscu, gdzie pokazuje `err.message`, a jest ich kilkadziesiąt.
+Backendowi wystarczy jeden nagłówek (`X-UI-Language`) dokładany w `apiRequest`
+i w czterech lokalnych `authHeaders`.
+
+**Komunikat powstaje z klucza dopiero przy odpowiedzi** (`app/main.py`), bo w miejscu,
+gdzie wychodzi błąd, języka żądania się nie zna — przekazywanie go do każdej funkcji
+zdolnej rzucić wyjątkiem oznaczałoby dodatkowy argument w kilkudziesięciu miejscach.
+Na drut idzie zwykły napis, więc dla frontendu nic się nie zmienia.
+
+**Czego to NIE obejmuje.** Komunikatów backendu nie widać w zakładce „Języki" — panel
+składa listę z katalogów frontendu, a te leżą w innym obrazie. Poprawienie brzmienia
+komunikatu błędu wymaga więc wydania. Domknięcie tego to osobna robota: endpoint
+z katalogiem bazowym backendu plus czytanie poprawek z tabeli `translations` przy
+`render()`.
 
 ---
 

@@ -23,6 +23,7 @@ from pydantic import BaseModel
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
+from app.messages import UserMessage
 from app.database import get_db
 from app.auth.auth import get_current_user
 from app.models import User, File as FileModel
@@ -406,13 +407,13 @@ async def nl_search(
     """Pytanie po polsku → filtr (LLM) → wyszukiwanie. Zwraca rozpoznany filtr + wyniki."""
     schemas = get_active_schemas(db)
     if not (payload.query or "").strip():
-        raise HTTPException(status_code=400, detail="Puste zapytanie.")
+        raise HTTPException(status_code=400, detail=UserMessage("chat.emptyQuery"))
 
     try:
         parsed = await _nl_to_filter(payload.query.strip(), schemas)
     except Exception as e:
         logger.warning(f"[DOC-SEARCH-NL] Rozpoznanie filtra nieudane: {e}")
-        raise HTTPException(status_code=502, detail="Nie udało się zrozumieć zapytania.")
+        raise HTTPException(status_code=502, detail=UserMessage("chat.queryNotUnderstood"))
 
     valid_slugs = {s["slug"] for s in schemas}
     doc_type = (parsed.get("doc_type") or "").strip() or None

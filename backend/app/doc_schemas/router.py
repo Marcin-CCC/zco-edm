@@ -17,6 +17,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.messages import UserMessage
 from app.database import get_db
 from app.auth.auth import get_current_user
 from app.models import User, DocTypeSchema
@@ -64,7 +65,7 @@ def _validate_name_pattern(pattern: str | None, fields: list) -> str | None:
     if not uzyte:
         raise HTTPException(
             status_code=400,
-            detail="Wzorzec nazwy musi zawierać choć jedno pole w nawiasach, np. {typ}-{numer}.",
+            detail=UserMessage("schemas.badPattern", przyklad="{typ}-{numer}"),
         )
     nieznane = sorted(uzyte - znane)
     if nieznane:
@@ -111,11 +112,11 @@ def upsert_schema(
     Dzięki upsertowi zatwierdzone schematy dodaje się/aktualizuje bez deployu.
     """
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator może zarządzać schematami.")
+        raise HTTPException(status_code=403, detail=UserMessage("schemas.adminOnly"))
 
     slug = (payload.slug or "").strip().lower()
     if not _SLUG_RE.match(slug):
-        raise HTTPException(status_code=400, detail="slug: 2–50 znaków [a-z0-9_-].")
+        raise HTTPException(status_code=400, detail=UserMessage("schemas.badSlug"))
     _validate_fields(payload.fields)
 
     fields_data = [f.model_dump() for f in payload.fields]
@@ -153,10 +154,10 @@ def delete_schema(
 ):
     """Usuń schemat (po slugu). Tylko admin."""
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Tylko administrator może zarządzać schematami.")
+        raise HTTPException(status_code=403, detail=UserMessage("schemas.adminOnly"))
     row = db.query(DocTypeSchema).filter(DocTypeSchema.slug == slug.strip().lower()).first()
     if not row:
-        raise HTTPException(status_code=404, detail="Schemat nie istnieje.")
+        raise HTTPException(status_code=404, detail=UserMessage("schemas.notFound"))
     db.delete(row)
     db.commit()
     return {"message": "Schemat usunięty.", "slug": slug}
