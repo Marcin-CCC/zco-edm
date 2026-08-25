@@ -9,11 +9,13 @@
  */
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 
 import { NAV_ADMIN, isNavActive } from '@/components/shell/nav-items';
 
 export function AdminTabs() {
   const pathname = usePathname();
+  const t = useTranslations('nav');
   const naEkranieAdmina = NAV_ADMIN.some((item) => isNavActive(pathname, item));
   if (!naEkranieAdmina) return null;
 
@@ -37,7 +39,7 @@ export function AdminTabs() {
             <span className="grid h-[18px] w-[18px] flex-none place-items-center">
               <item.Icon size={18} />
             </span>
-            {item.label}
+            {t(item.labelKey)}
           </Link>
         );
       })}

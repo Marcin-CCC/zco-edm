@@ -9,6 +9,10 @@
  *
  * Wybrany język znaczymy PTASZKIEM, nie niebieskim tłem: w layoucie 1.5 niebieski
  * jest kolorem akcji, a stan odróżniamy kształtem.
+ *
+ * Dwa warianty, bo przełącznik stoi w dwóch miejscach o odwrotnym kontraście:
+ * w białej belce aplikacji i na ciemnym ekranie logowania. Rozwinięte menu zostaje
+ * białe w obu — to ta sama lista i ma wyglądać tak samo.
  */
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
@@ -19,7 +23,20 @@ import { LOCALE_NAMES, isLocale, type Locale } from '@/i18n/locales';
 import { przelaczJezyk } from '@/lib/locale';
 import { useAuth } from '@/lib/store';
 
-export function LanguageSwitcher() {
+/** `belka` — biały pasek aplikacji; `ciemny` — ekran logowania. */
+type Wariant = 'belka' | 'ciemny';
+
+const STYL_PRZYCISKU: Record<Wariant, string> = {
+  belka: 'text-app-muted hover:bg-app-hover hover:text-app-text',
+  ciemny: 'text-slate-300 hover:bg-white/10 hover:text-white',
+};
+
+const STYL_KODU: Record<Wariant, string> = {
+  belka: 'text-app-text',
+  ciemny: 'text-white',
+};
+
+export function LanguageSwitcher({ wariant = 'belka' }: { wariant?: Wariant } = {}) {
   const aktywny = useLocale();
   const jezyki = useEnabledLocales();
   const t = useTranslations('shell');
@@ -60,7 +77,7 @@ export function LanguageSwitcher() {
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setOtwarte((v) => !v)}
-        className="flex items-center gap-1.5 rounded-ctl px-2 py-2 text-app-muted hover:bg-app-hover hover:text-app-text"
+        className={`flex items-center gap-1.5 rounded-ctl px-2 py-2 ${STYL_PRZYCISKU[wariant]}`}
         aria-haspopup="menu"
         aria-expanded={otwarte}
         aria-label={t('language')}
@@ -68,7 +85,7 @@ export function LanguageSwitcher() {
         disabled={zmieniany !== null}
       >
         <IconGlobe size={18} />
-        <span className="text-sm font-semibold uppercase text-app-text">{kod}</span>
+        <span className={`text-sm font-semibold uppercase ${STYL_KODU[wariant]}`}>{kod}</span>
       </button>
 
       {otwarte && (

@@ -20,6 +20,53 @@ import { BASE_LOCALE, LOCALE_COOKIE, enabledLocales, normalizeLocale, type Local
 
 type Katalog = { [klucz: string]: string | Katalog };
 
+/**
+ * Poprawki tłumaczeń z bazy — warstwa NA katalogu z obrazu.
+ *
+ * Ta sama droga co marka (`lib/marka.ts`): odczyt po stronie serwera, krótki limit
+ * czasu i awaryjny powrót do samego katalogu. Awaria backendu nie może zostawić
+ * użytkownika bez napisów — najwyżej bez cudzych poprawek.
+ *
+ * Bez pamięci podręcznej, jak przy marce: to wywołanie WEWNĄTRZ sieci dockerowej,
+ * a poprawka wpisana przez tłumacza ma być widoczna od razu po odświeżeniu strony.
+ */
+async function poprawkiZBazy(locale: Locale): Promise<Record<string, string>> {
+  const adres = process.env.BACKEND_URL;
+  if (!adres || locale === BASE_LOCALE) return {};
+  try {
+    const odp = await fetch(`${adres}/api/translations/${locale}`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(2000),
+    });
+    if (!odp.ok) return {};
+    const dane = await odp.json();
+    return dane && typeof dane === 'object' ? dane : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Nakłada klucze z kropkami („shell.logout") na zagnieżdżony katalog. */
+function zPoprawkami(katalog: Katalog, poprawki: Record<string, string>): Katalog {
+  if (!Object.keys(poprawki).length) return katalog;
+  const wynik: Katalog = JSON.parse(JSON.stringify(katalog));
+  for (const [klucz, wartosc] of Object.entries(poprawki)) {
+    if (typeof wartosc !== 'string') continue;
+    const czesci = klucz.split('.');
+    let biezacy = wynik;
+    let poprawny = true;
+    for (const czesc of czesci.slice(0, -1)) {
+      const nastepny = biezacy[czesc];
+      // Poprawka do klucza, którego w katalogu nie ma (np. po usunięciu ekranu),
+      // jest po prostu pomijana — nie zakładamy pod nią nowych gałęzi.
+      if (typeof nastepny !== 'object' || nastepny === null) { poprawny = false; break; }
+      biezacy = nastepny as Katalog;
+    }
+    if (poprawny) biezacy[czesci[czesci.length - 1]] = wartosc;
+  }
+  return wynik;
+}
+
 /** Scalanie w głąb: wartości z `wierzch` wygrywają, brakujące zostają z `spod`. */
 function zScalone(spod: Katalog, wierzch: Katalog): Katalog {
   const wynik: Katalog = { ...spod };
@@ -51,10 +98,13 @@ export async function aktualnyJezyk(): Promise<Locale> {
 export default getRequestConfig(async () => {
   const locale = await aktualnyJezyk();
   const bazowy: Katalog = (await import(`../../messages/${BASE_LOCALE}.json`)).default;
-  const messages =
-    locale === BASE_LOCALE
-      ? bazowy
-      : zScalone(bazowy, (await import(`../../messages/${locale}.json`)).default);
+  let messages: Katalog = bazowy;
+  if (locale !== BASE_LOCALE) {
+    // Trzy warstwy, każda nadpisuje poprzednią: polski (zapas) → katalog języka
+    // z obrazu → poprawki wpisane przez tłumacza w zakładce Języki.
+    const zObrazu = zScalone(bazowy, (await import(`../../messages/${locale}.json`)).default);
+    messages = zPoprawkami(zObrazu, await poprawkiZBazy(locale));
+  }
 
   return {
     locale,

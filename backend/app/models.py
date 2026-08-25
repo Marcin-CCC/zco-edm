@@ -1,6 +1,6 @@
 from datetime import datetime
 import enum
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum, Float, ForeignKey, Text, JSON
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum, Float, ForeignKey, Text, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -102,6 +102,33 @@ class User(Base):
         modułu, zamiast po cichu odmówić administratorowi dostępu na produkcji.
         """
         return self.role == ROLE_ADMIN
+
+
+class Translation(Base):
+    """Poprawki tłumaczeń nanoszone przez człowieka — WARSTWA NA katalogach z obrazu.
+
+    Katalogi `frontend/messages/*.json` idą razem z kodem i są punktem wyjścia.
+    Ta tabela trzyma wyłącznie to, co ktoś poprawił po ich zobaczeniu w działającym
+    interfejsie: jeden wiersz na parę (język, klucz). Pusty wiersz nie istnieje —
+    cofnięcie poprawki to skasowanie wiersza, a nie zapisanie pustego napisu.
+
+    Po co osobna tabela zamiast edycji plików: wdrożenie klienckie ma móc poprawić
+    swoje tłumaczenie bez wydania nowej wersji aplikacji, a wydanie nowej wersji
+    nie może kasować cudzych poprawek.
+    """
+    __tablename__ = "translations"
+    __table_args__ = (UniqueConstraint("locale", "key", name="uq_translations_locale_key"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    locale = Column(String(5), nullable=False, index=True)
+    # Klucz z kropkami, jak w katalogu: „files.uploadButton”.
+    key = Column(String(200), nullable=False, index=True)
+    value = Column(Text, nullable=False)
+    # Skąd wzięła się wartość: `human` (ktoś wpisał) albo `machine` (model przetłumaczył).
+    # Rozróżnienie jest po to, żeby tłumacz widział, czego jeszcze nie sprawdził.
+    source = Column(String(10), nullable=False, default="human")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
 
 
 class Folder(Base):

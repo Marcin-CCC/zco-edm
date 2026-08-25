@@ -9,6 +9,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 
 import { AdminTabs } from '@/components/shell/admin-tabs';
 import { Sidebar } from '@/components/shell/sidebar';
@@ -19,6 +20,7 @@ import { useAuth } from '@/lib/store';
 const KLUCZ_ZWINIETE = 'sidebar_collapsed';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const t = useTranslations('common');
   const [isReady, setIsReady] = useState(false);
   const [zwiniete, setZwiniete] = useState(false);
   const [menuMobilne, setMenuMobilne] = useState(false);
@@ -70,7 +72,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [isAuthenticated, logout, router]);
 
   if (!isReady) {
-    return <div className="grid min-h-screen place-items-center bg-app-bg text-app-muted">Ładowanie…</div>;
+    return <div className="grid min-h-screen place-items-center bg-app-bg text-app-muted">{t('loading')}</div>;
   }
 
   return (

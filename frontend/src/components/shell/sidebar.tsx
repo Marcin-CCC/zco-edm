@@ -9,6 +9,7 @@
  */
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
 
 import { IconLifebuoy } from '@/components/icons';
@@ -28,6 +29,8 @@ interface Props {
 }
 
 export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobile }: Props) {
+  const t = useTranslations('sidebar');
+  const tNav = useTranslations('nav');
   const pathname = usePathname();
   const { user } = useAuth();
   const marka = useMarka();
@@ -80,7 +83,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
         key={item.href}
         href={item.href}
         onClick={onCloseMobile}
-        title={collapsed ? item.label : undefined}
+        title={collapsed ? tNav(item.labelKey) : undefined}
         aria-current={aktywna ? 'page' : undefined}
         className={[
           'flex items-center gap-3 rounded-[9px] px-[14px] py-3 text-[15px] text-[#f7fbff] transition-colors',
@@ -93,7 +96,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
         <span className="grid h-5 w-5 flex-none place-items-center">
           <item.Icon size={18} />
         </span>
-        {!collapsed && <span className="whitespace-nowrap">{item.label}</span>}
+        {!collapsed && <span className="whitespace-nowrap">{tNav(item.labelKey)}</span>}
       </Link>
     );
   };
@@ -114,8 +117,8 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
         {/* Logo przełącza zwijanie — jedyny mechanizm, zgodnie z makietą. */}
         <button
           onClick={onToggleCollapsed}
-          title={collapsed ? 'Rozwiń menu' : 'Zwiń menu'}
-          aria-label={collapsed ? 'Rozwiń menu' : 'Zwiń menu'}
+          title={collapsed ? t('expand') : t('collapse')}
+          aria-label={collapsed ? t('expand') : t('collapse')}
           className={[
             'mb-5 flex items-center px-1 pt-1',
             collapsed ? 'justify-center px-0' : '',
@@ -162,24 +165,24 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
             'mt-4 flex-none rounded-xl border border-white/[.08] bg-white/[.06]',
             collapsed ? 'grid place-items-center p-3' : 'p-4',
           ].join(' ')}
-          title="Potrzebujesz pomocy?"
+          title={t('helpTitle')}
         >
           {collapsed ? (
-            <Link href="/dashboard/kontakt" aria-label="Skontaktuj się" className="text-white">
+            <Link href="/dashboard/kontakt" aria-label={t('helpAction')} className="text-white">
               <IconLifebuoy size={24} />
             </Link>
           ) : (
             <>
-              <strong className="mb-1.5 block text-[13px]">Potrzebujesz pomocy?</strong>
+              <strong className="mb-1.5 block text-[13px]">{t('helpTitle')}</strong>
               <p className="mb-3.5 text-xs leading-[1.45] text-[#c9d6ea]">
-                Skontaktuj się z działem wsparcia technicznego.
+                {t('helpText')}
               </p>
               <Link
                 href="/dashboard/kontakt"
                 onClick={onCloseMobile}
                 className="block rounded-lg bg-white/10 py-2.5 text-center text-[13px] font-bold text-white hover:bg-white/[.16]"
               >
-                Skontaktuj się
+                {t('helpAction')}
               </Link>
             </>
           )}

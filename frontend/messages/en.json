@@ -1,9 +1,40 @@
 {
+  "common": {
+    "loading": "Loading…"
+  },
+  "login": {
+    "title": "Sign in",
+    "email": "E-mail address",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "error": "Sign-in failed"
+  },
+  "nav": {
+    "accessList": "Access list",
+    "answers": "Answer log",
+    "chat": "AI chat",
+    "dashboard": "Dashboard",
+    "docSchemas": "Document schemas",
+    "fileQueue": "File queue",
+    "files": "Files",
+    "languages": "Languages",
+    "search": "Search",
+    "settings": "Settings",
+    "users": "Users"
+  },
   "shell": {
     "openMenu": "Open menu",
     "profile": "Profile",
     "manual": "User manual",
     "logout": "Sign out",
     "language": "Interface language"
+  },
+  "sidebar": {
+    "expand": "Expand menu",
+    "collapse": "Collapse menu",
+    "helpTitle": "Need help?",
+    "helpText": "Get in touch with technical support.",
+    "helpAction": "Contact support"
   }
 }

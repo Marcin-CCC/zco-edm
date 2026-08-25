@@ -1,6 +1,19 @@
 {
   "entries": [
     {
+      "version": "1.5.23",
+      "date": "2026-08-25",
+      "title": "Zakladka Jezyki i przelacznik na ekranie logowania",
+      "changes": [
+        "Przelacznik jezyka jest teraz takze na ekranie logowania, nad okienkiem. Bez niego osoba anglojezyczna musialaby zalogowac sie na polskim ekranie, zeby dopiero potem przestawic jezyk.",
+        "Nowa zakladka administratora „Jezyki”: lista wszystkich napisow interfejsu z tekstem polskim obok tlumaczenia. Napis mozna poprawic na miejscu, a wyczyszczenie pola przywraca tekst dostarczony z aplikacja.",
+        "Filtry pokazuja, czego brakuje: „Brakujace” to napisy, ktore w innym jezyku wypadaja po polsku, „Maszynowe” — przetlumaczone przez model i jeszcze niesprawdzone przez czlowieka, „Poprawione” — zatwierdzone recznie.",
+        "Przycisk „Przetlumacz brakujace” tlumaczy modelem lokalnym wylacznie te napisy, ktorych nie ma. Tekstu sprawdzonego przez czlowieka nie rusza.",
+        "Poprawki przezywaja aktualizacje aplikacji: nowe wydanie nie kasuje tego, co wpisano w zakladce, a wdrozenie moze poprawic swoje napisy bez czekania na kolejna wersje.",
+        "Przetlumaczone ekrany: logowanie, menu boczne, gorna belka i zakladki administratora. Pozostale dochodza w kolejnych wydaniach."
+      ]
+    },
+    {
       "version": "1.5.22",
       "date": "2026-08-25",
       "title": "Przelacznik jezyka interfejsu",

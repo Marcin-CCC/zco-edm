@@ -36,6 +36,7 @@ from app.doc_schemas import router as doc_schemas_router
 from app.doc_search import router as doc_search_router
 from app.contact import router as contact_router
 from app.roles.router import router as roles_router
+from app.translations.router import router as translations_router
 from app.schema_upgrade import run_startup_upgrades
 
 # Tworzenie tabel w bazie danych
@@ -122,6 +123,7 @@ app.include_router(doc_schemas_router)
 app.include_router(doc_search_router)
 app.include_router(roles_router)
 app.include_router(contact_router)
+app.include_router(translations_router)
 
 
 # ============ HEALTH CHECK ============

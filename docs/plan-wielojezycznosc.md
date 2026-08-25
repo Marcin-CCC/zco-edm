@@ -89,7 +89,13 @@ w języku wdrożenia, przełączenie po zalogowaniu zostaje na stałe.
 
 ---
 
-## 3. Wyciągnięcie napisów — ekran po ekranie
+## 3. Wyciągnięcie napisów — ekran po ekranie (W TOKU)
+
+**Stan 25.08.2026 (1.5.23):** zrobione — ekran logowania, menu boczne,
+górna belka, zakładki administratora. Pomiar całości: 348 napisów w 30 plikach
+(więcej niż pierwotne 211 — tamten spis pomijał napisy bez znaków diakrytycznych).
+Największe pozostałe: Pliki (61), Czat (40), Kolejka plików (39), Lista odpowiedzi (27),
+Ustawienia (26), Schematy dokumentów (23), Dashboard (23).
 
 211 unikalnych napisów w 44 plikach. Idziemy partiami, każda osobno sprawdzana:
 
@@ -127,7 +133,7 @@ Sortowanie ma iść za językiem DOKUMENTÓW, nie za językiem menu.
 
 ---
 
-## 6. Zakładka „Języki" w administracji
+## 6. Zakładka „Języki" w administracji — ZROBIONE (1.5.23, 25.08.2026)
 
 Wymaganie użytkownika: tłumaczenia muszą dać się poprawiać bez wdrożenia.
 
@@ -146,6 +152,26 @@ cofnięcie obrazu nie gubi poprawek, a nowa instalacja nie wymaga bazy tłumacze
 **Ekran:** lista fraz z filtrem „nieprzetłumaczone / poprawione ręcznie / wszystkie",
 pole źródłowe po polsku obok pola docelowego, oznaczenie fraz tkniętych przez człowieka
 (żeby ponowne tłumaczenie maszynowe ich nie nadpisało).
+
+**Jak wyszło.** Ekran `/dashboard/languages`, cztery filtry (wszystkie / brakujące /
+maszynowe / poprawione), wyszukiwarka po kluczu i po napisie, zapis przy opuszczeniu
+pola. Przycisk „Przetłumacz brakujące" rusza WYŁĄCZNIE napisy, których nie ma —
+tekstu sprawdzonego przez człowieka nie nadpisuje.
+
+Dodawanie języka kodem ISO z ekranu ZOSTAJE do zrobienia: lista języków jest na razie
+w `UI_LANGUAGES` i w `LOCALES`, bo nowy język wymaga też katalogu `messages/<kod>.json`
+w obrazie. Bez niego nie byłoby czego tłumaczyć maszynowo.
+
+**Katalogów nie zna backend** — leżą w obrazie frontendu. Zestawienie „co jest
+przetłumaczone" składa więc ekran administratora, a backend trzyma same poprawki.
+Kopiowanie katalogów do obrazu backendu dałoby dwie prawdy rozjeżdżające się przy
+pierwszym wydaniu.
+
+**Tłumaczenie maszynowe** idzie partiami po 20 napisów przez model na Sparku
+(`VLLM_URL`), a wynik wiąże się z wejściem po NUMERZE linii, nie po kolejności.
+Zgubiona linia zostawia dziurę do uzupełnienia ręcznie, zamiast przesuwać całą resztę
+o jedno miejsce — bez tego przycisk dostałby tłumaczenie nagłówka kolumny i nikt by
+tego nie zauważył, bo oba napisy są krótkie.
 
 ---
 

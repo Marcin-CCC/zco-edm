@@ -555,3 +555,36 @@ export const docSchemasApi = {
       token: getAuthToken(),
     }),
 };
+
+/** Jedno nadpisanie tłumaczenia widziane przez ekran administratora. */
+export interface TranslationMeta {
+  value: string;
+  /** `human` — ktoś wpisał; `machine` — przetłumaczył model i nikt jeszcze nie sprawdził. */
+  source: 'human' | 'machine';
+  updated_at: string | null;
+}
+
+/** Poprawki tłumaczeń. Katalogi z obrazu zna FRONT, backend trzyma same poprawki. */
+export const translationsApi = {
+  /** Nadpisania dla języka wraz z metryczką (administrator). */
+  meta: (locale: string) =>
+    apiRequest<Record<string, TranslationMeta>>(`/api/translations/${locale}/meta`, {
+      token: getAuthToken(),
+    }),
+
+  /** Zapis poprawki. Pusta wartość kasuje wpis i przywraca tekst z katalogu. */
+  save: (locale: string, key: string, value: string) =>
+    apiRequest<any>('/api/translations', {
+      method: 'PUT',
+      body: { locale, key, value },
+      token: getAuthToken(),
+    }),
+
+  /** Tłumaczenie maszynowe wskazanych napisów — pierwszy przebieg dla nowego języka. */
+  auto: (locale: string, items: { key: string; source: string }[]) =>
+    apiRequest<{ translated: Record<string, string>; failed: string[] }>('/api/translations/auto', {
+      method: 'POST',
+      body: { locale, items },
+      token: getAuthToken(),
+    }),
+};

@@ -1,9 +1,40 @@
 {
+  "common": {
+    "loading": "Ładowanie…"
+  },
+  "login": {
+    "title": "Zaloguj się",
+    "email": "Adres e-mail",
+    "password": "Hasło",
+    "submit": "Zaloguj się",
+    "submitting": "Logowanie…",
+    "error": "Błąd logowania"
+  },
+  "nav": {
+    "accessList": "Lista dostępów",
+    "answers": "Lista odpowiedzi",
+    "chat": "Chat z AI",
+    "dashboard": "Dashboard",
+    "docSchemas": "Schematy dokumentów",
+    "fileQueue": "Kolejka plików",
+    "files": "Pliki",
+    "languages": "Języki",
+    "search": "Wyszukiwanie",
+    "settings": "Ustawienia",
+    "users": "Użytkownicy"
+  },
   "shell": {
     "openMenu": "Otwórz menu",
     "profile": "Profil",
     "manual": "Instrukcja",
     "logout": "Wyloguj",
     "language": "Język interfejsu"
+  },
+  "sidebar": {
+    "expand": "Rozwiń menu",
+    "collapse": "Zwiń menu",
+    "helpTitle": "Potrzebujesz pomocy?",
+    "helpText": "Skontaktuj się z działem wsparcia technicznego.",
+    "helpAction": "Skontaktuj się"
   }
 }
