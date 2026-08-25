@@ -150,3 +150,85 @@ interfejs podmienia pierwszy na zdanie, a drugi na odnośnik.
 
 W n8n: **History** przy workflow → przywrócenie poprzedniej wersji → Publish.
 Po stronie aplikacji nic cofać nie trzeba, bo 1.5.21 rozumie też starą postać.
+
+---
+
+# Krok 7 — język odpowiedzi (osobna zmiana, po 1.5.31)
+
+Ta sama zasada co wyżej: **najpierw obie aplikacje na 1.5.31**, potem „Publish".
+Jedna linijka, jeden node.
+
+## Node „AI Agent" → opcja **System Message**
+
+Na samym końcu promptu stoi sekcja z kontekstem:
+
+```
+## Kontekst z bazy danych
+{{ $json.context }}
+```
+
+Wstaw **nad nią** jedną linijkę:
+
+```
+{{ $('Webhook').item.json.body.answerLanguageInstruction || '' }}
+```
+
+Czyli koniec promptu ma wyglądać tak:
+
+```
+{{ $('Webhook').item.json.body.answerLanguageInstruction || '' }}
+
+## Kontekst z bazy danych
+{{ $json.context }}
+```
+
+Po wszystkim — **Publish**.
+
+## Dlaczego tylko tyle
+
+Treść polecenia składa backend (`app/chat/answer_language.py`) i wysyła gotową
+w polu `answerLanguageInstruction`. n8n tylko ją wstawia. Dzięki temu poprawienie
+brzmienia — a to jest tekst, który trzeba będzie dostroić — nie wymaga wchodzenia
+do workflow ani klikania „Publish". Wystarczy wydanie aplikacji.
+
+Pole jest **puste, gdy interfejs jest po polsku**. Dla osoby pracującej po polsku
+prompt nie rośnie ani o znak: doklejanie polecenia „odpowiadaj po polsku" to strata
+tokenów na powiedzenie modelowi, żeby robił to, co i tak robi, plus ryzyko, że
+zacznie tłumaczyć cytowane wartości z dokumentów.
+
+`|| ''` jest konieczne. Bez niego żądanie ze starszej wersji aplikacji (pole
+nieobecne) wstawiłoby do promptu napis `undefined`.
+
+## Co dostaje model przy interfejsie po angielsku
+
+```
+## Język odpowiedzi (NADRZĘDNE wobec języka Kontekstu)
+
+- Całą odpowiedź napisz w języku angielskim. Dotyczy to także zdania o braku informacji.
+- Kontekst jest w innym języku (najczęściej polskim). To NIE jest pomyłka — nie
+  przechodź na język dokumentów i nie komentuj tej różnicy.
+- NIE tłumacz: nazw plików, numerów dokumentów, oznaczeń norm, dat ani cytowanych
+  wartości liczbowych. Przepisz je dokładnie tak, jak stoją w Kontekście.
+- Znaczniki cytowań przepisz bez zmian — są identyczne w każdym języku.
+```
+
+Trzy rzeczy w tym tekście nie są ozdobą:
+
+**„Kontekst jest w innym języku"** — bez uprzedzenia model bierze różnicę języków
+za pomyłkę i albo przechodzi na język dokumentów, albo tłumaczy numery i nazwy.
+
+**„najczęściej polskim", nie „polskim"** — zbiór nie jest jednojęzyczny, materiały
+od dostawców bywają po angielsku.
+
+**Zakaz tłumaczenia nazw plików i numerów** — przetłumaczona nazwa pliku przestaje
+pasować do listy źródeł pod odpowiedzią, a przetłumaczony numer zarządzenia jest
+po prostu nieprawdziwy.
+
+## Po „Publish" — co sprawdzić
+
+| Ustawienie | Pytanie | Czego oczekujemy |
+|---|---|---|
+| interfejs PL | zwykłe, po polsku | bez zmian wobec dzisiaj |
+| interfejs EN | to samo pytanie po angielsku | odpowiedź po angielsku, odnośniki klikalne, nazwy plików i numery po polsku |
+| interfejs EN | o coś, czego nie ma w dokumentach | zdanie o braku informacji **po angielsku** |
+| interfejs UK | zwykłe pytanie | odpowiedź po ukraińsku |

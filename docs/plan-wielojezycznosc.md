@@ -191,7 +191,7 @@ tego nie zauważył, bo oba napisy są krótkie.
 
 ---
 
-## 7. Język odpowiedzi
+## 7. Język odpowiedzi — KOD GOTOWY (1.5.31), n8n czeka na Publish
 
 Do promptu trafia język interfejsu wraz z zastrzeżeniem, że dokumenty są w innym
 języku — **warunkowo**, tylko gdy języki się różnią. Dla polskiego użytkownika
@@ -199,6 +199,16 @@ byłoby to szumem, a zbiór przestaje być jednojęzyczny (materiały od dostawc
 
 Krok wykonalny dopiero **po kroku 1**. Odwrotna kolejność daje demo, w którym znikają
 źródła, a odmowy udają odpowiedzi.
+
+**Jak zrobione.** Treść polecenia składa backend (`app/chat/answer_language.py`)
+i wysyła gotową w polu `answerLanguageInstruction`; n8n tylko ją wstawia. Dzięki temu
+dostrajanie brzmienia — a ten tekst będzie wymagał dostrojenia — nie wymaga wchodzenia
+do workflow ani „Publish". Język bierzemy z ŻĄDANIA, nie z `users.locale`: liczy się to,
+co osoba widzi na ekranie w tej chwili, bo przełącznik działa też przed zapisaniem
+wyboru przy koncie.
+
+Instrukcja do n8n: [`n8n-zmiany-wielojezycznosc.md`](n8n-zmiany-wielojezycznosc.md),
+sekcja „Krok 7" — jedna linijka w jednym nodzie.
 
 ---
 

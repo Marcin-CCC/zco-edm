@@ -36,6 +36,7 @@ from app.schemas import (
 )
 from app.version import get_version
 from app.chat.definicje import pytanie_definicyjne
+from app.chat.answer_language import language_instruction
 from app.chat.formulka import bez_koncowej_formulki, czy_odmowa, filtruj_strumien
 from app.settings.router import _load_cache_from_db, get_chat_webhook_url
 from app.webhook_auth import verify_webhook_secret
@@ -392,6 +393,10 @@ async def chat(
         # Fragmenty dobrane z dokumentu-zwycięzcy — n8n dokleja je do kontekstu
         # z pominięciem progu (zob. węzeł „Chunks Filter"). Pusta lista = bez zmian.
         "extraChunks": plan.dobrane,
+        # Gotowy fragment promptu o języku odpowiedzi — PUSTY, gdy odpowiedź ma być
+        # po polsku. n8n tylko go wstawia, więc zmiana brzmienia nie wymaga edycji
+        # workflow ani „Publish" (zob. app/chat/answer_language.py).
+        "answerLanguageInstruction": language_instruction(payload.locale),
     }
     # Migawka planu dla ewentualnej oceny użytkownika (zob. POST /api/chat/ocena)
     _purge_expired_sources()

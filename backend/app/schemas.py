@@ -255,6 +255,10 @@ class ChatRequest(BaseModel):
     # ponowieniu, gdy odpowiedź z historią była odmową: zmierzone, że po zmianie
     # tematu w wątku model odmawia, choć to samo pytanie w świeżym wątku działa.
     use_history: bool = True
+    # Język interfejsu, w którym ma być odpowiedź. Bierzemy go z ŻĄDANIA, a nie
+    # z `users.locale`: liczy się to, co osoba widzi na ekranie w tej chwili —
+    # przełącznik działa też przed zapisaniem wyboru przy koncie.
+    locale: Optional[str] = None
 
 
 class ChatSourceItem(BaseModel):

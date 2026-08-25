@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 
@@ -198,6 +198,7 @@ function authHeaders(): Record<string, string> {
 
 export default function ChatPage() {
   const t = useTranslations('chat');
+  const jezyk = useLocale();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -615,6 +616,9 @@ export default function ChatPage() {
             request_id: rid,
             file_ids: ids.length > 0 ? ids : undefined,
             use_history: useHistory,
+            // Język, w którym ma odpowiedzieć model. Bierzemy go z interfejsu,
+            // a nie z konta: liczy się to, co osoba widzi na ekranie TERAZ.
+            locale: jezyk,
           }),
           signal: controller.signal,
         });

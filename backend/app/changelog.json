@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "1.5.31",
+      "date": "2026-08-25",
+      "title": "Odpowiedzi w jezyku interfejsu",
+      "changes": [
+        "Model odpowiada teraz w jezyku, na ktory ustawiony jest interfejs — takze wtedy, gdy dokumenty sa po polsku. Dotyczy to rowniez zdania o braku informacji.",
+        "Nazwy plikow, numery dokumentow, oznaczenia norm, daty i cytowane wartosci zostaja w oryginale. Przetlumaczona nazwa pliku przestalaby pasowac do listy zrodel pod odpowiedzia, a przetlumaczony numer zarzadzenia bylby po prostu nieprawdziwy.",
+        "Dla osoby pracujacej po polsku nic sie nie zmienia i nic nie kosztuje: polecenie o jezyku w ogole wtedy nie powstaje.",
+        "Zmiana wymaga jednej poprawki w n8n — do czasu jej wprowadzenia odpowiedzi pozostaja w jezyku dokumentow."
+      ]
+    },
+    {
       "version": "1.5.30",
       "date": "2026-08-25",
       "title": "Podpis pod nazwa aplikacji idzie za jezykiem",
