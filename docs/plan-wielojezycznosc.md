@@ -1,0 +1,166 @@
+# Plan wprowadzenia wielojęzyczności
+
+Decyzja użytkownika z **25 sierpnia 2026**: robimy pełną wielojęzyczność, zaczynając
+od uniezależnienia cytowań od języka. Punktem wyjścia jest wersja **1.5.20**.
+
+Dokumenty pokrewne: [`analiza-wielojezycznosc.md`](analiza-wielojezycznosc.md) —
+pomiary i uzasadnienia, na których ten plan stoi.
+
+---
+
+## 0. Punkt powrotu (zrobione 25.08.2026)
+
+Warunek wstępny, bo dalsze kroki ruszają schemat bazy.
+
+| Element | Stan |
+|---|---|
+| Obrazy `:1.5.20` (backend, frontend) | na Sparku, wypchnięte do ghcr przez CI |
+| Tag `v1.5.20` | w repozytorium |
+| `edmdatabase-przed-wielojezycznoscia-20260825.sql` | 1,5 MB, 16 tabel |
+| `hirsdatabase-przed-wielojezycznoscia-20260825.sql` | 420 kB, 16 tabel |
+| `.env.przed-1.5.20` w `~/hirs-app` | jest |
+
+**Zasada obowiązująca w każdym kroku:** do bazy wolno tylko DOKŁADAĆ tabele i kolumny.
+Żaden krok nie zmienia znaczenia danych, które już tam są. Dzięki temu cofnięcie
+obrazu do 1.5.20 przywraca działającą aplikację bez odtwarzania bazy — interfejs
+wraca po polsku, nic nie ginie. Zrzuty są zabezpieczeniem na wypadek pomyłki, a nie
+elementem zwykłej drogi powrotu.
+
+---
+
+## 1. Cytowania i odmowy niezależne od języka
+
+**Dlaczego pierwsze.** Dziś oba mechanizmy są zaczepione o dosłowne polskie napisy.
+Po angielsku model przestaje wystawiać `[Źródło N]`, więc wszystkie źródła dostają
+`cited: false` i chowają się pod zwijką. Gorsze jest to, co dzieje się z odmową:
+`FORMULKA` w [`app/chat/formulka.py`](../backend/app/chat/formulka.py) to literał,
+od którego zależą **cztery** rzeczy — zdejmowanie doklejonego ogona, pominięcie tury
+w historii (`_is_refusal`), ponowienie pytania „na czysto" we froncie (`czystaOdmowa`)
+i wyzerowanie źródeł w węźle Sources Gate w n8n. Odmowa po angielsku nie zostanie
+rozpoznana: trafi do historii i zachowa źródła, z których model nie skorzystał.
+
+**Do zrobienia**
+
+1. Znacznik cytowania: parsery (backend i front) przyjmują postać neutralną `[[N]]`
+   **obok** dotychczasowej `[Źródło N]`. Dwie formy naraz, żeby zmiana promptu i
+   wdrożenie kodu nie musiały nastąpić w tej samej minucie.
+2. Odmowa: model wystawia stały znacznik, którego backend nie pokazuje użytkownikowi,
+   tylko podmienia na przetłumaczone zdanie. Rozpoznawanie odmowy przestaje zależeć
+   od języka, a samo zdanie może być w języku interfejsu.
+3. Prompt w n8n — **zmiana po stronie użytkownika**, razem z „Publish". Gotowy tekst
+   dostarczony osobno.
+
+**Sprawdzenie:** pytanie po polsku daje ten sam wynik co dziś (cytowania klikalne,
+odmowa rozpoznana, źródła wyzerowane); to samo pytanie po angielsku daje cytowania.
+
+**Ryzyko:** to jedyny krok dotykający n8n. Wersja przejściowa rozumie obie postacie,
+więc kolejność wdrożeń nie ma znaczenia.
+
+---
+
+## 2. Infrastruktura i18n i przełącznik języka
+
+- `next-intl`: dostawca, katalog kluczy, polski jako język bazowy.
+- Wybór języka: domyślny dla wdrożenia (zmienna środowiskowa) + nadpisanie per konto.
+  Nowa kolumna `users.locale` (NULL = domyślny wdrożenia).
+- Przełącznik **na lewo od awatara** w górnej belce, kody ISO 639-1 (`PL`, `EN`).
+- Języka przeglądarki NIE używamy jako źródła prawdy — na wspólnym komputerze
+  interfejs zmieniałby język między zmianami.
+
+**Sprawdzenie:** przełącznik działa, wybór przeżywa przeładowanie i wylogowanie,
+przy braku tłumaczenia widać tekst polski (a nie klucz).
+
+---
+
+## 3. Wyciągnięcie napisów — ekran po ekranie
+
+211 unikalnych napisów w 44 plikach. Idziemy partiami, każda osobno sprawdzana:
+
+1. powłoka (sidebar, belka, stopka, okna wspólne),
+2. Dashboard,
+3. Pliki,
+4. Chat z AI,
+5. Wyszukiwanie,
+6. administracja: Użytkownicy, Lista dostępów, Schematy dokumentów, Kolejka plików,
+   Lista odpowiedzi, Ustawienia, Profil, Pomoc, Kontakt.
+
+**Sprawdzenie po każdej partii:** ekran po polsku wygląda identycznie jak przed
+zmianą (zrzut przed/po), a po przełączeniu na EN nie ma surowych kluczy.
+
+---
+
+## 4. Liczebniki i formatowanie
+
+Cztery kopie ręcznie pisanej odmiany (`odmiana`, `odmianaPlikow`, `odmianaDokumentow`,
+`pluralDocs`) znikają na rzecz formatu ICU — polski ma trzy formy, angielski dwie,
+a kolejny język nie dokłada kodu. Dwadzieścia miejsc z zaszytym `pl-PL` idzie
+za wyborem języka.
+
+**Uwaga:** kolacja `polish_natural` sortująca pliki zostaje niezależna od interfejsu.
+Sortowanie ma iść za językiem DOKUMENTÓW, nie za językiem menu.
+
+---
+
+## 5. Komunikaty backendu
+
+121 komunikatów `detail=`. Dzielimy je:
+
+- **dla użytkownika** — zamieniamy na kody błędów, tłumaczone we froncie,
+- **techniczne** (dla administratora i do logu) — zostają po polsku.
+
+---
+
+## 6. Zakładka „Języki" w administracji
+
+Wymaganie użytkownika: tłumaczenia muszą dać się poprawiać bez wdrożenia.
+
+**Jak to działa**
+
+1. Administrator dodaje język (kod ISO).
+2. Aplikacja tłumaczy **maszynowo** cały katalog — modelem działającym na Sparku,
+   więc żaden napis nie opuszcza budynku, tak samo jak dokumenty.
+3. Człowiek przegląda listę fraz i poprawia to, co wymaga poprawy.
+
+**Gdzie mieszkają tłumaczenia.** Warstwowo: pliki w repozytorium niosą komplet
+(świeża instalacja działa bez ani jednego wpisu w bazie), a tabela `translations`
+trzyma WYŁĄCZNIE poprawki administratora i nakłada się na wierzch. Dzięki temu
+cofnięcie obrazu nie gubi poprawek, a nowa instalacja nie wymaga bazy tłumaczeń.
+
+**Ekran:** lista fraz z filtrem „nieprzetłumaczone / poprawione ręcznie / wszystkie",
+pole źródłowe po polsku obok pola docelowego, oznaczenie fraz tkniętych przez człowieka
+(żeby ponowne tłumaczenie maszynowe ich nie nadpisało).
+
+---
+
+## 7. Język odpowiedzi
+
+Do promptu trafia język interfejsu wraz z zastrzeżeniem, że dokumenty są w innym
+języku — **warunkowo**, tylko gdy języki się różnią. Dla polskiego użytkownika
+byłoby to szumem, a zbiór przestaje być jednojęzyczny (materiały od dostawców).
+
+Krok wykonalny dopiero **po kroku 1**. Odwrotna kolejność daje demo, w którym znikają
+źródła, a odmowy udają odpowiedzi.
+
+---
+
+## Czego ten plan NIE obejmuje
+
+- **Instrukcji obsługi** — cztery dokumenty po polsku, do których prowadzi przycisk
+  Pomoc. Ich wersja obcojęzyczna to praca tłumaczeniowa, nie programistyczna.
+- **Doboru fragmentów świadomego języka** i **korpusu obcojęzycznego na demo** —
+  poziomy 2 i 3 z analizy. Dopiero one dają pokaz, w którym również DOKUMENTY są
+  w języku oglądającego.
+
+## Szacunek
+
+| Krok | Dni robocze |
+|---|---|
+| 1. Cytowania i odmowy | 0,5–1 |
+| 2. Infrastruktura i przełącznik | 1 |
+| 3. Wyciągnięcie 211 napisów | 2 |
+| 4. Liczebniki i formatowanie | 0,5 |
+| 5. Komunikaty backendu | 1,5 |
+| 6. Zakładka Języki (ekran, tłumaczenie maszynowe, warstwa poprawek) | 2 |
+| 7. Język odpowiedzi | 0,5 |
+| Tłumaczenie 617 słów i przegląd 44 ekranów | 1,5 |
+| **Razem** | **9,5–10** |
