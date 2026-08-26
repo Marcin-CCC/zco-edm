@@ -129,7 +129,11 @@ def main():
                             cfg.get("origin", "http://localhost:3010"),
                             cfg.get("jezyk", "pl")))
     finally:
-        proc.terminate()
+        # `terminate()` ubija tylko rodzica — procesy potomne Edge'a zostają
+        # i zjadają pamięć aż do restartu maszyny. `/T` bierze całe drzewo.
+        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        proc.wait(timeout=15)
 
 
 if __name__ == "__main__":

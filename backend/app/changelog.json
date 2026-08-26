@@ -1,6 +1,18 @@
 {
   "entries": [
     {
+      "version": "1.6.6",
+      "date": "2026-08-26",
+      "title": "Instrukcje obslugi ze zrzutami w kazdym jezyku",
+      "changes": [
+        "Zrzuty ekranu w instrukcji obslugi sa teraz w tym samym jezyku, co jej tresc. Wczesniej kazde wydanie — takze niemieckie czy ukrainskie — pokazywalo polski interfejs. Razem 372 zrzuty, po jednym komplecie na jezyk i wdrozenie.",
+        "Pytanie na ilustracji czatu pada w jezyku wydania, a odpowiedz modelu przychodzi w tym samym jezyku.",
+        "Czeska nazwa ekranu pomocy brzmiala „Pomoc”. To poprawne czeskie slowo, ale znaczy wsparcie („první pomoc”), a nie dokumentacje — sekcja pomocy w oprogramowaniu to „Nápověda”. Po ukrainsku analogicznie „Довідка” zamiast „Допомога”.",
+        "Numer wersji i data wydania w instrukcji ida teraz z listy zmian. Wpisane recznie rozjechaly sie: instrukcja podawala 1.6.0, gdy aplikacja byla na 1.6.5.",
+        "Czeskie „Email” w liscie uzytkownikow poprawione na „E-mail”, zgodnie z reszta katalogu."
+      ]
+    },
+    {
       "version": "1.6.5",
       "date": "2026-08-26",
       "title": "Odmiana przez liczbe i dwa napisy sklejane ze wstawka",

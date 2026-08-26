@@ -382,7 +382,7 @@
     "downloadPdf": "Stáhnout PDF",
     "openInNewTab": "Otevřít v nové kartě",
     "scrollToToc": "Přejít k obsahu",
-    "title": "Pomoc",
+    "title": "Nápověda",
     "userDesc": "To, co potřebujete každý den: dokumenty, chat a vyhledávání.",
     "userName": "Návod pro uživatele"
   },
@@ -716,7 +716,7 @@
     "addNewUser": "Přidat nového uživatele",
     "addUser": "Přidat uživatele",
     "colActions": "Akce",
-    "colEmail": "Email",
+    "colEmail": "E-mail",
     "colRole": "Role",
     "colStatus": "Stav",
     "colUser": "Uživatel",

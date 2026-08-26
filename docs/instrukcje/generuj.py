@@ -21,9 +21,20 @@ import sys
 import tempfile
 import time
 
-WERSJA = "1.6.0"
 WYKONAWCA = "Polmedi Group sp. z o.o., Poznań"
 KATALOG = os.path.dirname(os.path.abspath(__file__))
+
+# Wersja i data wydania idą z listy zmian, nie z liczby wpisanej tutaj. Wpisana
+# ręcznie rozjeżdża się przy pierwszym wydaniu, o którym ktoś zapomni — instrukcja
+# na ekranie Pomoc podawała „1.6.0", kiedy aplikacja była już na 1.6.5.
+def _z_listy_zmian():
+    sciezka = os.path.join(KATALOG, "..", "..", "backend", "app", "changelog.json")
+    with open(sciezka, encoding="utf-8") as f:
+        ostatnie = json.load(f)["entries"][0]
+    return ostatnie["version"], ostatnie["date"]
+
+
+WERSJA, DATA_ISO = _z_listy_zmian()
 EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 
 # Katalog aplikacji — instrukcje powstają OD RAZU tam, skąd czyta je ekran Pomoc.
@@ -127,10 +138,35 @@ SZKIELET = {
 # Data wydania po polsku jest zapisana słownie („25 sierpnia 2026"), a nazwy
 # miesięcy się odmieniają — w każdym języku inaczej. Prościej podać ją raz na
 # język, niż budować odmianę dla sześciu gramatyk.
-DATY = {
-    "pl": "25 sierpnia 2026", "en": "25 August 2026", "cs": "25. srpna 2026",
-    "de": "25. August 2026", "es": "25 de agosto de 2026", "uk": "25 серпня 2026 р.",
+# Nazwy miesięcy — data wydania jest w liście zmian jako `RRRR-MM-DD`, a każdy
+# język zapisuje ją inaczej (polski i ukraiński odmieniają miesiąc przez przypadki,
+# czeski i niemiecki stawiają kropkę po dniu).
+MIESIACE = {
+    "pl": ["stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca",
+           "sierpnia", "września", "października", "listopada", "grudnia"],
+    "en": ["January", "February", "March", "April", "May", "June", "July",
+           "August", "September", "October", "November", "December"],
+    "cs": ["ledna", "února", "března", "dubna", "května", "června", "července",
+           "srpna", "září", "října", "listopadu", "prosince"],
+    "de": ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli",
+           "August", "September", "Oktober", "November", "Dezember"],
+    "es": ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+           "agosto", "septiembre", "octubre", "noviembre", "diciembre"],
+    "uk": ["січня", "лютого", "березня", "квітня", "травня", "червня", "липня",
+           "серпня", "вересня", "жовтня", "листопада", "грудня"],
 }
+
+
+def data_wydania(jezyk):
+    rok, miesiac, dzien = (int(x) for x in DATA_ISO.split("-"))
+    nazwa = MIESIACE[jezyk][miesiac - 1]
+    if jezyk in ("cs", "de"):
+        return f"{dzien}. {nazwa} {rok}"
+    if jezyk == "es":
+        return f"{dzien} de {nazwa} de {rok}"
+    if jezyk == "uk":
+        return f"{dzien} {nazwa} {rok} р."
+    return f"{dzien} {nazwa} {rok}"
 
 # Wartości wdrożenia zależne OD JĘZYKA. Nazwa własna zostaje bez zmian, ale
 # słowa pospolite trzeba odmienić: polskie „na serwerze Zachodniopomorskiego
@@ -1041,7 +1077,7 @@ def render(klucz_wydania, sekcje, katalog_zrzutow, osadz_obrazy=True):
     <dt>{s("odbiorca")}</dt><dd>{W["odbiorca"]}</dd>
     <dt>{s("wykonawca")}</dt><dd>{WYKONAWCA}</dd>
     <dt>{s("wersja")}</dt><dd>{WERSJA}</dd>
-    <dt>{s("data")}</dt><dd>{DATY[JEZYK]}</dd>
+    <dt>{s("data")}</dt><dd>{data_wydania(JEZYK)}</dd>
   </dl>
   <div class="stopka">{s("wewnetrzny")} {W["zrodlo_zrzutow"]}</div>
 </div>
@@ -1126,6 +1162,7 @@ def main():
             if not os.path.isdir(katalog_zrzutow):
                 print(f"  UWAGA: brak zrzutów dla {wariant}/{jezyk} — biorę polskie")
                 katalog_zrzutow = os.path.join(KATALOG, "zrzuty", wariant, "pl")
+            sprawdz_rozmiar_zrzutow(katalog_zrzutow)
             skopiuj_zrzuty(katalog_zrzutow, os.path.join(PUBLIC, wariant, "zrzuty", jezyk))
             # Dokument składamy ze znacznikami, żeby klucz tłumaczenia był wspólny
             # dla obu wdrożeń; `demo` musi być prawdziwe, bo steruje treścią.
@@ -1133,6 +1170,28 @@ def main():
             print(f"— {prawdziwe['nazwa']} / {jezyk}")
             zbuduj(katalog_zrzutow, wariant, prawdziwe)
     raport_brakow()
+
+
+def sprawdz_rozmiar_zrzutow(katalog):
+    """Odmowa składania z surowych zrzutów.
+
+    `zrzuty_config.py` zapisuje je w gęstości 2×, czyli 3200 px i pół megabajta
+    na sztukę; dopiero `optymalizuj_zrzuty.py` sprowadza je do 1600 px i ~100 KB.
+    Pominięcie tego kroku nie psuje NICZEGO widocznego — dokumenty się składają,
+    wyglądają tak samo, tylko PDF puchnie z 4,6 do 7,3 MB, a komplet z 122 MB
+    do 281 MB. Zauważa się to dopiero po `du`, czyli za późno: druk 24 PDF-ów
+    trwa pół godziny i trzeba go powtórzyć.
+    """
+    from PIL import Image
+    for plik in sorted(os.listdir(katalog)):
+        if not plik.lower().endswith(".png"):
+            continue
+        with Image.open(os.path.join(katalog, plik)) as obraz:
+            if obraz.width > 1600:
+                raise SystemExit(
+                    f"Zrzuty w {katalog} mają {obraz.width} px — najpierw "
+                    f"`python optymalizuj_zrzuty.py`, potem składanie.")
+        return   # pierwszy plik wystarczy, cały katalog powstaje jednym przebiegiem
 
 
 def skopiuj_zrzuty(zrodlo, cel):

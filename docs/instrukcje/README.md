@@ -64,7 +64,19 @@ ETAP=2 python zrzuty_config.py
 python optymalizuj_zrzuty.py && python generuj.py
 ```
 
-Po każdej zmianie zaktualizuj `WERSJA` na górze `generuj.py` oraz wpis w `DATY`.
+**Kolejność jest wiążąca, a jej naruszenie nie daje żadnego objawu.** Oba kroki
+poniżej pominięto raz i za każdym razem dokumenty złożyły się poprawnie:
+
+* **bez `optymalizuj_zrzuty.py`** zrzuty zostają w gęstości 2× (3200 px, pół
+  megabajta) — instrukcje wyglądają tak samo, tylko komplet waży 281 MB zamiast
+  122 MB. Generator odmawia teraz składania z surowych zrzutów, ale sprawdza
+  pierwszy plik w katalogu, nie każdy.
+* **wpis o nowym wydaniu musi być w `changelog.json` PRZED złożeniem** — numer
+  wersji i datę generator czyta raz, przy starcie. Dopisanie wydania w trakcie
+  daje instrukcję z numerem o jeden w tył.
+
+Numeru wersji ani daty NIE wpisuje się już w `generuj.py`: idą z pierwszego wpisu
+w `backend/app/changelog.json` (`WERSJA`, `DATA_ISO`, `data_wydania()`).
 
 ## Tłumaczenia
 
