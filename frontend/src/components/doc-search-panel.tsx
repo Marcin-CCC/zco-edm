@@ -190,7 +190,7 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
               disabled={nlLoading || !nlQuery.trim()}
               className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed whitespace-nowrap"
             >
-              {nlLoading ? '…' : 'Zapytaj'}
+              {nlLoading ? '…' : t('askButton')}
             </button>
           </div>
           <p className="text-xs text-gray-400 mt-1">{t('recognisedHint')}</p>
@@ -269,7 +269,7 @@ export function DocSearchPanel({ onClose }: { onClose?: () => void }) {
             disabled={loading || !hasCriteria}
             className="px-6 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed"
           >
-            {loading ? 'Szukam…' : 'Szukaj'}
+            {loading ? t('searching') : t('searchButton')}
           </button>
         </div>
         {error && <p className="text-xs text-red-600">{error}</p>}

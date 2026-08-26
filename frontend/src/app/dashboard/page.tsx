@@ -18,7 +18,7 @@ import { Badge, Card, EmptyState, PageHeader, Sub, inputClass } from '@/componen
 import { dashboardApi, type SystemStatus } from '@/lib/api';
 import { kiedy } from '@/lib/czas';
 import { isAdmin as czyAdmin } from '@/lib/roles';
-import { nazwaStatusu, tonStatusu } from '@/lib/statusy';
+import { nazwaStatusu, tonStatusu } from '@/lib/etykiety';
 import { useAuth } from '@/lib/store';
 
 // Kolory serii sprawdzone pod kątem rozróżnialności także przy zaburzeniach

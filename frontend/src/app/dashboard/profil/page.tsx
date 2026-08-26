@@ -203,7 +203,7 @@ export default function ProfilPage() {
                 disabled={zapisywanie}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60 transition-colors"
               >
-                {zapisywanie ? 'Zapisywanie…' : 'Zapisz'}
+                {zapisywanie ? tWspolne('saving') : tWspolne('save')}
               </button>
               <button
                 onClick={() => { setEdycja(false); setBladDanych(''); }}
@@ -237,7 +237,7 @@ export default function ProfilPage() {
             </div>
             <div>
               <dt className="text-sm text-gray-500">{t('accountStatus')}</dt>
-              <dd className="text-gray-800 font-medium">{user.is_active ? 'Aktywne' : 'Nieaktywne'}</dd>
+              <dd className="text-gray-800 font-medium">{user.is_active ? t('accountActive') : t('accountInactive')}</dd>
             </div>
             <div>
               <dt className="text-sm text-gray-500">{t('lastLogin')}</dt>

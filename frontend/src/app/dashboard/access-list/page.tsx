@@ -8,6 +8,8 @@
  */
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
+
+import { nazwaPoziomu } from '@/lib/etykiety';
 import { useCallback, useEffect, useState } from 'react';
 
 import { IconEdit, IconPlus, IconTrash } from '@/components/icons';
@@ -36,10 +38,12 @@ interface AccessItem {
   source: string; // 'direct' | 'inherited'
 }
 
-const ACCESS_LABELS: Record<string, string> = { read: 'Odczyt', write: 'Zapis' };
+
 
 export default function AccessListPage() {
   const t = useTranslations('access');
+  // Poziomy dostepu mieszkaja w katalogu `files` — ten sam zestaw, co na ekranie Pliki.
+  const tPliki = useTranslations('files');
   const { user } = useAuth();
   const isAdmin = czyAdmin(user);
   const { roles, refresh: odswiezRole } = useRoles();
@@ -175,7 +179,7 @@ export default function AccessListPage() {
                           <Td className="text-app-muted">{it.path}</Td>
                           <Td>
                             <Badge tone={it.access_level === 'write' ? 'blue' : 'gray'}>
-                              {ACCESS_LABELS[it.access_level] || it.access_level}
+                              {nazwaPoziomu(tPliki, it.access_level)}
                             </Badge>
                           </Td>
                           <Td className="text-app-muted">

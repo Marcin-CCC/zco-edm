@@ -1,13 +1,13 @@
 """Buduje konfiguracje dla shot.py i uruchamia zrzuty dla obu wdrożeń.
 
 Uruchomienie:
-    python zrzuty_config.py [zco|hirs] [admin|user]
+    python zrzuty_config.py [zco|hirs] [admin|user] [pl|en|cs|de|es|uk]
 
-Bez argumentów robi wszystkie cztery przebiegi. Tokeny sesji generuje po stronie
+Bez argumentów robi wszystkie 24 przebiegi (2 wdrożenia x 2 wydania x 6 języków). Tokeny sesji generuje po stronie
 serwera (kod aplikacji, `hash`/`create_access_token`) — nigdzie nie pojawia się
 hasło, a konta nie są zakładane ani modyfikowane na potrzeby zrzutów.
 
-Zrzuty lądują w `zrzuty/<wdrożenie>/`, skąd bierze je `generuj.py`.
+Zrzuty lądują w `zrzuty/<wdrożenie>/<język>/`, skąd bierze je `generuj.py`.
 """
 import json
 import os
@@ -16,6 +16,25 @@ import sys
 
 KATALOG = os.path.dirname(os.path.abspath(__file__))
 SPARK = "marcin@192.168.1.34"
+
+# Etykiety przycisków bierzemy Z KATALOGU APLIKACJI, a nie wpisujemy tutaj.
+# Skrypt klika po treści przycisku („Prześlij pliki"), więc w obcym języku
+# wpisany na sztywno polski napis po prostu nie trafia — a zrzut wychodzi
+# wtedy bez okna dialogowego i nikt tego nie zauważa aż do korekty PDF-a.
+# Dzięki wspólnemu źródłu zmiana nazwy przycisku przenosi się tu sama.
+KATALOGI_NAPISOW = os.path.join(KATALOG, "..", "..", "frontend", "messages")
+_napisy = {}
+
+
+def napis(jezyk, klucz):
+    """Napis aplikacji w danym języku, np. napis("de", "files.uploadButton")."""
+    if jezyk not in _napisy:
+        with open(os.path.join(KATALOGI_NAPISOW, f"{jezyk}.json"), encoding="utf-8") as f:
+            _napisy[jezyk] = json.load(f)
+    biezacy = _napisy[jezyk]
+    for czesc in klucz.split("."):
+        biezacy = biezacy[czesc]
+    return biezacy
 
 # Konta użyte na zrzutach. Administrator i konto bez uprawnień administracyjnych —
 # każde wydanie instrukcji pokazuje aplikację tak, jak widzi ją jego odbiorca.
@@ -39,17 +58,50 @@ WDROZENIA = {
 # Folder MUSI zawierać dokumenty bezpośrednio (nie same podfoldery) — inaczej
 # nie ma czego kliknąć przy zrzutach szczegółów, przenoszenia i nadawania nazw.
 FOLDER_ROBOCZY = {"zco": "Regulamin pracy", "hirs": "Faktury"}
+# Języki interfejsu — ta sama lista, co w aplikacji i w generatorze instrukcji.
+JEZYKI = ["pl", "en", "cs", "de", "es", "uk"]
 # Folder udostępniony roli konta użytkownika — inny niż powyżej, bo zwykłe
 # konto widzi tylko część zbioru.
 FOLDER_UZYTKOWNIKA = {"zco": "Praca zdalna", "hirs": "Normy i standardy"}
 
+# Pytanie na zrzucie czatu pada w JĘZYKU ZRZUTU — dokumenty są polskie, ale
+# wyszukiwanie działa międzyjęzykowo (bge-m3), a odpowiedź i tak powstaje
+# w języku interfejsu. Polskie pytanie obok niemieckiej odpowiedzi wyglądałoby
+# w niemieckiej instrukcji jak usterka.
 PYTANIE = {
-    "zco": "Od jakiego wieku dziecka przysługuje dofinansowanie do wypoczynku?",
-    "hirs": "Jakie normy obowiązują przy przechowywaniu dokumentacji?",
+    "zco": {
+        "pl": "Od jakiego wieku dziecka przysługuje dofinansowanie do wypoczynku?",
+        "en": "From what age of a child is the holiday subsidy available?",
+        "cs": "Od jakého věku dítěte náleží příspěvek na rekreaci?",
+        "de": "Ab welchem Alter des Kindes steht der Erholungszuschuss zu?",
+        "es": "¿A partir de qué edad del niño corresponde la ayuda para vacaciones?",
+        "uk": "З якого віку дитини належить доплата на відпочинок?",
+    },
+    "hirs": {
+        "pl": "Jakie normy obowiązują przy przechowywaniu dokumentacji?",
+        "en": "What standards apply to storing documentation?",
+        "cs": "Jaké normy platí pro uchovávání dokumentace?",
+        "de": "Welche Normen gelten für die Aufbewahrung von Unterlagen?",
+        "es": "¿Qué normas rigen la conservación de la documentación?",
+        "uk": "Які норми діють щодо зберігання документації?",
+    },
 }
+# Wyszukiwarka rozpoznaje z pytania RODZAJ dokumentu, a rodzaje są nazwane po
+# polsku w schematach. Pytanie w obcym języku i tak trafia — model dopasowuje
+# nazwę rodzaju — ale zostawiamy krótką formę, żeby wynik mieścił się w kadrze.
 PYTANIE_WYSZUKIWARKI = {
-    "zco": "wszystkie zarządzenia z 2023 roku",
-    "hirs": "wszystkie faktury",
+    "zco": {
+        "pl": "wszystkie zarządzenia z 2023 roku",
+        "en": "all orders from 2023",
+        "cs": "všechna nařízení z roku 2023",
+        "de": "alle Verordnungen aus dem Jahr 2023",
+        "es": "todos los reglamentos de 2023",
+        "uk": "усі розпорядження з 2023 року",
+    },
+    "hirs": {
+        "pl": "wszystkie faktury", "en": "all invoices", "cs": "všechny faktury",
+        "de": "alle Rechnungen", "es": "todas las facturas", "uk": "усі рахунки",
+    },
 }
 
 # --- pomocnicze wyrażenia JS -------------------------------------------------
@@ -88,57 +140,61 @@ def js_wpisz(selektor, tekst):
     )
 
 
-def zrzuty_admina(w, katalog):
-    """Lista zrzutów wydania administratora. `w` — klucz wdrożenia."""
+def zrzuty_admina(w, katalog, j):
+    """Lista zrzutów wydania administratora. `w` — wdrożenie, `j` — język."""
     p = lambda nazwa: os.path.join(katalog, nazwa)
     folder = FOLDER_ROBOCZY[w]
+    # Pole pytania rozpoznajemy po PEŁNEJ podpowiedzi z katalogu — prefiks „np."
+    # jest w każdym języku inny.
+    pole_nl = f'input[placeholder="{napis(j, "search.askPlaceholder")}"]'
     return [
         {"path": "/login", "out": p("a00-logowanie.png"), "wyloguj": True, "wait": 3},
         {"path": "/dashboard", "out": p("a01-pulpit.png"), "wait": 6},
         {"path": "/dashboard", "out": p("a19-panele.png"), "wait": 6,
-         "js": "[...document.querySelectorAll('h3')].find(h=>h.textContent.includes('Szybkie akcje'))"
-               "?.scrollIntoView({block:'center'})",
-         "clip_js": "[...document.querySelectorAll('h3')]"
-                    ".find(h=>h.textContent.includes('Szybkie akcje'))?.closest('div.grid')", "pad": 10},
+         "js": "[...document.querySelectorAll('h3')].find(h=>h.textContent.includes("
+               + json.dumps(napis(j, "dashboard.quickActions")) + "))?.scrollIntoView({block:'center'})",
+         "clip_js": "[...document.querySelectorAll('h3')].find(h=>h.textContent.includes("
+                    + json.dumps(napis(j, "dashboard.quickActions")) + "))?.closest('div.grid')", "pad": 10},
         {"path": "/dashboard/files", "out": p("a02-pliki.png"), "wait": 5},
         {"path": "/dashboard/files", "out": p("a02b-kafelki.png"), "wait": 5,
-         "js": "[...document.querySelectorAll('[aria-label=\"Widok listy plików\"] button')]"
-               ".find(b=>b.textContent.includes('Kafelki'))?.click()", "wait_js": 1.5},
+         "js": "[...document.querySelectorAll(" + json.dumps(f'[aria-label="{napis(j, "files.listViewLabel")}"] button')
+               + ")].find(b=>b.textContent.includes(" + json.dumps(napis(j, "files.viewGrid")) + "))?.click()",
+         "wait_js": 1.5},
         {"path": "/dashboard/files", "out": p("a03-wysylka.png"), "wait": 5,
-         "js": js_klik("Prześlij pliki"), "clip": OKNO},
+         "js": js_klik(napis(j, "files.uploadButton")), "clip": OKNO},
         {"path": "/dashboard/files", "out": p("a04-uprawnienia.png"), "wait": 5,
-         "js": js_tytul("Uprawnienia folderu"), "wait_js": 2.0, "clip": OKNO},
+         "js": js_tytul(napis(j, "files.permTitle")), "wait_js": 2.0, "clip": OKNO},
         {"path": "/dashboard/files", "out": p("a05-zmiana-nazwy.png"), "wait": 5,
-         "js": js_tytul("Zmień nazwę folderu"), "clip": OKNO},
+         "js": js_tytul(napis(j, "files.renameFolder")), "clip": OKNO},
         {"path": "/dashboard/files", "out": p("a07-szczegoly.png"), "wait": 5,
          "js": js_wejdz_do_folderu(folder), "wait_js": 3.5,
          "js2": "document.querySelector('tbody tr')?.click()", "clip": OKNO},
         {"path": "/dashboard/files", "out": p("a06-przenoszenie.png"), "wait": 5,
          "js": js_wejdz_do_folderu(folder), "wait_js": 3.5,
-         "js2": js_tytul("Przenieś do innego folderu"), "clip": OKNO},
+         "js2": js_tytul(napis(j, "files.moveToFolder")), "clip": OKNO},
         {"path": "/dashboard/files", "out": p("a20-nazwy.png"), "wait": 5,
          "js": js_wejdz_do_folderu(folder), "wait_js": 3.5,
          "js2": "[...document.querySelectorAll('tbody input[type=checkbox]')].slice(0,4)"
                 ".forEach(c=>c.click());"
-                "[...document.querySelectorAll('button')]"
-                ".find(b=>b.textContent.includes('Wykonaj akcję'))?.click();",
-         "js3": "[...document.querySelectorAll('button')]"
-                ".find(b=>b.textContent.includes('Nadaj nazwy'))?.click()",
+                "[...document.querySelectorAll('button')].find(b=>b.textContent.includes("
+                + json.dumps(napis(j, "files.bulkAction")) + "))?.click();",
+         "js3": "[...document.querySelectorAll('button')].find(b=>b.textContent.includes("
+                + json.dumps(napis(j, "files.bulkRename")) + "))?.click()",
          "wait_js3": 4.0, "clip": OKNO},
         {"path": "/dashboard/chat", "out": p("a08-chat.png"), "wait": 5,
-         "js": js_wpisz("textarea", PYTANIE[w]) + ";" + js_klik("Wyślij"), "wait_js": 95,
+         "js": js_wpisz("textarea", PYTANIE[w][j]) + ";" + js_klik(napis(j, "chat.send")), "wait_js": 95,
          "js2": "(() => { const o=[...document.querySelectorAll('div')]"
                ".find(d=>d.className.includes('overflow-y-auto') "
                "&& d.className.includes('space-y-4'));"
                " if(o) o.scrollTop=o.scrollHeight; })()", "wait_js2": 2.0,
          },
         {"path": "/dashboard/wyszukiwanie", "out": p("a09-wyszukiwarka.png"), "wait": 4,
-         "js": js_wpisz("input[placeholder^='np.']", PYTANIE_WYSZUKIWARKI[w]) + ";" + js_klik("Zapytaj"),
+         "js": js_wpisz(pole_nl, PYTANIE_WYSZUKIWARKI[w][j]) + ";" + js_klik(napis(j, "search.askButton")),
          "wait_js": 12},
         {"path": "/dashboard/users", "out": p("a10-uzytkownicy.png"), "wait": 4},
         {"path": "/dashboard/access-list", "out": p("a11-lista-dostepow.png"), "wait": 4},
         {"path": "/dashboard/access-list", "out": p("a11b-rola.png"), "wait": 4,
-         "js": js_klik("Dodaj rolę"), "clip": OKNO},
+         "js": js_klik(napis(j, "access.addRole")), "clip": OKNO},
         {"path": "/dashboard/doc-schemas", "out": p("a12-schematy.png"), "wait": 4},
         {"path": "/dashboard/file-queue", "out": p("a13-kolejka.png"), "wait": 5},
         {"path": "/dashboard/settings", "out": p("a14-ustawienia.png"), "wait": 4},
@@ -151,8 +207,9 @@ def zrzuty_admina(w, katalog):
     ]
 
 
-def zrzuty_uzytkownika(w, katalog):
+def zrzuty_uzytkownika(w, katalog, j):
     p = lambda nazwa: os.path.join(katalog, nazwa)
+    pole_nl = f'input[placeholder="{napis(j, "search.askPlaceholder")}"]'
     return [
         {"path": "/login", "out": p("u00-logowanie.png"), "wyloguj": True, "wait": 3},
         {"path": "/dashboard", "out": p("u01-pulpit.png"), "wait": 6},
@@ -160,14 +217,14 @@ def zrzuty_uzytkownika(w, katalog):
         {"path": "/dashboard/files", "out": p("u02b-folder.png"), "wait": 5,
          "js": js_wejdz_do_folderu(FOLDER_UZYTKOWNIKA[w]), "wait_js": 3.5},
         {"path": "/dashboard/chat", "out": p("u03-chat.png"), "wait": 5,
-         "js": js_wpisz("textarea", PYTANIE[w]) + ";" + js_klik("Wyślij"), "wait_js": 95,
+         "js": js_wpisz("textarea", PYTANIE[w][j]) + ";" + js_klik(napis(j, "chat.send")), "wait_js": 95,
          "js2": "(() => { const o=[...document.querySelectorAll('div')]"
                ".find(d=>d.className.includes('overflow-y-auto') "
                "&& d.className.includes('space-y-4'));"
                " if(o) o.scrollTop=o.scrollHeight; })()", "wait_js2": 2.0,
          },
         {"path": "/dashboard/wyszukiwanie", "out": p("u04-wyszukiwarka.png"), "wait": 4,
-         "js": js_wpisz("input[placeholder^='np.']", PYTANIE_WYSZUKIWARKI[w]) + ";" + js_klik("Zapytaj"),
+         "js": js_wpisz(pole_nl, PYTANIE_WYSZUKIWARKI[w][j]) + ";" + js_klik(napis(j, "search.askButton")),
          "wait_js": 12},
         {"path": "/dashboard/profil", "out": p("u05-profil.png"), "wait": 4},
         {"path": "/dashboard/pomoc", "out": p("u06-pomoc.png"), "wait": 6},
@@ -199,12 +256,14 @@ def sesja(wdrozenie, user_id):
     return json.loads(wynik.stdout.strip().splitlines()[-1])
 
 
-def przebieg(wdrozenie, wydanie):
+def przebieg(wdrozenie, wydanie, jezyk):
     cfgw = WDROZENIA[wdrozenie]
-    katalog = os.path.join(KATALOG, "zrzuty", wdrozenie)
+    # Osobny katalog na język — zrzuty różnią się wyłącznie napisami interfejsu,
+    # ale to właśnie one są powodem, dla którego instrukcja ma sześć wydań.
+    katalog = os.path.join(KATALOG, "zrzuty", wdrozenie, jezyk)
     os.makedirs(katalog, exist_ok=True)
     s = sesja(wdrozenie, cfgw["konta"][wydanie])
-    shots = (zrzuty_admina if wydanie == "admin" else zrzuty_uzytkownika)(wdrozenie, katalog)
+    shots = (zrzuty_admina if wydanie == "admin" else zrzuty_uzytkownika)(wdrozenie, katalog, jezyk)
 
     # Ekran Pomoc pokazuje instrukcję, więc jego zrzut ma sens dopiero PO wdrożeniu
     # nowego wydania — inaczej w ramce widniałaby okładka poprzedniej wersji.
@@ -222,29 +281,36 @@ def przebieg(wdrozenie, wydanie):
         return
 
     cfg = {
-        "profile": os.path.join(KATALOG, f".edge-{wdrozenie}-{wydanie}"),
+        # Profil Edge osobny na język: `--lang` działa przy starcie przeglądarki,
+        # a profil przechowuje ustawienia — wspólny profil niósłby język
+        # z poprzedniego przebiegu.
+        "profile": os.path.join(KATALOG, f".edge-{wdrozenie}-{wydanie}-{jezyk}"),
         "origin": cfgw["origin"],
+        "jezyk": jezyk,
         "token": s["token"],
         "user": s["user"],
         "width": 1600,
         "height": 1000,
         "shots": shots,
     }
-    sciezka = os.path.join(KATALOG, f".shots-{wdrozenie}-{wydanie}.json")
+    sciezka = os.path.join(KATALOG, f".shots-{wdrozenie}-{wydanie}-{jezyk}.json")
     with open(sciezka, "w", encoding="utf-8") as f:
         json.dump(cfg, f, ensure_ascii=False)
 
-    print(f"\n=== {wdrozenie} / {wydanie} — {len(shots)} zrzutów, {cfgw['origin']} ===")
+    print(f"\n=== {wdrozenie} / {wydanie} / {jezyk} — {len(shots)} zrzutów, {cfgw['origin']} ===")
     subprocess.run([sys.executable, os.path.join(KATALOG, "shot.py"), sciezka], check=True)
     os.remove(sciezka)
 
 
 def main():
+    """python zrzuty_config.py [zco|hirs] [admin|user] [pl|en|cs|de|es|uk]"""
     wdrozenia = [sys.argv[1]] if len(sys.argv) > 1 else list(WDROZENIA)
     wydania = [sys.argv[2]] if len(sys.argv) > 2 else ["admin", "user"]
+    jezyki = [sys.argv[3]] if len(sys.argv) > 3 else JEZYKI
     for w in wdrozenia:
         for wyd in wydania:
-            przebieg(w, wyd)
+            for j in jezyki:
+                przebieg(w, wyd, j)
 
 
 if __name__ == "__main__":

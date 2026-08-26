@@ -1,5 +1,9 @@
 /**
- * Statusy przetwarzania dokumentu — JEDNO źródło nazwy i koloru.
+ * Wartości z bazy, które trzeba POKAZAĆ — jedno źródło nazwy i koloru.
+ *
+ * Statusy przetwarzania i poziomy dostępu do folderów leżą w bazie po angielsku
+ * albo po polsku i po nich porównuje kod. Tu trzymamy jedyne mapowanie
+ * wartość → klucz napisu, żeby ekrany nie miały każdy swojej kopii.
  *
  * Wartość statusu leży w bazie po polsku i tak też przychodzi z API; po niej
  * porównuje kod (ponów, przerwij, szczegóły błędu), więc sama wartość zostaje.
@@ -44,4 +48,26 @@ export function nazwaStatusu(t: (klucz: string) => string, status?: string): str
 
 export function tonStatusu(status?: string): Ton {
   return (status && TON_STATUSU[status]) || 'gray';
+}
+
+
+/* ----------------------------------------------------- poziomy dostępu */
+
+/** Wartość w bazie → klucz napisu w katalogu `files`. */
+export const KLUCZ_POZIOMU: Record<string, string> = {
+  read: 'accessRead',
+  write: 'accessWrite',
+};
+
+/**
+ * Nazwa poziomu dostępu w języku interfejsu. `t` to tłumacz katalogu `files`.
+ *
+ * Mapowanie stało w DWÓCH miejscach — na ekranie Pliki i na Liście dostępów.
+ * Pierwsze poprawiłem w 1.6.1 i uznałem sprawę za zamkniętą; drugie zostało po
+ * polsku aż do 1.6.3. Dlatego jest tu, a nie w komponencie.
+ */
+export function nazwaPoziomu(t: (klucz: string) => string, poziom?: string): string {
+  if (!poziom) return '';
+  const klucz = KLUCZ_POZIOMU[poziom];
+  return klucz ? t(klucz) : poziom;
 }

@@ -1,6 +1,18 @@
 {
   "entries": [
     {
+      "version": "1.6.3",
+      "date": "2026-08-26",
+      "title": "Ostatnie napisy po polsku i jedno zrodlo etykiet",
+      "changes": [
+        "Przycisk „Zapytaj” i „Szukaj” w wyszukiwarce, „Zapisywanie…” w Kolejce plikow i w Profilu, stan konta („Aktywne”/„Nieaktywne”), skrot „str.” przy zrodle odpowiedzi — wszystko szlo po polsku niezaleznie od jezyka.",
+        "Poziomy dostepu „Odczyt”/„Zapis” byly zaszyte w DWOCH miejscach. Poprawilem jedno w 1.6.1 i uznalem sprawe za zamknieta; drugie, na Liscie dostepow, zostalo po polsku. Teraz oba ekrany, tak jak statusy przetwarzania, biora etykiety z jednego modulu.",
+        "Nazwa katalogu glownego brzmiala roznie w czterech miejscach tego samego jezyka („Stammordner”, „Hauptverzeichnis”, „Stammverzeichnis”). Ujednolicona.",
+        "Niemieckie „Zielles Verzeichnis:” bylo bledem gramatycznym — teraz „Zielordner:”.",
+        "Zrzuty ekranu do instrukcji powstaja teraz w kazdym jezyku osobno. Skrypt klika przyciski po ich tresci, wiec etykiety bierze z tych samych katalogow, co aplikacja; ustawia tez jezyk samej przegladarki, bo przycisk wyboru pliku rysuje Edge, nie my."
+      ]
+    },
+    {
       "version": "1.6.2",
       "date": "2026-08-26",
       "title": "Domkniete napisy i nazwy sciezek wyszukiwania",

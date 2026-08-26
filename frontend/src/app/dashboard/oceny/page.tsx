@@ -152,7 +152,7 @@ function ListaZrodel({ zrodla, dobrane = [], uklad = 'pion' }: {
       {zrodla.map((z, i) => {
         const dobrany = czyDobrany(z);
         const nieuzyte = z.cited === false;
-        const nazwa = `${z.filename ?? '(bez nazwy)'}${z.page ? ` (str. ${z.page})` : ''}`;
+        const nazwa = `${z.filename ?? t('noFileName')}${z.page ? ` (${t('pageShort')} ${z.page})` : ''}`;
         return (
           <li key={i}>
             {z.file_id ? (
@@ -429,7 +429,7 @@ export default function OcenyPage() {
                       {p.powod}
                     </span>
                   )}
-                  <strong className="flex-1">{p.pytanie || '(brak pytania w historii)'}</strong>
+                  <strong className="flex-1">{p.pytanie || t('noQuestionInThread')}</strong>
                   <span className="text-[11px] text-app-muted">
                     {p.uzytkownik} · {roleLabel(roles, p.rola).toLowerCase()}
                   </span>

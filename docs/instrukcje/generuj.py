@@ -1000,7 +1000,7 @@ def render_blok(blok, katalog_zrzutow, osadz_obrazy):
             if not os.path.exists(os.path.join(katalog_zrzutow, plik)):
                 print(f"  UWAGA: brak zrzutu {plik} — pomijam ilustrację")
                 return ""
-            src = "../zrzuty/" + plik
+            src = f"../zrzuty/{JEZYK}/" + plik
         return (f'<figure><img src="{src}" alt="{html.escape(podpis)}">'
                 f"<figcaption>{podpis}</figcaption></figure>")
     if rodzaj == "tip":
@@ -1112,15 +1112,19 @@ def main():
         if wariant not in WDROZENIA:
             raise SystemExit(f"Nieznane wdrożenie: {wariant}. Dostępne: {', '.join(WDROZENIA)}")
         prawdziwe = WDROZENIA[wariant]
-        katalog_zrzutow = os.path.join(KATALOG, "zrzuty", wariant)
-        # Zrzuty do katalogu aplikacji kopiujemy RAZ na wdrożenie — są identyczne
-        # we wszystkich językach i w obu wydaniach.
-        docelowe_zrzuty = os.path.join(PUBLIC, wariant, "zrzuty")
-        skopiuj_zrzuty(katalog_zrzutow, docelowe_zrzuty)
         for jezyk in jezyki:
             if jezyk not in JEZYKI:
                 raise SystemExit(f"Nieznany język: {jezyk}. Dostępne: {', '.join(JEZYKI)}")
             JEZYK = jezyk
+            # Zrzuty robi się osobno dla każdego języka (`zrzuty_config.py`), bo
+            # interfejs na nich jest przetłumaczony. Gdy brakuje zestawu dla języka,
+            # bierzemy polski — instrukcja z polskimi zrzutami jest niepełna, ale
+            # użyteczna; instrukcja bez ilustracji nie jest.
+            katalog_zrzutow = os.path.join(KATALOG, "zrzuty", wariant, jezyk)
+            if not os.path.isdir(katalog_zrzutow):
+                print(f"  UWAGA: brak zrzutów dla {wariant}/{jezyk} — biorę polskie")
+                katalog_zrzutow = os.path.join(KATALOG, "zrzuty", wariant, "pl")
+            skopiuj_zrzuty(katalog_zrzutow, os.path.join(PUBLIC, wariant, "zrzuty", jezyk))
             # Dokument składamy ze znacznikami, żeby klucz tłumaczenia był wspólny
             # dla obu wdrożeń; `demo` musi być prawdziwe, bo steruje treścią.
             W = dict(ZNACZNIKI, demo=prawdziwe["demo"])

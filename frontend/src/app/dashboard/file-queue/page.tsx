@@ -3,7 +3,7 @@
 import { IconRefresh } from '@/components/icons';
 import { useTranslations } from 'next-intl';
 
-import { nazwaStatusu } from '@/lib/statusy';
+import { nazwaStatusu } from '@/lib/etykiety';
 import { Badge, Button, Card, EmptyState, PageHeader, Table, Td, Th, inputClass } from '@/components/ui/primitives';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -525,7 +525,7 @@ export default function FileQueuePage() {
                     disabled={savingOverride || !overrideType || overrideType === selectedItem.doc_type}
                     className="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 whitespace-nowrap"
                   >
-                    {savingOverride ? 'Zapisywanie…' : t('saveCategory')}
+                    {savingOverride ? tWspolne('saving') : t('saveCategory')}
                   </button>
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
