@@ -1,6 +1,17 @@
 {
   "entries": [
     {
+      "version": "1.6.5",
+      "date": "2026-08-26",
+      "title": "Odmiana przez liczbe i dwa napisy sklejane ze wstawka",
+      "changes": [
+        "Wyszukiwanie mowilo po niemiecku „Es wurden 1 Dokument gefunden” i po hiszpansku „Se encontraron 1 documento” — czasownik stal poza blokiem odmiany, wiec zgadzal sie tylko z liczba mnoga. To samo dotyczylo okresu „ostatnie 30 dni” na Dashboardzie.",
+        "Dashboard: kafelek przetworzonych pokazywal „540 z 541” i „0,2 pkt proc.” po polsku w kazdym jezyku. Oba napisy byly sklejane w szablonie ze wstawka, a sita na nieprzetlumaczone teksty pomijaja napisy ze wstawkami.",
+        "Niemieckie „Anwendungsnamen” w Ustawieniach poprawione na „Anwendungsname”.",
+        "Czeskie „# souboru ve podadresarich” poprawione na „v podslozkach” — zly przyimek i niespojne slowo."
+      ]
+    },
+    {
       "version": "1.6.4",
       "date": "2026-08-26",
       "title": "Czytelniejsza lista zrodel pod odpowiedzia",

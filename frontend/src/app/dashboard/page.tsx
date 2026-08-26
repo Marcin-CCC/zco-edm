@@ -161,10 +161,10 @@ export default function DashboardPage() {
     {
       label: t('tileProcessed'),
       value: `${(stats.processed_percent ?? 0).toLocaleString(aktywnyJezyk(), { maximumFractionDigits: 1 })}%`,
-      suffix: `${stats.processed ?? 0} z ${stats.documents ?? 0}`,
+      suffix: t('ofTotal', { done: stats.processed ?? 0, total: stats.documents ?? 0 }),
       href: isAdmin ? '/dashboard/file-queue' : undefined,
       trend: stats.trend_processed,
-      jednostka: ' pkt proc.',
+      jednostka: t('percentagePoints'),
       Icon: IconDocCheck,
       ton: 'orange',
     },

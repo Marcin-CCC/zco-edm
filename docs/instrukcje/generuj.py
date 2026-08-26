@@ -1113,6 +1113,7 @@ def main():
         if wariant not in WDROZENIA:
             raise SystemExit(f"Nieznane wdrożenie: {wariant}. Dostępne: {', '.join(WDROZENIA)}")
         prawdziwe = WDROZENIA[wariant]
+        sprzatnij_plaskie_zrzuty(wariant)
         for jezyk in jezyki:
             if jezyk not in JEZYKI:
                 raise SystemExit(f"Nieznany język: {jezyk}. Dostępne: {', '.join(JEZYKI)}")
@@ -1135,13 +1136,34 @@ def main():
 
 
 def skopiuj_zrzuty(zrodlo, cel):
+    """Zrzuty do katalogu aplikacji — z posprzątaniem tego, czego już nie ma.
+
+    Bez kasowania nadmiarowych plików katalog rośnie w nieskończoność: zrzut
+    usunięty z listy zostaje na dysku i w repozytorium, a przy 3,4 MB na komplet
+    i sześciu językach nikt tego nie zauważy po rozmiarze."""
     if not os.path.isdir(zrodlo):
         print(f"  UWAGA: brak katalogu zrzutów {zrodlo}")
         return
     os.makedirs(cel, exist_ok=True)
-    for plik in sorted(os.listdir(zrodlo)):
-        if plik.lower().endswith(".png"):
-            shutil.copyfile(os.path.join(zrodlo, plik), os.path.join(cel, plik))
+    zrodlowe = {p for p in os.listdir(zrodlo) if p.lower().endswith(".png")}
+    for plik in sorted(zrodlowe):
+        shutil.copyfile(os.path.join(zrodlo, plik), os.path.join(cel, plik))
+    for plik in os.listdir(cel):
+        if plik.lower().endswith(".png") and plik not in zrodlowe:
+            os.remove(os.path.join(cel, plik))
+
+
+def sprzatnij_plaskie_zrzuty(wariant):
+    """Zrzuty sprzed 1.6.4 leżały wprost w `pomoc/<wdrożenie>/zrzuty/`, bo były
+    wspólne dla języków. Teraz każdy język ma swój podkatalog, a tamte zostałyby
+    jako 3,4 MB martwych plików na wdrożenie."""
+    katalog = os.path.join(PUBLIC, wariant, "zrzuty")
+    if not os.path.isdir(katalog):
+        return
+    for plik in os.listdir(katalog):
+        sciezka = os.path.join(katalog, plik)
+        if os.path.isfile(sciezka) and plik.lower().endswith(".png"):
+            os.remove(sciezka)
 
 
 def zbuduj(katalog_zrzutow, wariant, prawdziwe):
