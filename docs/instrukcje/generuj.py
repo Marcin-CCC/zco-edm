@@ -1177,21 +1177,28 @@ def sprawdz_rozmiar_zrzutow(katalog):
 
     `zrzuty_config.py` zapisuje je w gęstości 2×, czyli 3200 px i pół megabajta
     na sztukę; dopiero `optymalizuj_zrzuty.py` sprowadza je do 1600 px i ~100 KB.
+    Sprawdzamy KAŻDY plik, nie pierwszy z brzegu: przy odświeżaniu pojedynczych
+    ekranów (`TYLKO=`, `ETAP=2`) surowy jest tylko ten jeden zrzut, a reszta
+    katalogu jest już zmniejszona.
+
     Pominięcie tego kroku nie psuje NICZEGO widocznego — dokumenty się składają,
     wyglądają tak samo, tylko PDF puchnie z 4,6 do 7,3 MB, a komplet z 122 MB
     do 281 MB. Zauważa się to dopiero po `du`, czyli za późno: druk 24 PDF-ów
     trwa pół godziny i trzeba go powtórzyć.
     """
     from PIL import Image
+    surowe = []
     for plik in sorted(os.listdir(katalog)):
         if not plik.lower().endswith(".png"):
             continue
         with Image.open(os.path.join(katalog, plik)) as obraz:
             if obraz.width > 1600:
-                raise SystemExit(
-                    f"Zrzuty w {katalog} mają {obraz.width} px — najpierw "
-                    f"`python optymalizuj_zrzuty.py`, potem składanie.")
-        return   # pierwszy plik wystarczy, cały katalog powstaje jednym przebiegiem
+                surowe.append(f"{plik} ({obraz.width} px)")
+    if surowe:
+        raise SystemExit(
+            f"Surowe zrzuty w {katalog}: {', '.join(surowe[:5])}"
+            + (f" i {len(surowe) - 5} więcej" if len(surowe) > 5 else "")
+            + " — najpierw `python optymalizuj_zrzuty.py`, potem składanie.")
 
 
 def skopiuj_zrzuty(zrodlo, cel):

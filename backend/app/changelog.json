@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.6.7",
+      "date": "2026-08-26",
+      "title": "Instrukcje kompletne — ostatnia ilustracja",
+      "changes": [
+        "Instrukcja obslugi ma teraz komplet ilustracji we wszystkich szesciu jezykach, razem z ekranem Pomoc. Ten jeden zrzut musial powstac na koncu, bo pokazuje instrukcje osadzona w aplikacji — zrobiony wczesniej pokazywalby wydanie poprzednie.",
+        "Zabezpieczenie przed skladaniem z surowych zrzutow sprawdza teraz KAZDY plik w katalogu, nie pierwszy z brzegu. Przy odswiezaniu pojedynczych ekranow surowy jest tylko ten jeden zrzut, wiec poprzednia wersja kontroli przepuscilaby go bez slowa."
+      ]
+    },
+    {
       "version": "1.6.6",
       "date": "2026-08-26",
       "title": "Instrukcje obslugi ze zrzutami w kazdym jezyku",
