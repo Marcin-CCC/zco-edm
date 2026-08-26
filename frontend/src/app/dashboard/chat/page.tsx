@@ -204,6 +204,7 @@ function authHeaders(): Record<string, string> {
 
 export default function ChatPage() {
   const t = useTranslations('chat');
+  const tWspolne = useTranslations('common');
   const jezyk = useLocale();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -800,12 +801,13 @@ export default function ChatPage() {
     }
   };
 
-  // Opis do dymka przy cytowaniu: etykieta + STRONA + nazwa pliku. Bez strony dwa
-  // fragmenty tego samego dokumentu dawały identyczny dymek (np. „Załącznik 2").
+  // Opis do dymka przy cytowaniu — ta sama kolejność, co na liście źródeł pod
+  // odpowiedzią: nazwa pliku, strona, rodzaj dokumentu. STRONA jest tu konieczna:
+  // bez niej dwa fragmenty tego samego dokumentu dawały identyczny dymek.
   const sourceTitle = (s: ChatSource, i: number) => {
-    const parts = [etykietaDokumentu(s, i)];
-    if (s.page) parts.push(`str. ${s.page}`);
-    if (s.doc_type_name && s.filename) parts.push(s.filename);
+    const parts = [s.filename || etykietaDokumentu(s, i)];
+    if (s.page) parts.push(tWspolne('pageLabel', { page: s.page }));
+    if (s.doc_type_name) parts.push([s.doc_type_name, s.doc_key].filter(Boolean).join(' '));
     return parts.join(' · ');
   };
 

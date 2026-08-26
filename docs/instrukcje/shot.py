@@ -59,6 +59,12 @@ async def capture(shots, token, user_json, width, height, origin, jezyk):
             await c.call("Page.navigate", {"url": origin + s["path"]})
             await asyncio.sleep(s.get("wait", 3))
 
+            # Dowolnie długa sekwencja przed zrzutem. Pola `js`, `js2`, `js3`
+            # niżej zostają dla zrzutów, którym trzy kroki wystarczają.
+            for krok in s.get("kroki", []):
+                await c.call("Runtime.evaluate", {"expression": krok["js"]})
+                await asyncio.sleep(krok.get("wait", 2))
+
             # Kilka kroków po kolei: wejście do folderu, zaznaczenie, otwarcie okna.
             # Każdy dostaje własną pauzę, bo React przerysowuje ekran między nimi.
             for klucz in ("js", "js2", "js3"):
@@ -92,7 +98,11 @@ async def capture(shots, token, user_json, width, height, origin, jezyk):
                 f.write(base64.b64decode(res["data"]))
             print(f"  {os.path.basename(s['out'])}")
             if s.get("wyloguj"):
-                await c.call("Runtime.evaluate", {"expression": zaloguj})
+                # Przywrócenie sesji po zrzucie ekranu logowania. To samo wyrażenie
+                # co przy starcie — razem z ciasteczkiem języka, bo `localStorage.clear()`
+                # go nie kasuje, ale trzymanie obu w jednym miejscu chroni przed
+                # rozjechaniem się ich przy kolejnej zmianie.
+                await c.call("Runtime.evaluate", {"expression": ustaw})
 
 
 def main():

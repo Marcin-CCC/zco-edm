@@ -1,6 +1,18 @@
 {
   "entries": [
     {
+      "version": "1.6.4",
+      "date": "2026-08-26",
+      "title": "Czytelniejsza lista zrodel pod odpowiedzia",
+      "changes": [
+        "Lista dokumentow pod odpowiedzia czatu i wyniki Wyszukiwania maja nowy uklad: najpierw NAZWA PLIKU (pogrubiona), pod nia strona, na koncu rodzaj dokumentu. Wczesniej pierwszy wiersz nosil nazwe rodzaju, a nazwa pliku szla szarym drukiem na spod — przy dokumencie bez numeru rodzaj wypadal dwa razy pod rzad.",
+        "Na Wyszukiwaniu nie ma juz wiersza ze strona: wynikiem jest caly plik, a nie jego fragment.",
+        "Numer dokumentu zostaje przy rodzaju („Zarzadzenie 8/2023”). Bez niego dwa zarzadzenia w wynikach sa nie do odroznienia inaczej niz po nazwie pliku, a ta bywa przypadkowa.",
+        "Dymek przy cytowaniu w tresci odpowiedzi dostal te sama kolejnosc. Przy okazji skrot „str.” byl w nim zaszyty po polsku i pokazywal sie tak w kazdym jezyku.",
+        "Opis listy zrodel w instrukcji obslugi zaktualizowany we wszystkich szesciu jezykach."
+      ]
+    },
+    {
       "version": "1.6.3",
       "date": "2026-08-26",
       "title": "Ostatnie napisy po polsku i jedno zrodlo etykiet",

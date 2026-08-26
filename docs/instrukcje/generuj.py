@@ -510,7 +510,7 @@ def r_czat(rola):
               "Odpowiedź czatu wraz z listą dokumentów, na których została oparta."),
         n("Skąd pochodzi odpowiedź"),
         a("Pod każdą odpowiedzią widnieje lista <b>dokumentów użytych w odpowiedzi</b>. Każda pozycja "
-          "podaje numer odsyłacza, typ pliku, kategorię dokumentu, stronę i nazwę pliku; kliknięcie "
+          "podaje numer odsyłacza, nazwę pliku, stronę i rodzaj dokumentu; kliknięcie "
           "otwiera dokument źródłowy. Numery w plakietkach odpowiadają odsyłaczom w treści odpowiedzi, "
           "więc widać, które zdanie skąd pochodzi."),
         a("Poniżej bywa jeszcze informacja w rodzaju <i>Sprawdzono też 7 dokumentów, które nie zostały "
@@ -558,9 +558,10 @@ def r_wyszukiwarka(rola):
           "<i>przed</i>) i wartość. Lista dostępnych pól zależy od wybranego rodzaju dokumentu — "
           "pochodzi wprost ze schematów dokumentów."),
         n("Wyniki"),
-        a("Wyniki wyglądają tak samo jak lista dokumentów pod odpowiedzią czatu: numer, typ pliku, "
-          "kategoria, nazwa dokumentu i nazwa pliku. Kliknięcie otwiera dokument. Nad listą jest "
-          "przycisk <b>Pobierz tę listę w pliku XLSX</b> — arkusz zawiera komplet pól opisowych, "
+        a("Wyniki wyglądają tak samo jak lista dokumentów pod odpowiedzią czatu: numer, "
+          "nazwa pliku i rodzaj dokumentu. Strony tu nie ma — wynikiem jest cały plik, "
+          "a nie jego fragment. Kliknięcie otwiera dokument. Nad listą jest przycisk "
+          "<b>Pobierz tę listę w pliku XLSX</b> — arkusz zawiera komplet pól opisowych, "
           "z kolumnami w kolejności ustalonej w schemacie dokumentu."),
         wskazowka("Wyszukiwarka działa na <b>polach opisowych</b>, a nie na treści. Dokument, "
                   "z którego aplikacja nie zdołała wyciągnąć numeru ani daty, nie pojawi się "

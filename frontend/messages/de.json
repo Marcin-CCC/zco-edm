@@ -149,6 +149,7 @@
     "loading": "Wird geladen…",
     "noDataInPeriod": "Keine Daten für diesen Zeitraum",
     "openDocument": "Dokument öffnen",
+    "pageLabel": "Seite: {page}",
     "reorderHint": "Ziehen, um die Reihenfolge zu ändern (Pfeiltasten ↑ ↓)",
     "reorderItem": "Position {nr} verschieben",
     "save": "Speichern",

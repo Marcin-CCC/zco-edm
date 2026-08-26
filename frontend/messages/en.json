@@ -149,6 +149,7 @@
     "loading": "Loading…",
     "noDataInPeriod": "No data for this period",
     "openDocument": "Open document",
+    "pageLabel": "Page: {page}",
     "reorderHint": "Drag to reorder (↑ ↓ arrow keys work too)",
     "reorderItem": "Reorder item {nr}",
     "save": "Save",

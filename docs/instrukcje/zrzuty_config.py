@@ -89,6 +89,42 @@ PYTANIE = {
 # Wyszukiwarka rozpoznaje z pytania RODZAJ dokumentu, a rodzaje są nazwane po
 # polsku w schematach. Pytanie w obcym języku i tak trafia — model dopasowuje
 # nazwę rodzaju — ale zostawiamy krótką formę, żeby wynik mieścił się w kadrze.
+# Pytania „tła" — zadawane przed zrzutem czatu, każde w nowej rozmowie, żeby
+# pasek historii wyglądał jak u kogoś, kto z aplikacji korzysta. Krótkie, bo
+# tytułem rozmowy jest całe pytanie, a pasek jest wąski.
+PYTANIA_TLA = {
+    "zco": {
+        "pl": ["Jakie są zasady pracy zdalnej?", "Ile dni urlopu na żądanie?",
+               "Kto zatwierdza wnioski urlopowe?"],
+        "en": ["What are the rules on remote work?", "How many days of on-demand leave?",
+               "Who approves leave applications?"],
+        "cs": ["Jaká jsou pravidla práce na dálku?", "Kolik dní dovolené na zavolání?",
+               "Kdo schvaluje žádosti o dovolenou?"],
+        "de": ["Wie sind die Regeln zur Telearbeit?", "Wie viele Tage Urlaub auf Abruf?",
+               "Wer genehmigt Urlaubsanträge?"],
+        "es": ["¿Cuáles son las normas del trabajo a distancia?",
+               "¿Cuántos días de permiso a demanda?",
+               "¿Quién aprueba las solicitudes de vacaciones?"],
+        "uk": ["Які правила дистанційної роботи?", "Скільки днів відпустки на вимогу?",
+               "Хто затверджує заяви на відпустку?"],
+    },
+    "hirs": {
+        "pl": ["Jakie normy dotyczą dezynfekcji?", "Co zawiera dokumentacja produktu?",
+               "Jak przechowywać faktury?"],
+        "en": ["What standards apply to disinfection?",
+               "What does the product documentation contain?",
+               "How should invoices be stored?"],
+        "cs": ["Jaké normy platí pro dezinfekci?", "Co obsahuje dokumentace produktu?",
+               "Jak uchovávat faktury?"],
+        "de": ["Welche Normen gelten für die Desinfektion?",
+               "Was enthält die Produktdokumentation?", "Wie sind Rechnungen aufzubewahren?"],
+        "es": ["¿Qué normas rigen la desinfección?",
+               "¿Qué contiene la documentación del producto?",
+               "¿Cómo se conservan las facturas?"],
+        "uk": ["Які норми стосуються дезінфекції?", "Що містить документація продукту?",
+               "Як зберігати рахунки?"],
+    },
+}
 PYTANIE_WYSZUKIWARKI = {
     "zco": {
         "pl": "wszystkie zarządzenia z 2023 roku",
@@ -126,6 +162,20 @@ def js_wejdz_do_folderu(fragment):
         "   .find(e=>e.textContent.includes(f) && (e.closest('.grid')||e.tagName==='TR'));"
         " if(k) k.click(); return !!k; })()"
     )
+
+
+def kroki_tla(w, j):
+    """Trzy rozmowy w języku zrzutu, każda zaczęta od nowa.
+
+    Odpowiedź czeka 60 s — tyle wystarcza na krótkie pytanie. Gdyby model nie
+    zdążył, rozmowa i tak powstaje z właściwym tytułem, a o to tu chodzi.
+    """
+    kroki = []
+    for pytanie in PYTANIA_TLA[w][j]:
+        kroki.append({"js": js_wpisz("textarea", pytanie) + ";" + js_klik(napis(j, "chat.send")),
+                      "wait": 60})
+        kroki.append({"js": js_klik(napis(j, "chat.newChat")), "wait": 2.5})
+    return kroki
 
 
 def js_wpisz(selektor, tekst):
@@ -182,6 +232,7 @@ def zrzuty_admina(w, katalog, j):
                 + json.dumps(napis(j, "files.bulkRename")) + "))?.click()",
          "wait_js3": 4.0, "clip": OKNO},
         {"path": "/dashboard/chat", "out": p("a08-chat.png"), "wait": 5,
+         "kroki": kroki_tla(w, j),
          "js": js_wpisz("textarea", PYTANIE[w][j]) + ";" + js_klik(napis(j, "chat.send")), "wait_js": 95,
          "js2": "(() => { const o=[...document.querySelectorAll('div')]"
                ".find(d=>d.className.includes('overflow-y-auto') "
@@ -217,6 +268,7 @@ def zrzuty_uzytkownika(w, katalog, j):
         {"path": "/dashboard/files", "out": p("u02b-folder.png"), "wait": 5,
          "js": js_wejdz_do_folderu(FOLDER_UZYTKOWNIKA[w]), "wait_js": 3.5},
         {"path": "/dashboard/chat", "out": p("u03-chat.png"), "wait": 5,
+         "kroki": kroki_tla(w, j),
          "js": js_wpisz("textarea", PYTANIE[w][j]) + ";" + js_klik(napis(j, "chat.send")), "wait_js": 95,
          "js2": "(() => { const o=[...document.querySelectorAll('div')]"
                ".find(d=>d.className.includes('overflow-y-auto') "
@@ -274,9 +326,13 @@ def przebieg(wdrozenie, wydanie, jezyk):
 
     # TYLKO=<fragment nazwy> — powtórzenie pojedynczych zrzutów bez przechodzenia
     # całej listy od nowa (zrzut czatu potrafi trwać dwie minuty).
+    # TYLKO przyjmuje LISTĘ po przecinku (TYLKO=chat,wyszukiwarka) — zmiana wyglądu
+    # dotyka zwykle kilku ekranów naraz, a każdy pełny przebieg to kwadrans.
     tylko = os.environ.get("TYLKO")
     if tylko:
-        shots = [x for x in shots if tylko in os.path.basename(x["out"])]
+        wzorce = [w.strip() for w in tylko.split(",") if w.strip()]
+        shots = [x for x in shots
+                 if any(w in os.path.basename(x["out"]) for w in wzorce)]
     if not shots:
         return
 

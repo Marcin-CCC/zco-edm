@@ -88,7 +88,7 @@ PDF-a.
 ### Powtórzenie pojedynczego zrzutu
 
 ```bash
-TYLKO=chat python zrzuty_config.py zco admin     # tylko pliki z „chat" w nazwie
+TYLKO=chat,wyszukiwarka python zrzuty_config.py zco admin de   # wybrane ekrany
 ETAP=2 python zrzuty_config.py hirs              # tylko ekran Instrukcja
 ```
 

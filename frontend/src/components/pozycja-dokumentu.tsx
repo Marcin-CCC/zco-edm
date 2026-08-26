@@ -67,6 +67,12 @@ interface Props {
 export function PozycjaDokumentu({ d, numer, uzyty = true, otworz }: Props) {
   const t = useTranslations('common');
   const etykieta = etykietaDokumentu(d, numer - 1);
+  // Rodzaj dokumentu wraz z jego numerem — „Zarządzenie 8/2023”. Numer zostaje
+  // przy rodzaju, bo bez niego dwa zarządzenia w wynikach są nie do odróżnienia
+  // inaczej niż po nazwie pliku, a ta bywa przypadkowa („skan_0001.pdf”).
+  const rodzaj = d.doc_type_name
+    ? [d.doc_type_name, d.doc_key].filter(Boolean).join(' ')
+    : null;
   const tresc = (
     <>
       {/* Numer musi odpowiadać znacznikowi w treści odpowiedzi, więc po ukryciu
@@ -81,15 +87,24 @@ export function PozycjaDokumentu({ d, numer, uzyty = true, otworz }: Props) {
         {numer}
       </span>
       {d.filename && <FileTypeIcon filename={d.filename} size={28} />}
+      {/* Kolejność wierszy: nazwa pliku, strona, rodzaj dokumentu.
+       *
+       * Wcześniej pierwszy wiersz nosił NAZWĘ RODZAJU, a nazwa pliku szła szarym
+       * drukiem na spód — przy dokumencie bez numeru rodzaj wypadał więc dwa razy
+       * pod rząd („PRODUKT SCHULKE" wersalikami i „Produkt Schulke" pogrubione),
+       * a to, czego użytkownik szuka wzrokiem, było najmniej widoczne.
+       *
+       * Wiersz ze stroną pojawia się tylko tam, gdzie strona coś znaczy: w czacie
+       * odpowiedź powstaje z KONKRETNEGO fragmentu. Wyszukiwarka po polach zwraca
+       * całe pliki i strony nie ustawia, więc pozycja ma tam dwa wiersze. */}
       <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-baseline gap-x-2 text-[11px] text-app-muted">
-          {d.doc_type_name && <span className="font-bold uppercase tracking-[.02em]">{d.doc_type_name}</span>}
-          {d.page && <span>str. {d.page}</span>}
+        <span className="block break-all text-[12px] font-bold text-app-text">
+          {d.filename || etykieta}
         </span>
-        <span className="block break-words text-[12px] font-bold text-app-text">{etykieta}</span>
-        {d.filename && d.filename !== etykieta && (
-          <span className="block break-all text-[11px] text-app-muted">{d.filename}</span>
+        {!!d.page && (
+          <span className="block text-[11px] text-app-muted">{t('pageLabel', { page: d.page })}</span>
         )}
+        {rodzaj && <span className="block text-[11px] font-bold text-app-muted">{rodzaj}</span>}
       </span>
       {otworz && <span className="shrink-0 text-app-muted"><IconChevronRight size={16} /></span>}
     </>

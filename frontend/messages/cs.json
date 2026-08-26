@@ -149,6 +149,7 @@
     "loading": "Načítání…",
     "noDataInPeriod": "Za toto období nejsou data",
     "openDocument": "Otevřít dokument",
+    "pageLabel": "Strana: {page}",
     "reorderHint": "Přetáhněte pro změnu pořadí (šipky nahoru dolů na klávesnici)",
     "reorderItem": "Změň pořadí položky {nr}",
     "save": "Uložit",
