@@ -1,6 +1,20 @@
 {
   "entries": [
     {
+      "version": "1.6.2",
+      "date": "2026-08-26",
+      "title": "Domkniete napisy i nazwy sciezek wyszukiwania",
+      "changes": [
+        "Dashboard: okresy przy wykresach i przy aktywnosci uzytkownikow („30 dni”, „ostatnie 30 dni”, „wobec poprzednich 30 dni”) sa teraz w jezyku interfejsu i odmieniaja sie jego regulami.",
+        "Dashboard, panel ostatnio dodanych dokumentow: statusy pokazywaly surowa wartosc z bazy, czyli polski napis niezaleznie od jezyka. Nazwy statusow maja teraz JEDNO zrodlo wspolne z Kolejka plikow — wczesniej mapowanie siedzialo wewnatrz tamtego ekranu i Dashboard z niego nie korzystal.",
+        "Pliki: przelacznik „Lista / Kafelki” przy obu listach, folderow i plikow.",
+        "Zgloszenie do wsparcia: licznik znakow pod trescia.",
+        "Wyszukiwanie: podpowiedz nad polem mowila „Zapytaj po polsku”, co po przetlumaczeniu na inne jezyki nie mialo sensu — pytanie ma paść w jezyku uzytkownika. Wszedzie, takze po polsku, brzmi teraz „Zapytaj wlasnymi slowami”.",
+        "Wyszukiwanie: przyklad pod polem mowil o „urzadzeniach” zamiast o „zarzadzeniach” w czterech jezykach — model przeczytal slowo o jedna litere obok.",
+        "Lista odpowiedzi: nazwa sciezki wyszukiwania (standard, terms, summaries, top-up, files) jest teraz stalym terminem angielskim, tym samym w kazdym jezyku. Administrator porownuje ja z logiem backendu i z pomiarem retrievalu, a te mowia po angielsku. Oceny sprzed tej wersji maja w bazie nazwy polskie i sa pokazywane pod nowymi."
+      ]
+    },
+    {
       "version": "1.6.1",
       "date": "2026-08-25",
       "title": "Instrukcje obslugi w szesciu jezykach",

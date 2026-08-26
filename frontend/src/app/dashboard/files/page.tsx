@@ -1525,9 +1525,11 @@ function WidokToggle({
   zmien: (v: ViewMode) => void;
   etykieta: string;
 }) {
+  const t = useTranslations('files');
   return (
     <div className="flex shrink-0 overflow-hidden rounded-ctl border border-app-line" role="group" aria-label={etykieta}>
-      {([['list', 'Lista', IconList], ['grid', 'Kafelki', IconGrid]] as const).map(([tryb, opis, Ikona]) => (
+      {/* KLUCZE, nie napisy: to stała wyrażenia, a etykieta idzie za językiem. */}
+      {([['list', 'viewList', IconList], ['grid', 'viewGrid', IconGrid]] as const).map(([tryb, klucz, Ikona]) => (
         <button
           key={tryb}
           onClick={() => zmien(tryb)}
@@ -1537,7 +1539,7 @@ function WidokToggle({
           }`}
         >
           <Ikona size={15} />
-          {opis}
+          {t(klucz)}
         </button>
       ))}
     </div>

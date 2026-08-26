@@ -157,6 +157,8 @@
   "contact": {
     "body": "Treść zgłoszenia",
     "bodyPlaceholder": "Opisz, czego dotyczy zgłoszenie.",
+    "charCount": "{count}/{max} znaków",
+    "charsMore": " — jeszcze {count}",
     "description": "Napisz do działu wsparcia technicznego. Odpowiemy na adres e-mail przypisany do Twojego konta.",
     "errSend": "Nie udało się wysłać zgłoszenia.",
     "reporter": "Zgłaszający",
@@ -185,6 +187,7 @@
     "errSystem": "Nie udało się odczytać stanu serwera.",
     "filesCount": "{count, plural, one {# plik} few {# pliki} other {# plików}}",
     "idleAccounts": "{count, plural, one {# konto bez aktywności} few {# konta bez aktywności} other {# kont bez aktywności}} w tym okresie.",
+    "lastDays": "ostatnie {days, plural, one {# dzień} few {# dni} many {# dni} other {# dni}}",
     "noActivity": "Brak aktywności",
     "noActivityHint": "Nikt nie wysłał plików ani nie zadał pytania w ostatnich {days} dniach.",
     "noDocuments": "Brak dokumentów",
@@ -212,6 +215,7 @@
     "quickSearchHint": "Zbuduj zapytanie",
     "quickSearchLabel": "Wyszukaj dokument",
     "quickUpload": "Prześlij dokumenty",
+    "rangeDays": "{days, plural, one {# dzień} few {# dni} many {# dni} other {# dni}}",
     "rangeLabel": "Zakres danych",
     "rangeOption": "Ostatnie {days} dni",
     "recentDocuments": "Ostatnio dodane dokumenty",
@@ -234,7 +238,8 @@
     "tileProcessed": "Przetworzone",
     "tileUsers": "Użytkownicy",
     "title": "Dashboard",
-    "userActivity": "Aktywność użytkowników"
+    "userActivity": "Aktywność użytkowników",
+    "vsPrevious": "{days, plural, one {wobec poprzedniego # dnia} few {wobec poprzednich # dni} many {wobec poprzednich # dni} other {wobec poprzednich # dni}}"
   },
   "files": {
     "accessRead": "Odczyt",
@@ -361,7 +366,9 @@
     "uploadStatePending": "oczekuje",
     "uploadStateUploading": "wgrywanie…",
     "uploadTarget": "Folder docelowy:",
-    "uploadTitle": "Prześlij pliki"
+    "uploadTitle": "Prześlij pliki",
+    "viewGrid": "Kafelki",
+    "viewList": "Lista"
   },
   "help": {
     "adminDesc": "Pełny zakres: dokumenty, uprawnienia, konta i część administracyjna.",
@@ -602,7 +609,7 @@
     "addCondition": "+ warunek",
     "anyField": "— pole —",
     "anyType": "— dowolny typ —",
-    "askInWords": "Zapytaj po polsku",
+    "askInWords": "Zapytaj własnymi słowami",
     "askPlaceholder": "np. wszystkie zarządzenia z 2023",
     "collapse": "Zwiń wyszukiwarkę",
     "docType": "Typ dokumentu",

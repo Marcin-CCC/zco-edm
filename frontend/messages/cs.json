@@ -157,6 +157,8 @@
   "contact": {
     "body": "Obsah nahlášení",
     "bodyPlaceholder": "Popište, o co se nahlášení týká.",
+    "charCount": "{count}/{max} znaků",
+    "charsMore": " — ještě {count}",
     "description": "Napište do technické podpory. Odpovíme na e-mail přidružený k vašemu účtu.",
     "errSend": "Nahlášení se nepodařilo odeslat.",
     "reporter": "Nahlásil",
@@ -185,6 +187,7 @@
     "errSystem": "Nelze načíst stav serveru.",
     "filesCount": "{count, plural, one {# soubor} few {# soubory} other {# souborů}}",
     "idleAccounts": "{count, plural, one {# účet bez aktivity} few {# účty bez aktivity} other {# účtů bez aktivity}} v tomto období.",
+    "lastDays": "posledních {days, plural, one {# den} few {# dny} other {# dní}}",
     "noActivity": "Žádná činnost",
     "noActivityHint": "Nikdo neodeslal soubory ani nezadal otázku za posledních {days} dní.",
     "noDocuments": "Žádné dokumenty",
@@ -212,6 +215,7 @@
     "quickSearchHint": "Vytvořit dotaz",
     "quickSearchLabel": "Vyhledat dokument",
     "quickUpload": "Odeslat dokumenty",
+    "rangeDays": "{days, plural, one {# den} few {# dny} other {# dní}}",
     "rangeLabel": "Rozsah dat",
     "rangeOption": "Posledních {days} dní",
     "recentDocuments": "Nedávno přidané dokumenty",
@@ -234,7 +238,8 @@
     "tileProcessed": "Zpracováno",
     "tileUsers": "Uživatelé",
     "title": "Přehled",
-    "userActivity": "Aktivita uživatelů"
+    "userActivity": "Aktivita uživatelů",
+    "vsPrevious": "{days, plural, one {oproti předchozímu # dni} few {oproti předchozím # dnům} other {oproti předchozím # dnům}}"
   },
   "files": {
     "accessRead": "Čtení",
@@ -361,7 +366,9 @@
     "uploadStatePending": "čeká",
     "uploadStateUploading": "nahrávání…",
     "uploadTarget": "Cílový adresář:",
-    "uploadTitle": "Odeslat soubory"
+    "uploadTitle": "Odeslat soubory",
+    "viewGrid": "Dlaždice",
+    "viewList": "Seznam"
   },
   "help": {
     "adminDesc": "Celý rozsah: dokumenty, oprávnění, účty a část správy.",
@@ -602,8 +609,8 @@
     "addCondition": "+ podmínka",
     "anyField": "— pole —",
     "anyType": "— libovolný typ —",
-    "askInWords": "Zeptejte se v polštině",
-    "askPlaceholder": "např. všechna zařízení z roku 2023",
+    "askInWords": "Zeptejte se vlastními slovy",
+    "askPlaceholder": "např. všechna nařízení z roku 2023",
     "collapse": "Zkrátit vyhledávání",
     "docType": "Typ dokumentu",
     "docsCount": "{count, plural, one {# dokument} few {# dokumenty} other {# dokumentů}}",

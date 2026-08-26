@@ -157,6 +157,8 @@
   "contact": {
     "body": "Тіло звернення",
     "bodyPlaceholder": "Опишіть, що стосується звернення.",
+    "charCount": "{count}/{max} символів",
+    "charsMore": " — ще {count}",
     "description": "Напишіть у відділ технічної підтримки. Ми відповімо на електронну пошту, пов’язану з вашим обліковим записом.",
     "errSend": "Не вдалося надіслати звернення.",
     "reporter": "Заявник",
@@ -185,6 +187,7 @@
     "errSystem": "Не вдалося зчитати стан сервера.",
     "filesCount": "{count, plural, one {# файл} few {# файли} other {# файлів}}",
     "idleAccounts": "{count, plural, one {# обліковий запис без активності} few {# облікові записи без активності} many {# облікових записів без активності} other {# облікових записів без активності}} за цей період.",
+    "lastDays": "останні {days, plural, one {# день} few {# дні} many {# днів} other {# дня}}",
     "noActivity": "Немає активності",
     "noActivityHint": "Ніхто не надсилав файлів і не ставив питань протягом останніх {days} днів.",
     "noDocuments": "Немає документів",
@@ -212,6 +215,7 @@
     "quickSearchHint": "Створити запит",
     "quickSearchLabel": "Пошук документа",
     "quickUpload": "Надіслати документи",
+    "rangeDays": "{days, plural, one {# день} few {# дні} many {# днів} other {# дня}}",
     "rangeLabel": "Діапазон даних",
     "rangeOption": "Останні {days} днів",
     "recentDocuments": "Останні додані документи",
@@ -234,7 +238,8 @@
     "tileProcessed": "Оброблено",
     "tileUsers": "Користувачі",
     "title": "Огляд",
-    "userActivity": "Діяльність користувачів"
+    "userActivity": "Діяльність користувачів",
+    "vsPrevious": "{days, plural, one {щодо попереднього # дня} few {щодо попередніх # днів} many {щодо попередніх # днів} other {щодо попередніх # днів}}"
   },
   "files": {
     "accessRead": "Читання",
@@ -361,7 +366,9 @@
     "uploadStatePending": "очікує",
     "uploadStateUploading": "завантаження…",
     "uploadTarget": "Цільова папка:",
-    "uploadTitle": "Надіслати файли"
+    "uploadTitle": "Надіслати файли",
+    "viewGrid": "Плитки",
+    "viewList": "Список"
   },
   "help": {
     "adminDesc": "Повний діапазон: документи, права, облікові записи та адміністративна частина.",
@@ -602,8 +609,8 @@
     "addCondition": "+ умова",
     "anyField": "— поле —",
     "anyType": "— будь-який тип —",
-    "askInWords": "Запитайте полською",
-    "askPlaceholder": "наприклад, усі пристрої з 2023 року",
+    "askInWords": "Запитайте власними словами",
+    "askPlaceholder": "наприклад, усі розпорядження з 2023 року",
     "collapse": "Згорнути пошуковий інструмент",
     "docType": "Тип документа",
     "docsCount": "{count, plural, one {# документ} few {# документи} other {# документів}}",

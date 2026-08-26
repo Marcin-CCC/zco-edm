@@ -84,7 +84,7 @@ export default function KontaktPage() {
           />
         </Field>
         <p className="mt-1 text-[11px] text-app-muted">
-          {tresc.trim().length}/5000 znaków{zaKrotkie && tresc.length > 0 ? ` — jeszcze ${MIN_ZNAKOW - tresc.trim().length}` : ''}
+          {t('charCount', { count: tresc.trim().length, max: 5000 })}{zaKrotkie && tresc.length > 0 ? t('charsMore', { count: MIN_ZNAKOW - tresc.trim().length }) : ''}
         </p>
 
         <div className="mt-4 flex justify-end gap-2">

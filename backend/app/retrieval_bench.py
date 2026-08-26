@@ -33,13 +33,15 @@ ZESTAW = Path(__file__).with_name("retrieval_bench_pytania.json")
 
 def _sciezka(plan) -> str:
     """Którą z czterech dróg poszło pytanie (zob. app/chat/zakres.py)."""
+    # Te same nazwy, co w migawce planu (app/chat/router.py) — inaczej wynik
+    # pomiaru i Lista odpowiedzi mówiłyby o tej samej ścieżce różnymi słowami.
     if plan.wskazane_pliki:
-        return "pliki"
+        return "files"
     if plan.terminy:
-        return "terminy"
+        return "terms"
     if plan.wskazane_streszczeniem:
-        return "streszcz." if plan.bez_progu else "uzupeł."
-    return "zwykła"
+        return "summaries" if plan.bez_progu else "top-up"
+    return "standard"
 
 
 def _ocena(wpis: dict, plan) -> tuple[bool, str, float]:

@@ -402,10 +402,14 @@ async def chat(
     # Migawka planu dla ewentualnej oceny użytkownika (zob. POST /api/chat/ocena)
     _purge_expired_sources()
     _diagnostyka_store[request_id] = {"ts": time.time(), "plan": {
-        "sciezka": ("pliki" if payload.file_ids else
-                    "terminy" if plan.terminy else
-                    ("streszczenia" if plan.bez_progu else "uzupelnienie")
-                    if plan.wskazane_streszczeniem else "zwykla"),
+        # Nazwa ścieżki to ETYKIETA DIAGNOSTYCZNA — nigdzie jej nie porównujemy,
+        # leży wyłącznie w migawce planu i pokazuje się administratorowi w Liście
+        # odpowiedzi. Po angielsku, bo ma brzmieć tak samo niezależnie od języka
+        # interfejsu; formy polskie sprzed 1.6.2 mapuje front na te same nazwy.
+        "sciezka": ("files" if payload.file_ids else
+                    "terms" if plan.terminy else
+                    ("summaries" if plan.bez_progu else "top-up")
+                    if plan.wskazane_streszczeniem else "standard"),
         "terminy": plan.terminy,
         "wskazane_streszczeniem": plan.wskazane_streszczeniem,
         "file_ids": payload.file_ids or [],

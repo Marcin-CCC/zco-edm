@@ -157,6 +157,8 @@
   "contact": {
     "body": "Anliegeninhalt",
     "bodyPlaceholder": "Beschreiben Sie, worum es sich bei der Anliegen handelt.",
+    "charCount": "{count}/{max} Zeichen",
+    "charsMore": " — noch {count}",
     "description": "Schreiben Sie an den technischen Support. Wir antworten an die E-Mail-Adresse, die Ihrem Konto zugeordnet ist.",
     "errSend": "Anliegen konnte nicht gesendet werden.",
     "reporter": "Anlieger",
@@ -185,6 +187,7 @@
     "errSystem": "Serverzustand konnte nicht gelesen werden.",
     "filesCount": "{count, plural, one {# Datei} other {# Dateien}}",
     "idleAccounts": "{count, plural, one {# Konto ohne Aktivität} other {# Konten ohne Aktivität}} in diesem Zeitraum.",
+    "lastDays": "letzte {days, plural, one {# Tag} other {# Tage}}",
     "noActivity": "Keine Aktivität",
     "noActivityHint": "Niemand hat in den letzten {days} Tagen Dateien gesendet oder Fragen gestellt.",
     "noDocuments": "Keine Dokumente",
@@ -212,6 +215,7 @@
     "quickSearchHint": "Abfrage erstellen",
     "quickSearchLabel": "Dokument suchen",
     "quickUpload": "Dokumente hochladen",
+    "rangeDays": "{days, plural, one {# Tag} other {# Tage}}",
     "rangeLabel": "Datenbereich",
     "rangeOption": "Letzte {days} Tage",
     "recentDocuments": "Zuletzt hinzugefügte Dokumente",
@@ -234,7 +238,8 @@
     "tileProcessed": "Verarbeitet",
     "tileUsers": "Benutzer",
     "title": "Übersicht",
-    "userActivity": "Benutzeraktivität"
+    "userActivity": "Benutzeraktivität",
+    "vsPrevious": "{days, plural, one {gegenüber dem vorigen # Tag} other {gegenüber den vorigen # Tagen}}"
   },
   "files": {
     "accessRead": "Lesen",
@@ -361,7 +366,9 @@
     "uploadStatePending": "wartet",
     "uploadStateUploading": "hochladen…",
     "uploadTarget": "Zielles Verzeichnis:",
-    "uploadTitle": "Dateien hochladen"
+    "uploadTitle": "Dateien hochladen",
+    "viewGrid": "Kacheln",
+    "viewList": "Liste"
   },
   "help": {
     "adminDesc": "Vollständiger Umfang: Dokumente, Berechtigungen, Konten und Verwaltungsteil.",
@@ -602,8 +609,8 @@
     "addCondition": "+ Bedingung",
     "anyField": "— Feld —",
     "anyType": "— beliebiger Typ —",
-    "askInWords": "Fragen Sie auf Polnisch",
-    "askPlaceholder": "z. B. alle Geräte aus 2023",
+    "askInWords": "Fragen Sie in eigenen Worten",
+    "askPlaceholder": "z. B. alle Verordnungen aus 2023",
     "collapse": "Suche einklappen",
     "docType": "Dokumententyp",
     "docsCount": "{count, plural, one {# Dokument} other {# Dokumente}}",

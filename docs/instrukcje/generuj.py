@@ -545,7 +545,7 @@ def r_wyszukiwarka(rola):
         a("<b>Wyszukiwanie</b> to osobny ekran w menu. Odpowiada na pytania o <b>strukturę</b> zbioru: "
           "„wszystkie zarządzenia z 2023 roku”, „wnioski podpisane przez konkretną osobę”. Czat "
           "odpowiada na pytania o treść — te dwie drogi celowo nie są wymieszane."),
-        n("Zapytaj po polsku"),
+        n("Zapytaj własnymi słowami"),
         a("Najprościej wpisać pytanie zwykłym językiem w pole na górze. Kursor stoi w nim od razu "
           "po wejściu na ekran. Aplikacja rozpoznaje z pytania rodzaj dokumentu i warunki, "
           "<b>wypełnia nimi formularz poniżej</b> i od razu pokazuje wyniki. Rozpoznany filtr można "

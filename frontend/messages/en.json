@@ -157,6 +157,8 @@
   "contact": {
     "body": "Message",
     "bodyPlaceholder": "Describe what the request is about.",
+    "charCount": "{count}/{max} characters",
+    "charsMore": " — {count} more",
     "description": "Write to technical support. We will reply to the e-mail address on your account.",
     "errSend": "Could not send the request.",
     "reporter": "From",
@@ -185,6 +187,7 @@
     "errSystem": "Could not read the server status.",
     "filesCount": "{count, plural, one {# file} other {# files}}",
     "idleAccounts": "{count, plural, one {# account with no activity} other {# accounts with no activity}} in this period.",
+    "lastDays": "last {days, plural, one {# day} other {# days}}",
     "noActivity": "No activity",
     "noActivityHint": "Nobody uploaded a file or asked a question in the last {days} days.",
     "noDocuments": "No documents",
@@ -212,6 +215,7 @@
     "quickSearchHint": "Build a query",
     "quickSearchLabel": "Find a document",
     "quickUpload": "Upload documents",
+    "rangeDays": "{days, plural, one {# day} other {# days}}",
     "rangeLabel": "Data range",
     "rangeOption": "Last {days} days",
     "recentDocuments": "Recently added documents",
@@ -234,7 +238,8 @@
     "tileProcessed": "Processed",
     "tileUsers": "Users",
     "title": "Dashboard",
-    "userActivity": "User activity"
+    "userActivity": "User activity",
+    "vsPrevious": "{days, plural, one {against the previous # day} other {against the previous # days}}"
   },
   "files": {
     "accessRead": "Read",
@@ -361,7 +366,9 @@
     "uploadStatePending": "waiting",
     "uploadStateUploading": "uploading…",
     "uploadTarget": "Target folder:",
-    "uploadTitle": "Upload files"
+    "uploadTitle": "Upload files",
+    "viewGrid": "Tiles",
+    "viewList": "List"
   },
   "help": {
     "adminDesc": "The full scope: documents, permissions, accounts and the administration section.",

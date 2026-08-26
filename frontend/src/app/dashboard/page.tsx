@@ -18,6 +18,7 @@ import { Badge, Card, EmptyState, PageHeader, Sub, inputClass } from '@/componen
 import { dashboardApi, type SystemStatus } from '@/lib/api';
 import { kiedy } from '@/lib/czas';
 import { isAdmin as czyAdmin } from '@/lib/roles';
+import { nazwaStatusu, tonStatusu } from '@/lib/statusy';
 import { useAuth } from '@/lib/store';
 
 // Kolory serii sprawdzone pod kątem rozróżnialności także przy zaburzeniach
@@ -129,6 +130,8 @@ export default function DashboardPage() {
   const t = useTranslations('dashboard');
   const tWspolne = useTranslations('common');
   const tPliki = useTranslations('files');
+  // Nazwy statusow mieszkaja w katalogu `queue` — to ten sam zestaw, co w Kolejce plikow.
+  const tKolejka = useTranslations('queue');
   const etykietyDat = { dzis: tWspolne('today'), wczoraj: tWspolne('yesterday') };
 
   const suma = (p: AreaChartPoint[]) => p.reduce((a, b) => a + b.value, 0);
@@ -229,7 +232,7 @@ export default function DashboardPage() {
                   <span className={`mt-2 block text-[11px] font-semibold ${k.trend >= 0 ? 'text-app-green' : 'text-app-danger'}`}>
                     {k.trend >= 0 ? '↑' : '↓'} {Math.abs(k.trend).toLocaleString(aktywnyJezyk(), { maximumFractionDigits: 1 })}
                     {k.jednostka || '%'}{' '}
-                    <span className="font-normal text-app-muted">wobec poprzednich {dni} dni</span>
+                    <span className="font-normal text-app-muted">{t('vsPrevious', { days: dni })}</span>
                   </span>
                 )}
               </span>
@@ -262,7 +265,7 @@ export default function DashboardPage() {
                 </span>
               </p>
             </div>
-            <span className="whitespace-nowrap pt-1 text-[11px] text-app-muted">{dni} dni · {opisPlikow}</span>
+            <span className="whitespace-nowrap pt-1 text-[11px] text-app-muted">{t('rangeDays', { days: dni })} · {opisPlikow}</span>
           </div>
           {chartsLoading ? (
             <div className="flex h-[179px] items-center justify-center text-sm text-app-muted">{tWspolne('loading')}</div>
@@ -287,7 +290,7 @@ export default function DashboardPage() {
                 </span>
               </p>
             </div>
-            <span className="whitespace-nowrap pt-1 text-[11px] text-app-muted">{dni} dni · {opisZapytan}</span>
+            <span className="whitespace-nowrap pt-1 text-[11px] text-app-muted">{t('rangeDays', { days: dni })} · {opisZapytan}</span>
           </div>
           {chartsLoading ? (
             <div className="flex h-[179px] items-center justify-center text-sm text-app-muted">{tWspolne('loading')}</div>
@@ -329,8 +332,8 @@ export default function DashboardPage() {
                   <span className="hidden whitespace-nowrap text-[12px] text-app-muted sm:block">
                     {rozmiarPliku(f.size)}
                   </span>
-                  <Badge tone={f.status === 'Przetworzono' ? 'green' : f.status === 'Błąd przetwarzania' ? 'danger' : 'gray'}>
-                    {f.status}
+                  <Badge tone={tonStatusu(f.status)}>
+                    {nazwaStatusu(tKolejka, f.status)}
                   </Badge>
                   <span className="w-[92px] shrink-0 text-right text-[11px] text-app-muted">{kiedy(f.created_at, etykietyDat)}</span>
                 </li>
@@ -350,7 +353,7 @@ export default function DashboardPage() {
                 <h2 className="text-[16px] font-bold text-app-text">{t('userActivity')}</h2>
                 {/* Okres podajemy RAZ, w nagłówku. Powtórzony przy każdym wierszu
                     byłby tą samą informacją pięć razy pod rząd. */}
-                <p className="mt-0.5 text-[11px] text-app-muted">ostatnie {dni} dni</p>
+                <p className="mt-0.5 text-[11px] text-app-muted">{t('lastDays', { days: dni })}</p>
               </div>
               <Link href="/dashboard/users" className="text-[11px] font-bold text-app-blue hover:underline">
                 {t('seeAllUsers')}

@@ -2,6 +2,8 @@
 
 import { IconRefresh } from '@/components/icons';
 import { useTranslations } from 'next-intl';
+
+import { nazwaStatusu } from '@/lib/statusy';
 import { Badge, Button, Card, EmptyState, PageHeader, Table, Td, Th, inputClass } from '@/components/ui/primitives';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -250,16 +252,9 @@ export default function FileQueuePage() {
     }
   };
 
-  // Nazwa statusu POKAZYWANA użytkownikowi. Sama wartość zostaje polska: leży
-  // tak w bazie i służy w kodzie do porównań (ponów, przerwij, szczegóły błędu).
-  // Nieznany status pokazujemy dosłownie — lepiej surowa wartość niż pusty znaczek.
-  const nazwaStatusu = (status: string) =>
-    ({
-      'W kolejce': t('statusQueued'),
-      'Przetwarzanie': t('statusProcessing'),
-      'Przetworzono': t('statusDone'),
-      'Błąd przetwarzania': t('statusError'),
-    })[status] ?? status;
+  // Mapowanie statusów mieszka w `lib/statusy.ts`, bo ten sam zestaw pokazuje
+  // Dashboard w panelu ostatnio dodanych dokumentów.
+  const pokazStatus = (status: string) => nazwaStatusu(t, status);
 
   const getStatusClass = (status: string) => {
     switch (status) {
@@ -303,7 +298,7 @@ export default function FileQueuePage() {
             >
               <option value="">{t('allStatuses')}</option>
               {statuses.map((status) => (
-                <option key={status} value={status}>{nazwaStatusu(status)}</option>
+                <option key={status} value={status}>{pokazStatus(status)}</option>
               ))}
             </select>
             <Button onClick={() => { loadQueue(); loadStatusSummary(); }} disabled={loading}>
@@ -367,7 +362,7 @@ export default function FileQueuePage() {
                   </Td>
                   <Td>
                     <span className={`inline-flex items-center rounded-full px-[9px] py-[5px] text-[11px] font-bold ${getStatusClass(item.status)}`}>
-                      {nazwaStatusu(item.status)}
+                      {pokazStatus(item.status)}
                     </span>
                   </Td>
                   <Td className="text-app-muted">{fmtDateTime(item.created_at)}</Td>
@@ -459,7 +454,7 @@ export default function FileQueuePage() {
                 <dt className="text-sm text-gray-500">{t('colStatus')}</dt>
                 <dd className="text-gray-800">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(selectedItem.status)}`}>
-                    {nazwaStatusu(selectedItem.status)}
+                    {pokazStatus(selectedItem.status)}
                   </span>
                 </dd>
               </div>

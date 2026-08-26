@@ -140,7 +140,7 @@ export function RowActions({ children }: { children: ReactNode }) {
 
 /* -------------------------------------------------------------- plakietki */
 
-type Ton = 'green' | 'blue' | 'purple' | 'gray' | 'danger';
+export type Ton = 'green' | 'blue' | 'purple' | 'gray' | 'danger';
 
 const TONY: Record<Ton, string> = {
   green: 'text-[#148a57] bg-app-greenbg',

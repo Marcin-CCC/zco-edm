@@ -157,6 +157,8 @@
   "contact": {
     "body": "Contenido de la solicitud",
     "bodyPlaceholder": "Describe de qué se trata la solicitud.",
+    "charCount": "{count}/{max} caracteres",
+    "charsMore": " — faltan {count}",
     "description": "Escribe al departamento de soporte técnico. Te responderemos en el correo electrónico asociado a tu cuenta.",
     "errSend": "No se pudo enviar la solicitud.",
     "reporter": "Solicitante",
@@ -185,6 +187,7 @@
     "errSystem": "No se pudo leer el estado del servidor.",
     "filesCount": "{count, plural, one {# archivo} other {# archivos}}",
     "idleAccounts": "{count, plural, one {# cuenta sin actividad} other {# cuentas sin actividad}} en este periodo.",
+    "lastDays": "últimos {days, plural, one {# día} other {# días}}",
     "noActivity": "Sin actividad",
     "noActivityHint": "Nadie ha enviado archivos ni ha hecho preguntas en los últimos {days} días.",
     "noDocuments": "Sin documentos",
@@ -212,6 +215,7 @@
     "quickSearchHint": "Construir consulta",
     "quickSearchLabel": "Buscar documento",
     "quickUpload": "Envía documentos",
+    "rangeDays": "{days, plural, one {# día} other {# días}}",
     "rangeLabel": "Rango de datos",
     "rangeOption": "Últimos {days} días",
     "recentDocuments": "Documentos recientemente añadidos",
@@ -234,7 +238,8 @@
     "tileProcessed": "Procesados",
     "tileUsers": "Usuarios",
     "title": "Panel de control",
-    "userActivity": "Actividad de usuarios"
+    "userActivity": "Actividad de usuarios",
+    "vsPrevious": "{days, plural, one {frente al # día anterior} other {frente a los # días anteriores}}"
   },
   "files": {
     "accessRead": "Lectura",
@@ -361,7 +366,9 @@
     "uploadStatePending": "pendiente",
     "uploadStateUploading": "cargando…",
     "uploadTarget": "Carpeta de destino:",
-    "uploadTitle": "Subir archivos"
+    "uploadTitle": "Subir archivos",
+    "viewGrid": "Mosaico",
+    "viewList": "Lista"
   },
   "help": {
     "adminDesc": "Rango completo: documentos, permisos, cuentas y parte administrativa.",
@@ -602,8 +609,8 @@
     "addCondition": "+ condición",
     "anyField": "— campo —",
     "anyType": "— cualquier tipo —",
-    "askInWords": "Pregunta en polaco",
-    "askPlaceholder": "por ejemplo, todos los dispositivos de 2023",
+    "askInWords": "Pregunta con tus propias palabras",
+    "askPlaceholder": "por ejemplo, todos los reglamentos de 2023",
     "collapse": "Contraer la búsqueda",
     "docType": "Tipo de documento",
     "docsCount": "{count, plural, one {# documento} other {# documentos}}",

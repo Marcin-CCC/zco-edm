@@ -108,6 +108,26 @@ async function otworzDokument(fileId: number, komunikatBledu: string, bladPobier
  * Wyszarzone pozycje to fragmenty, które model dostał, ale się na nie nie powołał —
  * ta sama konwencja co pod odpowiedzią w Bazie wiedzy.
  */
+/**
+ * Ścieżka wyszukiwania — nazwa techniczna, ta sama we wszystkich językach.
+ *
+ * To jedyne pole na tym ekranie, którego NIE tłumaczymy: administrator porównuje
+ * je z logiem backendu i z wynikiem `retrieval_bench.py`, a te mówią po angielsku.
+ * Przetłumaczona nazwa zrywałaby to powiązanie.
+ *
+ * Oceny sprzed 1.6.2 mają w migawce planu formy polskie — mapujemy je na te same
+ * nazwy, żeby lista nie wyglądała, jakby aplikacja miała dwa zestawy ścieżek.
+ */
+const SCIEZKA_STARA: Record<string, string> = {
+  pliki: 'files',
+  terminy: 'terms',
+  streszczenia: 'summaries',
+  uzupelnienie: 'top-up',
+  zwykla: 'standard',
+  'zwykła': 'standard',
+};
+const nazwaSciezki = (s?: string) => (s && SCIEZKA_STARA[s]) || s || '?';
+
 function ListaZrodel({ zrodla, dobrane = [], uklad = 'pion' }: {
   zrodla?: Zrodlo[];
   /** Fragmenty doklejone przez dobór z dokumentu-zwycięzcy (zob. app/chat/dobor.py) */
@@ -418,7 +438,7 @@ export default function OcenyPage() {
                   </span>
                 </div>
                 <div className="mt-1.5 flex flex-wrap gap-3 text-[11px] text-app-muted">
-                  {d.sciezka && <span>{t('path')} <strong>{d.sciezka}</strong></span>}
+                  {d.sciezka && <span>{t('path')} <strong>{nazwaSciezki(d.sciezka)}</strong></span>}
                   <button
                     onClick={() => setRozwiniete((s) => ({ ...s, [p.message_id]: !otwarte }))}
                     className="ml-auto font-semibold text-app-blue hover:underline"
@@ -459,7 +479,7 @@ export default function OcenyPage() {
               </div>
 
               <div className="mt-1.5 flex flex-wrap gap-3 text-[11px] text-app-muted">
-                <span>{t('path')} <strong>{d.sciezka || '?'}</strong></span>
+                <span>{t('path')} <strong>{nazwaSciezki(d.sciezka)}</strong></span>
                 <span>{t('aboveThreshold', { count: d.nad_progiem ?? '?' })}</span>
                 <span>{t('inContext', { count: d.w_kontekscie ?? '?' })}</span>
                 {!!d.dobrane?.length && <span>{t('pickedCount', { count: d.dobrane.length })}</span>}
